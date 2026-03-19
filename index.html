@@ -1000,7 +1000,6 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   });
   const slotZoneBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return C.gr+'10'; if(m>=570&&m<690)return C.rd+'0e'; if(m>=690&&m<720)return C.or+'0e'; if(m>=720&&m<780)return C.mu+'18'; if(m>=780&&m<900)return C.rd+'0e'; if(m>=900&&m<930)return C.or+'0e'; if(m>=930&&m<990)return C.bl+'0e'; if(m>=990)return C.bl+'10'; return 'transparent'; };
   const slotContentBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return '#0d1f0d'; if(m>=570&&m<930)return '#1a1010'; if(m>=930)return '#0d0d1f'; return C.ca; };
-  const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
   const removeSlotItem=(slot,idx,e)=>{ e.stopPropagation(); const cur=slotArr(timeBlocks[slot]),nb={...timeBlocks},next=cur.filter((_,i)=>i!==idx); nb[slot]=next.length>0?next:undefined; onUpdateTime(nb); };
 
   const doneSet=new Set(done||[]);
