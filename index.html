@@ -31,7 +31,7 @@
 
 <script type="text/babel" data-presets="react,env">
 // ── Globals from CDN ──────────────────────────────────────────────────────────
-const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 const { LineChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } = window.Recharts;
 
 // ── localStorage with in-memory fallback (Edge tracking prevention safe) ─────
@@ -995,7 +995,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
 
   const pMin=t=>{ if(!t)return null; const m12=t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); if(m12){let h=parseInt(m12[1]),mn=parseInt(m12[2]);const ap=m12[3].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return h*60+mn;} const m24=t.match(/^(\d{1,2}):(\d{2})$/); if(m24){let h=parseInt(m24[1]);if(h>=1&&h<=7)h+=12;return h*60+parseInt(m24[2]);} return null; };
   const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
-  useLayoutEffect(()=>{
+  useEffect(()=>{
     const out=[]; (timerLogs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; allSlots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const firstEl=slotRefs.current[allSlots[fi]]; const lastEl=slotRefs.current[allSlots[la]]; if(!firstEl||!lastEl)return; const fsm=slotToMin(allSlots[fi]); const lsm=slotToMin(allSlots[la]); const fh=firstEl.offsetHeight; const lh=lastEl.offsetHeight; const topPx=firstEl.offsetTop+Math.max(0,(ls-fsm)/15*fh); const botPx=lastEl.offsetTop+Math.min(lh,(le-lsm)/15*lh); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); setOverlays(out);
   },[timerLogs, showAfter5]);
   const slotZoneBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return C.gr+'10'; if(m>=570&&m<690)return C.rd+'0e'; if(m>=690&&m<720)return C.or+'0e'; if(m>=720&&m<780)return C.mu+'18'; if(m>=780&&m<900)return C.rd+'0e'; if(m>=900&&m<930)return C.or+'0e'; if(m>=930&&m<990)return C.bl+'0e'; if(m>=990)return C.bl+'10'; return 'transparent'; };
