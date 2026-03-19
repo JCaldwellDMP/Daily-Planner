@@ -20,17 +20,17 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <!-- Recharts -->
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
   <!-- Babel Standalone (JSX transform) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
 
-<script type="text/babel">
+<script type="text/babel" data-presets="react,env">
 // ── Globals from CDN ──────────────────────────────────────────────────────────
 const { useState, useEffect, useRef, useCallback } = React;
-const { LineChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } = Recharts;
+const { LineChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } = window.Recharts;
 
 // ── Inbox draft survives hot reloads (module-level var, not storage) ──────────
 if (typeof window._dpsInboxDraft === 'undefined') window._dpsInboxDraft = '';
