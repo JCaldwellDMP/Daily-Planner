@@ -997,7 +997,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
   useLayoutEffect(()=>{
     const out=[]; (timerLogs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; allSlots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const firstEl=slotRefs.current[allSlots[fi]]; const lastEl=slotRefs.current[allSlots[la]]; if(!firstEl||!lastEl)return; const fsm=slotToMin(allSlots[fi]); const lsm=slotToMin(allSlots[la]); const fh=firstEl.offsetHeight; const lh=lastEl.offsetHeight; const topPx=firstEl.offsetTop+Math.max(0,(ls-fsm)/15*fh); const botPx=lastEl.offsetTop+Math.min(lh,(le-lsm)/15*lh); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); setOverlays(out);
-  });
+  },[timerLogs, showAfter5]);
   const slotZoneBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return C.gr+'10'; if(m>=570&&m<690)return C.rd+'0e'; if(m>=690&&m<720)return C.or+'0e'; if(m>=720&&m<780)return C.mu+'18'; if(m>=780&&m<900)return C.rd+'0e'; if(m>=900&&m<930)return C.or+'0e'; if(m>=930&&m<990)return C.bl+'0e'; if(m>=990)return C.bl+'10'; return 'transparent'; };
   const slotContentBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return '#0d1f0d'; if(m>=570&&m<930)return '#1a1010'; if(m>=930)return '#0d0d1f'; return C.ca; };
   const removeSlotItem=(slot,idx,e)=>{ e.stopPropagation(); const cur=slotArr(timeBlocks[slot]),nb={...timeBlocks},next=cur.filter((_,i)=>i!==idx); nb[slot]=next.length>0?next:undefined; onUpdateTime(nb); };
