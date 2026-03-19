@@ -1022,6 +1022,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   const [nowMin,setNowMin]         = useState(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); });
   const [nowLabel,setNowLabel]     = useState(()=>new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
   const slotRefs = useRef({});
+  const [overlays, setOverlays] = useState([]);
 
   useEffect(()=>{
     const tick=()=>{ const n=new Date(); setNowMin(n.getHours()*60+n.getMinutes()); setNowLabel(n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})); };
@@ -1034,7 +1035,10 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   const allSlots=showAfter5?[...TIME_SLOTS,...AFTER5_SLOTS]:TIME_SLOTS;
 
   const pMin=t=>{ if(!t)return null; const m12=t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); if(m12){let h=parseInt(m12[1]),mn=parseInt(m12[2]);const ap=m12[3].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return h*60+mn;} const m24=t.match(/^(\d{1,2}):(\d{2})$/); if(m24){let h=parseInt(m24[1]);if(h>=1&&h<=7)h+=12;return h*60+parseInt(m24[2]);} return null; };
-  const buildOverlays=(logs,slots)=>{ const out=[]; (logs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; slots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const firstEl=slotRefs.current[slots[fi]]; const lastEl=slotRefs.current[slots[la]]; if(!firstEl||!lastEl)return; const fsm=slotToMin(slots[fi]); const lsm=slotToMin(slots[la]); const fh=firstEl.offsetHeight; const lh=lastEl.offsetHeight; const topPx=firstEl.offsetTop+Math.max(0,(ls-fsm)/15*fh); const botPx=lastEl.offsetTop+Math.min(lh,(le-lsm)/15*lh); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); return out; };
+  const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
+  useLayoutEffect(()=>{
+    const out=[]; (timerLogs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; allSlots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const firstEl=slotRefs.current[allSlots[fi]]; const lastEl=slotRefs.current[allSlots[la]]; if(!firstEl||!lastEl)return; const fsm=slotToMin(allSlots[fi]); const lsm=slotToMin(allSlots[la]); const fh=firstEl.offsetHeight; const lh=lastEl.offsetHeight; const topPx=firstEl.offsetTop+Math.max(0,(ls-fsm)/15*fh); const botPx=lastEl.offsetTop+Math.min(lh,(le-lsm)/15*lh); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); setOverlays(out);
+  });
   const slotZoneBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return C.gr+'10'; if(m>=570&&m<690)return C.rd+'0e'; if(m>=690&&m<720)return C.or+'0e'; if(m>=720&&m<780)return C.mu+'18'; if(m>=780&&m<900)return C.rd+'0e'; if(m>=900&&m<930)return C.or+'0e'; if(m>=930&&m<990)return C.bl+'0e'; if(m>=990)return C.bl+'10'; return 'transparent'; };
   const slotContentBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return '#0d1f0d'; if(m>=570&&m<930)return '#1a1010'; if(m>=930)return '#0d0d1f'; return C.ca; };
   const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
@@ -1131,7 +1135,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
               </div>
             );
           })}
-          {buildOverlays(timerLogs,allSlots).map(o=>(
+          {overlays.map(o=>(
             <div key={o.key} style={{position:'absolute',left:0,top:o.top,height:o.height,width:5,background:o.col,boxShadow:'0 0 8px '+o.col+'cc',borderRadius:'0 2px 2px 0',zIndex:4,pointerEvents:'none'}}/>
           ))}
           </div>
