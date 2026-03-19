@@ -1021,6 +1021,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   const [showSidebar,setShowSidebar] = useState(!isCompact);
   const [nowMin,setNowMin]         = useState(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); });
   const [nowLabel,setNowLabel]     = useState(()=>new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
+  const slotRefs = useRef({});
 
   useEffect(()=>{
     const tick=()=>{ const n=new Date(); setNowMin(n.getHours()*60+n.getMinutes()); setNowLabel(n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})); };
@@ -1033,7 +1034,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   const allSlots=showAfter5?[...TIME_SLOTS,...AFTER5_SLOTS]:TIME_SLOTS;
 
   const pMin=t=>{ if(!t)return null; const m12=t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); if(m12){let h=parseInt(m12[1]),mn=parseInt(m12[2]);const ap=m12[3].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return h*60+mn;} const m24=t.match(/^(\d{1,2}):(\d{2})$/); if(m24){let h=parseInt(m24[1]);if(h>=1&&h<=7)h+=12;return h*60+parseInt(m24[2]);} return null; };
-  const buildOverlays=(logs,slots)=>{ const out=[]; (logs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; slots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const fsm=slotToMin(slots[fi]); const topPx=fi*40+Math.max(0,(ls-fsm)/15*40); const lsm=slotToMin(slots[la]); const botPx=la*40+Math.min(40,(le-lsm)/15*40); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); return out; };
+  const buildOverlays=(logs,slots)=>{ const out=[]; (logs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; slots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const firstEl=slotRefs.current[slots[fi]]; const lastEl=slotRefs.current[slots[la]]; if(!firstEl||!lastEl)return; const fsm=slotToMin(slots[fi]); const lsm=slotToMin(slots[la]); const fh=firstEl.offsetHeight; const lh=lastEl.offsetHeight; const topPx=firstEl.offsetTop+Math.max(0,(ls-fsm)/15*fh); const botPx=lastEl.offsetTop+Math.min(lh,(le-lsm)/15*lh); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); return out; };
   const slotZoneBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return C.gr+'10'; if(m>=570&&m<690)return C.rd+'0e'; if(m>=690&&m<720)return C.or+'0e'; if(m>=720&&m<780)return C.mu+'18'; if(m>=780&&m<900)return C.rd+'0e'; if(m>=900&&m<930)return C.or+'0e'; if(m>=930&&m<990)return C.bl+'0e'; if(m>=990)return C.bl+'10'; return 'transparent'; };
   const slotContentBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return '#0d1f0d'; if(m>=570&&m<930)return '#1a1010'; if(m>=930)return '#0d0d1f'; return C.ca; };
   const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
@@ -1097,7 +1098,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
             const slotItems=slotArr(timeBlocks[slot]);
             const isEditing=editSlot===slot,hasItems=slotItems.length>0;
             return (
-              <div key={slot} style={{position:'relative',minHeight:40,borderTop:'1px solid '+C.bo+'66',background:slotZoneBg(slot)}}>
+              <div key={slot} ref={el=>{ slotRefs.current[slot]=el; }} style={{position:'relative',minHeight:40,borderTop:'1px solid '+C.bo+'66',background:slotZoneBg(slot)}}>
                 {isCurrentSlot&&(
                   <div style={{position:'absolute',left:0,right:0,top:nowOffset,height:1,background:'#22d3ee',zIndex:3,pointerEvents:'none'}}>
                     <span style={{position:'absolute',right:6,top:-9,fontFamily:MO,fontSize:9,color:'#22d3ee',background:C.bg,padding:'0 4px',lineHeight:'16px',whiteSpace:'nowrap'}}>{nowLabel}</span>
@@ -1174,24 +1175,9 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   );
 }
 
-function CaptureTab({ tasks, deferred, onUpdateTasks, onUpdateDeferred }) {
-  const [inp,setInp]           = useState('');
-  const [editId,setEditId]     = useState(null);
-  const [editVal,setEditVal]   = useState('');
-  const [deferDates,setDeferDates] = useState({});
-
-  const capture      = tasks.filter(i=>i.source==='capture'&&!(i.id in deferred));
-  const deferredItems= tasks.filter(i=>i.source==='capture'&&i.id in deferred);
-
-  const add        = () => { if(!inp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:inp.trim(),priority:null,source:'capture'}]); setInp(''); };
-  const del        = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
-  const setPri     = (id,priority) => onUpdateTasks(tasks.map(i=>i.id===id?{...i,priority}:i));
-  const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
-  const commitEdit = id => { if(editVal.trim()) onUpdateTasks(tasks.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
-
+function CaptureTaskRow({ item, editId, editVal, setEditVal, commitEdit, setEditId, startEdit, setPri, deferDates, setDeferDates, deferred, onUpdateDeferred, del }) {
   const PriBtn=({current,level,onSet})=>{ const color=PD[level],active=current===level; return <button onClick={()=>onSet(level)} style={{fontFamily:MO,fontSize:10,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:'1px solid '+(active?color:C.bo),background:active?color+'22':C.ca,color:active?color:C.mu,fontWeight:active?'bold':'normal',transition:'all .12s',whiteSpace:'nowrap'}}>{level}</button>; };
-
-  const TaskRow=({item})=>(
+  return (
     <div style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:'1px solid '+(editId===item.id?C.or:C.bo),borderRadius:6,padding:'7px 12px',marginBottom:5,flexWrap:'wrap'}}>
       <Dot p={item.priority} size={8}/>
       {editId===item.id
@@ -1209,6 +1195,22 @@ function CaptureTab({ tasks, deferred, onUpdateTasks, onUpdateDeferred }) {
       <button onClick={e=>{flash(e);del(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
     </div>
   );
+}
+
+function CaptureTab({ tasks, deferred, onUpdateTasks, onUpdateDeferred }) {
+  const [inp,setInp]           = useState('');
+  const [editId,setEditId]     = useState(null);
+  const [editVal,setEditVal]   = useState('');
+  const [deferDates,setDeferDates] = useState({});
+
+  const capture      = tasks.filter(i=>i.source==='capture'&&!(i.id in deferred));
+  const deferredItems= tasks.filter(i=>i.source==='capture'&&i.id in deferred);
+
+  const add        = () => { if(!inp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:inp.trim(),priority:null,source:'capture'}]); setInp(''); };
+  const del        = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
+  const setPri     = (id,priority) => onUpdateTasks(tasks.map(i=>i.id===id?{...i,priority}:i));
+  const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
+  const commitEdit = id => { if(editVal.trim()) onUpdateTasks(tasks.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
 
   return (
     <div>
@@ -1223,7 +1225,7 @@ function CaptureTab({ tasks, deferred, onUpdateTasks, onUpdateDeferred }) {
             <div style={{fontSize:32,marginBottom:10}}>⚡</div>
             <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>Nothing captured yet today.</div>
           </div>
-        : capture.map(item=><TaskRow key={item.id} item={item}/>)
+        : capture.map(item=><CaptureTaskRow key={item.id} item={item} editId={editId} editVal={editVal} setEditVal={setEditVal} commitEdit={commitEdit} setEditId={setEditId} startEdit={startEdit} setPri={setPri} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred} del={del}/>)
       }
       {deferredItems.length>0&&(
         <>
@@ -1238,6 +1240,20 @@ function CaptureTab({ tasks, deferred, onUpdateTasks, onUpdateDeferred }) {
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+function ProgressTaskRow({ item, toggle, deferred, onUpdateDeferred, deferDates, setDeferDates }) {
+  return (
+    <div style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'8px 10px',marginBottom:4,flexWrap:'wrap'}}>
+      <div onClick={()=>toggle(item.id)} style={{width:15,height:15,borderRadius:2,border:'2px solid '+C.bo,flexShrink:0,background:'transparent',cursor:'pointer'}}/>
+      <Dot p={item.priority} size={6}/>
+      <span onClick={()=>toggle(item.id)} style={{fontFamily:MO,fontSize:12,color:C.tx,flex:1,lineHeight:1.3,cursor:'pointer',minWidth:100}}>{item.text}</span>
+      <SrcBadge source={item.source}/>
+      {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
+      <PriBadge p={item.priority}/>
+      <DeferPicker taskId={item.id} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred}/>
     </div>
   );
 }
@@ -1265,18 +1281,6 @@ function ProgressTab({ tasks, done, deferred, timeBlocks, onUpdateDone, onUpdate
 
   const [showSchedule, setShowSchedule] = useState(!isMobile);
   const [showLabels, setShowLabels] = useState(!isMobile);
-
-  const TaskRow=({item})=>(
-    <div style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'8px 10px',marginBottom:4,flexWrap:'wrap'}}>
-      <div onClick={()=>toggle(item.id)} style={{width:15,height:15,borderRadius:2,border:'2px solid '+C.bo,flexShrink:0,background:'transparent',cursor:'pointer'}}/>
-      <Dot p={item.priority} size={6}/>
-      <span onClick={()=>toggle(item.id)} style={{fontFamily:MO,fontSize:12,color:C.tx,flex:1,lineHeight:1.3,cursor:'pointer',minWidth:100}}>{item.text}</span>
-      <SrcBadge source={item.source}/>
-      {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
-      <PriBadge p={item.priority}/>
-      <DeferPicker taskId={item.id} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred}/>
-    </div>
-  );
 
   return (
     <div>
@@ -1320,7 +1324,7 @@ function ProgressTab({ tasks, done, deferred, timeBlocks, onUpdateDone, onUpdate
           {tasks.length===0
             ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,padding:'20px 0'}}>No tasks yet.</div>
             : <>
-              {active.map(item=><TaskRow key={item.id} item={item}/>)}
+              {active.map(item=><ProgressTaskRow key={item.id} item={item} toggle={toggle} deferred={deferred} onUpdateDeferred={onUpdateDeferred} deferDates={deferDates} setDeferDates={setDeferDates}/>)}
               {deferredItems.length>0&&(
                 <>
                   <div style={{fontFamily:MO,fontSize:10,color:C.bl,letterSpacing:2,margin:'10px 0 5px',paddingTop:6,borderTop:'1px solid '+C.bo}}>DEFERRED</div>
@@ -1754,7 +1758,7 @@ function DailyPlanner() {
         if (deferDate === ds) {
           const task = srcTasks.find(t => String(t.id) === String(taskId));
           if (task) {
-            tasksToAdd.push({...task, id: nid(), deferSrcId: String(taskId), deferSrcDate: srcDate});
+            tasksToAdd.push({...task, id: nid(), deferSrcId: String(taskId), deferSrcDate: srcDate, carried: true, source: 'brain'});
             delete newDeferMap[taskId];
             changed = true;
           }
