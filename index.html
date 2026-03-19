@@ -17,14 +17,14 @@
     ::-webkit-scrollbar-thumb:hover { background: #f9731644; }
   </style>
   <!-- React 18 -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- prop-types (required by Recharts) -->
-  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <!-- prop-types (must load before Recharts) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
   <!-- Recharts -->
-  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
   <!-- Babel Standalone (JSX transform) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -33,6 +33,13 @@
 // ── Globals from CDN ──────────────────────────────────────────────────────────
 const { useState, useEffect, useRef, useCallback } = React;
 const { LineChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } = window.Recharts;
+
+// ── localStorage with in-memory fallback (Edge tracking prevention safe) ─────
+const _memStore = {};
+const store = (() => {
+  try { localStorage.setItem('_dps_test', '1'); localStorage.removeItem('_dps_test'); return localStorage; }
+  catch(e) { return { getItem: k => _memStore[k]||null, setItem: (k,v) => { _memStore[k]=v; }, removeItem: k => { delete _memStore[k]; } }; }
+})();
 
 // ── Inbox draft survives hot reloads (module-level var, not storage) ──────────
 if (typeof window._dpsInboxDraft === 'undefined') window._dpsInboxDraft = '';
@@ -1839,7 +1846,7 @@ function DailyPlanner() {
   // ── localStorage load (replaces window.storage.get) ───────────────────────
   useEffect(()=>{
     try{
-      const raw=localStorage.getItem('dps-v2');
+      const raw=store.getItem('dps-v2');
       if(raw){
         const sv=JSON.parse(raw);
         if(sv.sd)setSd(()=>({...initDay(TODAY),...sv.sd}));
@@ -1857,7 +1864,7 @@ function DailyPlanner() {
     if(autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current=setTimeout(()=>{
       try{
-        localStorage.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new Date().toISOString()}));
+        store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new Date().toISOString()}));
         setStorOk(true);
       }catch(e){}
     },800);
@@ -1865,7 +1872,7 @@ function DailyPlanner() {
 
   const saveSession=()=>{
     try{
-      localStorage.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new Date().toISOString()}));
+      store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new Date().toISOString()}));
       setStorOk(true);
     }catch(e){}
   };
