@@ -31,7 +31,7 @@
 
 <script type="text/babel" data-presets="react,env">
 // ── Globals from CDN ──────────────────────────────────────────────────────────
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
 const { LineChart, BarChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } = window.Recharts;
 
 // ── localStorage with in-memory fallback (Edge tracking prevention safe) ─────
