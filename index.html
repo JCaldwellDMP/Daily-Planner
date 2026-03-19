@@ -424,50 +424,6 @@ function HistoryModal({ sums, idx, onClose, onLoad, onDelete, onImport }) {
   );
 }
 
-function SaveBackupModal({ onClose, exportJson }) {
-  const [copied,setCopied]=useState(false);
-  const preview=exportJson.slice(0,600)+'…';
-  const copy=()=>{
-    navigator.clipboard.writeText(exportJson)
-      .then(()=>{ setCopied(true); setTimeout(()=>setCopied(false),2000); })
-      .catch(()=>{
-        const ta=document.createElement('textarea'); ta.value=exportJson;
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-        setCopied(true); setTimeout(()=>setCopied(false),2000);
-      });
-  };
-  return (
-    <Modal onClose={onClose} width={520}>
-      <div style={{padding:'16px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:`1px solid ${C.bo}`}}>
-        <div>
-          <div style={{color:C.or,fontFamily:MO,fontSize:11,letterSpacing:2,marginBottom:2}}>💾 SAVE AS FILE</div>
-          <div style={{color:C.tx,fontFamily:MO,fontSize:16,fontWeight:'bold'}}>Session Backup</div>
-        </div>
-        <Btn onClick={onClose} style={{padding:'4px 10px'}}>✕</Btn>
-      </div>
-      <div style={{padding:20}}>
-        <div style={{background:'#1a2010',border:`1px solid ${C.gr}44`,borderRadius:8,padding:16,marginBottom:16}}>
-          <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:10}}>HOW TO SAVE THIS FILE</div>
-          {[['1.','Click Copy All below'],['2.','Open Notepad and paste (Ctrl+V)'],['3.',`Save as: jesse-planner-session-${new Date().toISOString().split('T')[0]}.json`],['4.','To restore: use the ↑ RESTORE button in the header']].map(([n,t])=>(
-            <div key={n} style={{display:'flex',gap:10,marginBottom:6}}>
-              <span style={{fontFamily:MO,fontSize:12,color:C.tx}}>{n}</span>
-              <span style={{fontFamily:MO,fontSize:12,color:n==='3.'?C.yl:C.tx}}>{t}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:12,marginBottom:16,maxHeight:140,overflow:'auto'}}>
-          <pre style={{fontFamily:MO,fontSize:10,color:C.mu,margin:0,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{preview}</pre>
-        </div>
-        <div style={{display:'flex',gap:10}}>
-          <button onClick={copy} style={{flex:1,fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'13px',background:copied?C.gr:C.or,color:'#fff',border:'none',borderRadius:8,cursor:'pointer'}}>
-            {copied?'✓ Copied!':'💾 Copy All'}
-          </button>
-          <Btn onClick={onClose} style={{padding:'13px 20px'}}>Done</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
 
 function TimePicker({ value, onChange }) {
   const [open,setOpen]=useState(false);
@@ -1023,6 +979,9 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   const [nowLabel,setNowLabel]     = useState(()=>new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
   const slotRefs = useRef({});
   const [overlays, setOverlays] = useState([]);
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const [dragOver, setDragOver]       = useState(null);
+  const dragState = useRef(null);
 
   useEffect(()=>{
     const tick=()=>{ const n=new Date(); setNowMin(n.getHours()*60+n.getMinutes()); setNowLabel(n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})); };
@@ -1114,8 +1073,20 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
                     <div style={{display:'flex',flexDirection:'column',gap:3}}>
                       {slotItems.map((item,idx)=>{
                         const isItemDeferred = item.itemId && deferredTaskIds.has(String(item.itemId));
+                        const itemKey = slot+'-'+idx;
+                        const isHov = hoveredItem===itemKey;
+                        const isDragTarget = dragOver&&dragOver.slot===slot&&dragOver.idx===idx;
                         return (
-                          <div key={idx} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 8px',background:isEditing?C.or+'11':slotContentBg(slot),border:isEditing?'1px solid '+C.or+'44':'1px solid transparent',borderRadius:4,opacity:isItemDeferred?0.35:1}}>
+                          <div key={idx}
+                            draggable={!isItemDeferred}
+                            onMouseEnter={()=>setHoveredItem(itemKey)}
+                            onMouseLeave={()=>setHoveredItem(null)}
+                            onDragStart={e=>{dragState.current={slot,idx};e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','');}}
+                            onDragOver={e=>{e.preventDefault();if(!dragState.current||dragState.current.slot!==slot)return;setDragOver({slot,idx});}}
+                            onDrop={e=>{e.preventDefault();if(!dragState.current||dragState.current.slot!==slot)return;const{idx:fi}=dragState.current;if(fi===idx)return;const cur=slotArr(timeBlocks[slot]);const next=[...cur];const[moved]=next.splice(fi,1);next.splice(idx,0,moved);onUpdateTime({...timeBlocks,[slot]:next});dragState.current=null;setDragOver(null);}}
+                            onDragEnd={()=>{dragState.current=null;setDragOver(null);}}
+                            style={{display:'flex',alignItems:'center',gap:4,padding:'4px 8px',background:isDragTarget?C.or+'22':isEditing?C.or+'11':slotContentBg(slot),border:isDragTarget?'1px solid '+C.or+'66':isEditing?'1px solid '+C.or+'44':'1px solid transparent',borderRadius:4,opacity:isItemDeferred?0.35:1}}>
+                            <span style={{fontFamily:MO,fontSize:13,color:C.mu,cursor:'grab',flexShrink:0,opacity:isHov&&!isItemDeferred?1:0,transition:'opacity .12s',userSelect:'none',padding:'0 2px'}}>⠿</span>
                             {isItemDeferred && (
                               <span title="Deferred" style={{fontFamily:MO,fontSize:8,color:C.bl,border:'1px solid '+C.bl+'44',borderRadius:2,padding:'0 3px',flexShrink:0}}>defer</span>
                             )}
@@ -1403,9 +1374,64 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
     setSaved(true);
   };
 
-  const copyPlan=()=>{
-    const lines=[`Daily Plan — ${fmtDate(ds)}`,`\nCompleted (${compItems.length}):`, ...compItems.map(i=>`  [✓] ${i.text}`),`\nLeft Undone (${undoItems.length}):`, ...undoItems.map(i=>`  [ ] ${i.text}`)];
-    navigator.clipboard.writeText(lines.join('\n')).catch(()=>{});
+  const [copyStyle,setCopyStyle]       = useState('plain');
+  const [copyPlatform,setCopyPlatform] = useState('email');
+  const [copied,setCopied]             = useState(false);
+
+  const fmtMsShort = ms => { const tot=Math.floor(ms/1000),m=Math.floor(tot/60),h=Math.floor(m/60); return h>0?`${h}h ${m%60}m`:`${m}m`; };
+  const awayTotal  = awayMs+logAway;
+  const trainTotal = trainMs+logTrain;
+  const watchTotal = watchMs+logWatch;
+
+  const generateCopy = () => {
+    const dateStr = fmtDate(ds);
+    const pctStr  = pct+'%';
+    const priTag  = i => i.priority ? '['+i.priority[0]+'] ' : '';
+    if (copyStyle==='minimal') {
+      return copyPlatform==='teams'
+        ? `📅 EOD ${ds}: ✅ ${compItems.length}/${activeTasks.length} (${pctStr}) | 🎓 ${fmtMsShort(trainTotal)} | 👁 ${fmtMsShort(watchTotal)} | 🚶 ${fmtMsShort(awayTotal)}`
+        : `EOD Update ${dateStr} — ${compItems.length}/${activeTasks.length} tasks (${pctStr}). Training ${fmtMsShort(trainTotal)}, Watching ${fmtMsShort(watchTotal)}, Away ${fmtMsShort(awayTotal)}.`;
+    }
+    if (copyStyle==='plain') {
+      if (copyPlatform==='teams') {
+        const L=[`📅 **EOD Update — ${dateStr}**`,'']; 
+        if(compItems.length){L.push(`✅ **Completed (${compItems.length}):**`);compItems.forEach(i=>L.push('  • '+i.text));L.push('');}
+        if(undoItems.length){L.push(`⏳ **Carrying Forward (${undoItems.length}):**`);undoItems.forEach(i=>L.push('  • '+i.text));L.push('');}
+        L.push(`⏱ Training: ${fmtMsShort(trainTotal)} | Watching: ${fmtMsShort(watchTotal)} | Away: ${fmtMsShort(awayTotal)}`);
+        L.push(`📊 Day completion: ${pctStr}`);
+        return L.join('\n');
+      } else {
+        const L=[`Subject: EOD Update — ${dateStr}`,'',`Here's my end of day update for ${dateStr}:`,''];
+        if(compItems.length){L.push(`Completed (${compItems.length}):`);compItems.forEach(i=>L.push('  ✓ '+i.text));L.push('');}
+        if(undoItems.length){L.push(`Left for tomorrow (${undoItems.length}):`);undoItems.forEach(i=>L.push('  · '+i.text));L.push('');}
+        L.push('Time breakdown:',`  Training:  ${fmtMsShort(trainTotal)}`,`  Watching:  ${fmtMsShort(watchTotal)}`,`  Away:      ${fmtMsShort(awayTotal)}`,'',`Completion: ${pctStr}`);
+        return L.join('\n');
+      }
+    }
+    // structured
+    if (copyPlatform==='teams') {
+      const L=[`📅 **DAILY WRAP-UP — ${dateStr}**`,'']; 
+      L.push(`✅ **COMPLETED ${compItems.length}/${activeTasks.length} — ${pctStr}**`);
+      compItems.forEach(i=>L.push('  [✓] '+priTag(i)+i.text));
+      if(undoItems.length){L.push('');L.push(`⏳ **LEFT UNDONE (${undoItems.length})**`);undoItems.forEach(i=>L.push('  [ ] '+priTag(i)+i.text));}
+      L.push('','⏱ **TIMER SUMMARY**',`  Training:  ${fmtMsShort(trainTotal)}`,`  Watching:  ${fmtMsShort(watchTotal)}`,`  Away:      ${fmtMsShort(awayTotal)}`);
+      return L.join('\n');
+    } else {
+      const sep='─'.repeat(42);
+      const L=[`Subject: Daily Wrap-Up — ${dateStr}`,'',sep,`DAILY WRAP-UP — ${dateStr}`,sep,''];
+      L.push(`COMPLETED (${compItems.length}/${activeTasks.length} — ${pctStr})`);
+      compItems.forEach(i=>L.push('  [✓] '+priTag(i)+i.text));
+      if(undoItems.length){L.push('');L.push(`LEFT UNDONE (${undoItems.length})`);undoItems.forEach(i=>L.push('  [ ] '+priTag(i)+i.text));}
+      L.push('','TIMER SUMMARY',`  Training:  ${fmtMsShort(trainTotal)}`,`  Watching:  ${fmtMsShort(watchTotal)}`,`  Away:      ${fmtMsShort(awayTotal)}`,'',sep);
+      return L.join('\n');
+    }
+  };
+
+  const doCopy = () => {
+    const text=generateCopy();
+    navigator.clipboard.writeText(text)
+      .then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);})
+      .catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);});
   };
 
   useEffect(()=>{ setSaved(!!sums[ds]); },[ds,sums]);
@@ -1448,7 +1474,30 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
       </div>
       <button onClick={e=>{flash(e);saveSummary();}} style={{display:'block',width:'100%',fontFamily:MO,fontSize:14,fontWeight:'bold',padding:'15px',border:'none',borderRadius:8,cursor:'pointer',marginBottom:8,background:saved?C.gr:C.or,color:'#fff',transition:'all .3s'}}>{saved?'☑ SAVED — Click to Overwrite':"💾 SAVE TODAY'S SUMMARY"}</button>
       {saved&&<div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',marginBottom:8}}>Last saved at {new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} · {compItems.length} task{compItems.length!==1?'s':''} complete</div>}
-      <button onClick={e=>{flash(e);copyPlan();}} style={{display:'block',width:'100%',fontFamily:MO,fontSize:12,padding:'11px',border:`1px solid ${C.bo}`,borderRadius:8,cursor:'pointer',background:C.ca,color:C.tx,marginBottom:16}}>↑ COPY FULL PLAN TO CLIPBOARD</button>
+      <div style={{background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:14,marginBottom:16}}>
+        <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:10}}>📤 EOD REPORT</div>
+        <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+          <div style={{flex:'1 1 140px'}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>STYLE</div>
+            <div style={{display:'flex',gap:4}}>
+              {[['plain','Plain'],['structured','Structured'],['minimal','Minimal']].map(([v,l])=>(
+                <button key={v} onClick={()=>setCopyStyle(v)} style={{flex:1,fontFamily:MO,fontSize:10,padding:'5px 0',borderRadius:4,cursor:'pointer',border:'1px solid '+(copyStyle===v?C.or:C.bo),background:copyStyle===v?C.or+'22':C.ca,color:copyStyle===v?C.or:C.mu,transition:'all .12s'}}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{flex:'1 1 100px'}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>PLATFORM</div>
+            <div style={{display:'flex',gap:4}}>
+              {[['email','Email'],['teams','Teams']].map(([v,l])=>(
+                <button key={v} onClick={()=>setCopyPlatform(v)} style={{flex:1,fontFamily:MO,fontSize:10,padding:'5px 0',borderRadius:4,cursor:'pointer',border:'1px solid '+(copyPlatform===v?C.bl:C.bo),background:copyPlatform===v?C.bl+'22':C.ca,color:copyPlatform===v?C.bl:C.mu,transition:'all .12s'}}>{l}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button onClick={e=>{flash(e);doCopy();}} style={{display:'block',width:'100%',fontFamily:MO,fontSize:12,padding:'10px',border:`1px solid ${copied?C.gr:C.bo}`,borderRadius:6,cursor:'pointer',background:copied?C.gr+'22':C.ca,color:copied?C.gr:C.tx,transition:'all .3s'}}>
+          {copied?'✓ COPIED TO CLIPBOARD':'↑ COPY EOD REPORT'}
+        </button>
+      </div>
       <div style={{marginTop:4}}><Btn onClick={onBack}>← Back</Btn></div>
     </div>
   );
@@ -1702,7 +1751,7 @@ function DailyPlanner() {
   const [inboxInp,setInboxInp] = useState(()=>window._dpsInboxDraft||'');
   const setInboxInpSafe = v => { window._dpsInboxDraft=v; setInboxInp(v); };
   const [showHist,setShowHist] = useState(false);
-  const [showBak,setShowBak]   = useState(false);
+
   const [showTL,setShowTL]     = useState(false);
   const [showRest,setShowRest] = useState(false);
   const [dateInp,setDateInp]   = useState(inputFmt(TODAY));
@@ -1779,6 +1828,37 @@ function DailyPlanner() {
       });
     }
   },[ds, storageReady]);
+
+  // ── Carry-forward: auto-carry incomplete non-deferred tasks from past days ────
+  useEffect(()=>{
+    if (!storageReady) return;
+    const todayTasks = sd[`tasks-${TODAY}`] || [];
+    const existingCarried = new Set(todayTasks.filter(t=>t.carrySrcId).map(t=>t.carrySrcDate+'|'+String(t.carrySrcId)));
+    const toAdd = [];
+    Object.keys(sd).forEach(k => {
+      if (!k.startsWith('tasks-')) return;
+      const srcDate = k.replace('tasks-','');
+      if (srcDate >= TODAY) return;
+      const srcTasks = sd[k] || [];
+      if (!srcTasks.length) return;
+      const srcDone = new Set(sd[`done-${srcDate}`] || []);
+      const srcDeferred = sd[`deferred-${srcDate}`] || {};
+      srcTasks.forEach(t => {
+        if (srcDone.has(t.id)) return;
+        if (String(t.id) in srcDeferred) return;
+        if (existingCarried.has(srcDate+'|'+String(t.id))) return;
+        toAdd.push({...t, id:nid(), carrySrcId:String(t.id), carrySrcDate:srcDate, carried:true, source:'brain'});
+      });
+    });
+    if (!toAdd.length) return;
+    setSd(p => {
+      const cur = p[`tasks-${TODAY}`] || [];
+      const already = new Set(cur.filter(t=>t.carrySrcId).map(t=>t.carrySrcDate+'|'+String(t.carrySrcId)));
+      const fresh = toAdd.filter(t => !already.has(t.carrySrcDate+'|'+String(t.carrySrcId)));
+      if (!fresh.length) return p;
+      return {...p, [`tasks-${TODAY}`]: [...cur, ...fresh]};
+    });
+  },[storageReady]);
 
   const getItemText = i => (typeof i === 'string' ? i : i?.text || '').trim().toLowerCase();
   const lunchSlot = ALL_TIME_SLOTS.find(s => slotArr(timeBlocks[s]).some(i => getItemText(i).startsWith('lunch')));
@@ -1951,7 +2031,7 @@ function DailyPlanner() {
       if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||isEditable)return;
       if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();goNext();}
       if(e.key==='ArrowLeft' ||e.key==='ArrowUp')  {e.preventDefault();goBack();}
-      if(e.key==='Escape'){setShowHist(false);setShowTL(false);setShowBak(false);setShowRest(false);}
+      if(e.key==='Escape'){setShowHist(false);setShowTL(false);setShowRest(false);}
       const n=parseInt(e.key);
       if(n>=1&&n<=TABS.length)setTab(TABS[n-1]);
       if(n===6)setTab('stats');
@@ -2025,6 +2105,7 @@ function DailyPlanner() {
               <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2}}>🏁 SHIFT ENDS IN</div>
               <div style={{fontFamily:MO,fontSize:endDiff===0?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:endDiff===0?C.mu:C.bl,whiteSpace:'nowrap'}}>{endCd}</div>
               <div style={{display:'flex',gap:4,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
+                <button onClick={()=>setEndTime('16:00')} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:4,cursor:'pointer',border:'1px solid '+(endTime==='16:00'?C.bl:C.bo),background:endTime==='16:00'?C.bl+'22':C.ca,color:endTime==='16:00'?C.bl:C.mu,whiteSpace:'nowrap'}}>4 PM</button>
                 <button onClick={()=>setEndTime('17:00')} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:4,cursor:'pointer',border:'1px solid '+(endTime==='17:00'?C.bl:C.bo),background:endTime==='17:00'?C.bl+'22':C.ca,color:endTime==='17:00'?C.bl:C.mu,whiteSpace:'nowrap'}}>5 PM</button>
                 <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 4px',color:C.tx,outline:'none',width:75,colorScheme:'dark'}}/>
               </div>
@@ -2038,7 +2119,7 @@ function DailyPlanner() {
           <TimerCtrl type="watching" ms={watchMs+logWatchMs} running={watchRun} color={C.bl}/>
           <div style={{display:'flex',gap:4,marginLeft:'auto',flexWrap:'wrap'}}>
             <button onClick={()=>setShowRest(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#1a1000',border:`1px solid ${C.or}`,borderRadius:6,color:C.or,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'':' '}RESTORE</button>
-            <button onClick={e=>{flash(e);saveSession();setShowBak(true);}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:storOk?'#0d2010':C.ca,border:`1px solid ${storOk?C.gr:C.bo}`,borderRadius:6,color:storOk?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>{storOk?'💾 SAVED':'💾 SAVE'}</button>
+            <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:storOk?'#0d2010':C.ca,border:`1px solid ${storOk?C.gr:C.bo}`,borderRadius:6,color:storOk?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>{storOk?'💾 SAVED':'💾 SAVE'}</button>
             <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
             <button onClick={()=>setShowHist(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>■ {isCompact?'HIST':'HISTORY'}</button>
             <button onClick={()=>{const b=new Blob([exportJson],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`jesse-planner-session-${ds}.json`;a.click();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'EXP':'EXPORT'}</button>
@@ -2080,7 +2161,7 @@ function DailyPlanner() {
       </div>
 
       {showHist && <HistoryModal sums={sums} idx={idx} onClose={()=>setShowHist(false)} onLoad={loadHistory} onDelete={deleteHistory} onImport={importHistory}/>}
-      {showBak  && <SaveBackupModal onClose={()=>setShowBak(false)} exportJson={exportJson}/>}
+
       {showTL   && <TimerLogModal  logs={timerLogs} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} onSave={rows=>upd('timerLogs',rows)} onClose={()=>setShowTL(false)} onReset={timerReset}/>}
       {showRest && <RestoreModal   onRestore={restoreSession} onClose={()=>setShowRest(false)}/>}
     </div>
