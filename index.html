@@ -2011,6 +2011,25 @@ function DailyPlanner() {
   // ── Carry-forward: auto-carry incomplete non-deferred tasks from past days ────
   useEffect(()=>{
     if (!storageReady) return;
+
+    // ── One-time cleanup: remove duplicate carried tasks (exponential carry bug) ──
+    // Keep only the first carry per original (earliest carrySrcDate|carrySrcId seen)
+    setSd(p => {
+      const cleaned = {};
+      Object.keys(p).forEach(k => {
+        if (!k.startsWith('tasks-')) { cleaned[k]=p[k]; return; }
+        const arr = p[k] || [];
+        const seen = new Set();
+        const deduped = arr.filter(t => {
+          if (!t.carrySrcId) return true; // originals always kept
+          const key = t.carrySrcDate+'|'+String(t.carrySrcId);
+          if (seen.has(key)) return false;
+          seen.add(key); return true;
+        });
+        cleaned[k] = deduped;
+      });
+      return cleaned;
+    });
     const todayTasks = sd[`tasks-${TODAY}`] || [];
     const existingCarried = new Set(todayTasks.filter(t=>t.carrySrcId).map(t=>t.carrySrcDate+'|'+String(t.carrySrcId)));
     const toAdd = [];
@@ -2023,6 +2042,7 @@ function DailyPlanner() {
       const srcDone = new Set(sd[`done-${srcDate}`] || []);
       const srcDeferred = sd[`deferred-${srcDate}`] || {};
       srcTasks.forEach(t => {
+        if (t.carrySrcId) return;                                    // skip carried copies — the original handles it
         if (srcDone.has(t.id)) return;
         if (String(t.id) in srcDeferred) return;
         if (existingCarried.has(srcDate+'|'+String(t.id))) return;
