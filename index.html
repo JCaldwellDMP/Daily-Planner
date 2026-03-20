@@ -1791,7 +1791,9 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
       }
       setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
-      setGistMsg('✓ Push successful — ' + new Date().toLocaleTimeString());
+      const pushed = currentSd || sd || {};
+      const todayDbg = new Date().toISOString().split('T')[0];
+      setGistMsg(`↑ Pushed ${Object.keys(pushed).length} keys — tasks-${todayDbg}: ${(pushed[`tasks-${todayDbg}`]||[]).length} items`);
     } catch(e) { setGistStatus('error'); setGistError(e.message); setGistMsg('✗ Push failed: ' + e.message); }
   }, [gistToken, gistId, sd]);
 
