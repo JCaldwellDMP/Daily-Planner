@@ -1755,13 +1755,26 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const rafId   = useRef(null);
   const streamR = useRef(null);
 
+  // Strip fat metadata from tasks — mobile only needs id, text, priority
+  const slimTasks = (tasks||[]).map(({id,text,priority}) => ({id,text,priority}));
+  // Strip itemId from time block entries — mobile only needs text for display
+  const slimTb = Object.fromEntries(
+    Object.entries(timeBlocks||{})
+      .filter(([,v])=>v!=null)
+      .map(([k,v]) => [k, (Array.isArray(v)?v:[v]).map(i=>typeof i==='string'?i:{text:i.text})])
+  );
+  // Strip note body to essentials
+  const slimNotes = (notes||[]).map(({id,text,tag,timestamp})=>({id,text,tag,timestamp}));
+  // Strip timer log to essentials
+  const slimLogs = (timerLogs||[]).map(({id,type,startTime,endTime,duration})=>({id,type,startTime,endTime,duration}));
+
   const payload = JSON.stringify({
     v:1, d:today,
     ea: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
-    tasks, done, tb:timeBlocks, def:deferred,
-    notes: notes||[],
+    tasks:slimTasks, done, tb:slimTb, def:deferred,
+    notes:slimNotes,
     tmr: {a:awayMs, tr:trainMs, w:watchMs},
-    tlogs: timerLogs,
+    tlogs:slimLogs,
   });
   const tooBig = payload.length > 2800;
 
