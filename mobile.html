@@ -905,13 +905,22 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const rafId   = useRef(null);
   const streamR = useRef(null);
 
+  const slimTasks = (tasks||[]).map(({id,text,priority}) => ({id,text,priority}));
+  const slimTb = Object.fromEntries(
+    Object.entries(timeBlocks||{})
+      .filter(([,v])=>v!=null)
+      .map(([k,v]) => [k, (Array.isArray(v)?v:[v]).map(i=>typeof i==='string'?i:{text:i.text})])
+  );
+  const slimNotes = (notes||[]).map(({id,text,tag,timestamp})=>({id,text,tag,timestamp}));
+  const slimLogs  = (timerLogs||[]).map(({id,type,startTime,endTime,duration})=>({id,type,startTime,endTime,duration}));
+
   const payload = JSON.stringify({
     v:1, d:today,
     ea: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
-    tasks, done, tb:timeBlocks, def:deferred,
-    notes: notes||[],
+    tasks:slimTasks, done, tb:slimTb, def:deferred,
+    notes:slimNotes,
     tmr: {a:awayMs, tr:trainMs, w:watchMs},
-    tlogs: timerLogs,
+    tlogs:slimLogs,
   });
   const tooBig = payload.length > 2800;
 
