@@ -25,8 +25,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
   <!-- Babel Standalone (JSX transform) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <!-- QR sync: qrcode (canvas renderer) + jsQR (scanner) + pako (compress) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+  <!-- QR sync: qrcodejs (renderer) + jsQR (scanner) + pako (compress) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 </head>
@@ -1767,7 +1767,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const [pending, setPending] = useState(null);
   const [camErr, setCamErr]   = useState('');
   const [scanning, setScanning] = useState(false);
-  const qrCanvas = useRef(null);
+  const qrDiv   = useRef(null);
   const videoEl = useRef(null);
   const canvEl  = useRef(null);
   const rafId   = useRef(null);
@@ -1806,17 +1806,18 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const qrBytes  = qrData.length;
   const tooBig   = qrBytes > 2900;
 
-  // Generate QR via qrcode npm (canvas-based, reliable)
+  // Generate QR via qrcodejs into a div, 500px so modules are ~5px each
   useEffect(() => {
-    if (tab !== 'send' || tooBig || !qrCanvas.current) return;
-    const QRGen = window.QRCode;
-    if (!QRGen?.toCanvas) return;
-    QRGen.toCanvas(qrCanvas.current, qrData, {
-      errorCorrectionLevel: 'L',
-      width: 400,
-      margin: 3,
-      color: { dark: '#000000', light: '#ffffff' },
-    });
+    if (tab !== 'send' || tooBig || !qrDiv.current) return;
+    qrDiv.current.innerHTML = '';
+    try {
+      new window.QRCode(qrDiv.current, {
+        text: qrData,
+        width: 500, height: 500,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.L,
+      });
+    } catch(e) { console.error('QR gen failed', e); }
   }, [tab]);
 
   // Camera lifecycle
@@ -1912,7 +1913,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   }
 
   return (
-    <Modal onClose={onClose} width={460}>
+    <Modal onClose={onClose} width={540}>
       <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.bo}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
         <div>
           <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:2}}>📱 MOBILE SYNC</div>
@@ -1933,7 +1934,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
               </div>
             : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
                 <div style={{background:'#fff',borderRadius:8,lineHeight:0,overflow:'hidden'}}>
-                  <canvas ref={qrCanvas}/>
+                  <div ref={qrDiv}/>
                 </div>
                 <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
                   Point your phone camera at this code.<br/>Tap 📱 SYNC on the mobile app to scan.
