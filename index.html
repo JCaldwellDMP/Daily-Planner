@@ -25,6 +25,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
   <!-- Babel Standalone (JSX transform) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <!-- QR sync -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -1736,6 +1739,182 @@ function StatsTab({ sums, idx, isMobile }) {
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
+// ── SyncModal ──────────────────────────────────────────────────────────────────
+function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs, trainMs, watchMs, notes, onMerge, onClose, isSendFirst=true }) {
+  const [tab, setTab]         = useState(isSendFirst ? 'send' : 'scan');
+  const [pending, setPending] = useState(null);
+  const [camErr, setCamErr]   = useState('');
+  const [scanning, setScanning] = useState(false);
+  const qrDiv   = useRef(null);
+  const videoEl = useRef(null);
+  const canvEl  = useRef(null);
+  const rafId   = useRef(null);
+  const streamR = useRef(null);
+
+  const payload = JSON.stringify({
+    v:1, d:today,
+    ea: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
+    tasks, done, tb:timeBlocks, def:deferred,
+    notes: notes||[],
+    tmr: {a:awayMs, tr:trainMs, w:watchMs},
+    tlogs: timerLogs,
+  });
+  const tooBig = payload.length > 2800;
+
+  // Generate QR when on send tab
+  useEffect(() => {
+    if (tab !== 'send' || !qrDiv.current || tooBig) return;
+    qrDiv.current.innerHTML = '';
+    try {
+      new window.QRCode(qrDiv.current, {
+        text: payload, width:240, height:240,
+        colorDark:'#000000', colorLight:'#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.L,
+      });
+    } catch(e) {}
+  }, [tab]);
+
+  // Camera lifecycle
+  const stopCam = useCallback(() => {
+    if (rafId.current)   { cancelAnimationFrame(rafId.current); rafId.current=null; }
+    if (streamR.current) { streamR.current.getTracks().forEach(t=>t.stop()); streamR.current=null; }
+    setScanning(false);
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'scan') { stopCam(); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+        if (!alive) { s.getTracks().forEach(t=>t.stop()); return; }
+        streamR.current = s;
+        if (!videoEl.current) return;
+        videoEl.current.srcObject = s;
+        await videoEl.current.play();
+        setScanning(true);
+        const scan = () => {
+          if (!alive || !videoEl.current || !canvEl.current) return;
+          const v = videoEl.current;
+          if (v.readyState === v.HAVE_ENOUGH_DATA) {
+            canvEl.current.width = v.videoWidth; canvEl.current.height = v.videoHeight;
+            const ctx = canvEl.current.getContext('2d');
+            ctx.drawImage(v, 0, 0);
+            const img = ctx.getImageData(0, 0, v.videoWidth, v.videoHeight);
+            const code = window.jsQR && window.jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+            if (code) {
+              try {
+                const d = JSON.parse(code.data);
+                if (d.v===1 && d.d) { setPending(d); stopCam(); return; }
+              } catch(e) {}
+            }
+          }
+          rafId.current = requestAnimationFrame(scan);
+        };
+        rafId.current = requestAnimationFrame(scan);
+      } catch(e) {
+        if (alive) setCamErr(e.name==='NotAllowedError' ? 'Camera permission denied.' : 'Camera unavailable: '+e.message);
+      }
+    })();
+    return () => { alive=false; stopCam(); };
+  }, [tab]);
+
+  const doMerge = () => { if (pending) { onMerge(pending); onClose(); } };
+
+  const tabBtn = (key, label) => (
+    <button onClick={()=>setTab(key)} style={{flex:1,fontFamily:MO,fontSize:11,padding:'10px 0',border:'none',borderBottom:`2px solid ${tab===key?C.or:'transparent'}`,background:'transparent',color:tab===key?C.or:C.mu,cursor:'pointer',letterSpacing:1}}>
+      {label}
+    </button>
+  );
+
+  if (pending) {
+    const tc=(pending.tasks||[]).length, dc=(pending.done||[]).length, nc=(pending.notes||[]).length;
+    return (
+      <Modal onClose={onClose} width={440}>
+        <div style={{padding:24}}>
+          <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:2}}>📱 SYNC IMPORT</div>
+          <div style={{fontFamily:MO,fontSize:16,fontWeight:'bold',color:C.tx,marginBottom:16}}>Confirm Import</div>
+          <div style={{background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:14,marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:10}}>Session from {pending.ea||'—'} · {pending.d}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+              {[{l:'TASKS',v:tc,c:C.or},{l:'DONE',v:dc,c:C.gr},{l:'NOTES',v:nc,c:C.bl}].map(x=>(
+                <div key={x.l} style={{textAlign:'center',background:C.bg,borderRadius:6,padding:'10px 0'}}>
+                  <div style={{fontFamily:MO,fontSize:24,fontWeight:'bold',color:x.c,lineHeight:1}}>{x.v}</div>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginTop:4}}>{x.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:20,lineHeight:1.7}}>
+            Tasks, schedule, notes, and deferred will be overwritten with incoming data. Timer totals will be merged (highest value wins). Timer logs will be combined.
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <Btn onClick={()=>setPending(null)} style={{flex:'0 0 auto',padding:'8px 18px'}}>← Back</Btn>
+            <OBtn onClick={doMerge} style={{flex:1,textAlign:'center',padding:'10px 0'}}>✓ Import Session</OBtn>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal onClose={onClose} width={500}>
+      <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.bo}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+        <div>
+          <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:2}}>📱 MOBILE SYNC</div>
+          <div style={{fontFamily:MO,fontSize:13,color:C.tx}}>Today: {today}</div>
+        </div>
+        <Btn onClick={onClose} style={{padding:'6px 10px'}}>✕</Btn>
+      </div>
+      <div style={{display:'flex',borderBottom:`1px solid ${C.bo}`}}>
+        {isSendFirst ? <>{tabBtn('send','📱 Send to Phone')}{tabBtn('scan','📷 Get from Phone')}</>
+                     : <>{tabBtn('scan','📷 Scan Desktop')}{tabBtn('send','📱 Show My QR')}</>}
+      </div>
+      <div style={{padding:24,minHeight:320,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+        {tab==='send' && (
+          tooBig
+            ? <div style={{fontFamily:MO,fontSize:12,color:C.yl,textAlign:'center',lineHeight:1.8}}>
+                ⚠ Today's data ({payload.length} bytes) exceeds QR limit.<br/>
+                <span style={{color:C.mu,fontSize:11}}>Use the JSON Export instead.</span>
+              </div>
+            : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:16}}>
+                <div ref={qrDiv} style={{background:'#fff',padding:12,borderRadius:10}}/>
+                <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
+                  Point your phone camera at this code.<br/>Tap 📱 SYNC on the mobile app to scan.
+                </div>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu+'66'}}>{payload.length} bytes · {tasks.length} tasks · {(notes||[]).length} notes</div>
+              </div>
+        )}
+        {tab==='scan' && (
+          camErr
+            ? <div style={{fontFamily:MO,fontSize:12,color:C.rd,textAlign:'center',lineHeight:1.8}}>
+                ⚠ {camErr}<br/><span style={{color:C.mu,fontSize:11}}>Ensure camera permission is granted (HTTPS required).</span>
+              </div>
+            : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+                <div style={{position:'relative',width:280,height:210,background:'#000',borderRadius:10,overflow:'hidden',border:`2px solid ${scanning?C.gr:C.bo}`,transition:'border-color .3s'}}>
+                  <video ref={videoEl} style={{width:'100%',height:'100%',objectFit:'cover'}} playsInline muted/>
+                  {scanning && (
+                    <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+                      <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:150,height:150,border:`2px solid ${C.gr}`,borderRadius:6,boxShadow:`0 0 0 9999px rgba(0,0,0,0.4)`}}/>
+                    </div>
+                  )}
+                  {!scanning && !camErr && (
+                    <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <div style={{fontFamily:MO,fontSize:11,color:C.mu}}>Starting camera…</div>
+                    </div>
+                  )}
+                </div>
+                <canvas ref={canvEl} style={{display:'none'}}/>
+                <div style={{fontFamily:MO,fontSize:11,color:scanning?C.gr:C.mu,letterSpacing:1}}>
+                  {scanning ? '● SCANNING…' : 'Initializing camera…'}
+                </div>
+              </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function DailyPlanner() {
   const TODAY = new Date().toISOString().split('T')[0];
   const w = useWindowWidth();
@@ -1753,6 +1932,7 @@ function DailyPlanner() {
 
   const [showTL,setShowTL]     = useState(false);
   const [showRest,setShowRest] = useState(false);
+  const [showSync,setShowSync] = useState(false);
   const [dateInp,setDateInp]   = useState(inputFmt(TODAY));
   const [storOk,setStorOk]             = useState(false);
   const [storageReady,setStorageReady] = useState(false);
@@ -1983,6 +2163,31 @@ function DailyPlanner() {
   const timerAdj=(type,delta)=>{ const k=type==='away'?'away':type==='training'?'train':'watch'; upd(`${k}Ms`,Math.max(0,(sd[dk(`${k}Ms`)]||0)+delta*60000)); };
   const timerReset=type=>{ const k=type==='away'?'away':type==='training'?'train':'watch',logType=type==='away'?'Away':type==='training'?'Training':'Watching'; setSd(p=>({...p,[`${k}Ms-${ds}`]:0,[`${k}Run-${ds}`]:false,[`${k}Start-${ds}`]:null,[`timerLogs-${ds}`]:(p[`timerLogs-${ds}`]||[]).filter(r=>r.type!==logType)})); };
 
+  const mergeFromSync = useCallback((data) => {
+    const today = ds;
+    setSd(p => {
+      const u = {};
+      if (data.tasks !== undefined) u[`tasks-${today}`]    = data.tasks;
+      if (data.done  !== undefined) u[`done-${today}`]     = data.done;
+      if (data.tb    !== undefined) u[`time-${today}`]     = data.tb;
+      if (data.def   !== undefined) u[`deferred-${today}`] = data.def;
+      if (data.notes !== undefined) u[`notes-${today}`]    = data.notes;
+      if (data.tmr) {
+        u[`awayMs-${today}`]  = Math.max(p[`awayMs-${today}`] ||0, data.tmr.a ||0);
+        u[`trainMs-${today}`] = Math.max(p[`trainMs-${today}`]||0, data.tmr.tr||0);
+        u[`watchMs-${today}`] = Math.max(p[`watchMs-${today}`]||0, data.tmr.w ||0);
+      }
+      if (data.tlogs) {
+        const existing = p[`timerLogs-${today}`]||[];
+        const existIds = new Set(existing.map(l=>String(l.id)));
+        const fresh    = data.tlogs.filter(l=>!existIds.has(String(l.id)));
+        const t2m      = s=>{const[h,m]=(s||'00:00').split(':').map(Number);return h*60+m;};
+        u[`timerLogs-${today}`] = [...existing,...fresh].sort((a,b)=>t2m(a.startTime)-t2m(b.startTime));
+      }
+      return {...p,...u};
+    });
+  }, [ds]);
+
   const saveSummary=sum=>{ setSums(p=>({...p,[ds]:sum})); setIdx(p=>{const n=p.filter(Boolean);if(!n.includes(ds))n.push(ds);return n;}); };
 
   useEffect(()=>{
@@ -2121,6 +2326,7 @@ function DailyPlanner() {
             <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:storOk?'#0d2010':C.ca,border:`1px solid ${storOk?C.gr:C.bo}`,borderRadius:6,color:storOk?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>{storOk?'💾 SAVED':'💾 SAVE'}</button>
             <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
             <button onClick={()=>setShowHist(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>■ {isCompact?'HIST':'HISTORY'}</button>
+            <button onClick={()=>setShowSync(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#001a1a',border:`1px solid ${C.gr}`,borderRadius:6,color:C.gr,cursor:'pointer',whiteSpace:'nowrap'}}>📱 {isCompact?'':'SYNC'}</button>
             <button onClick={()=>{const b=new Blob([exportJson],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`jesse-planner-session-${ds}.json`;a.click();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'EXP':'EXPORT'}</button>
           </div>
         </div>
@@ -2163,6 +2369,7 @@ function DailyPlanner() {
 
       {showTL   && <TimerLogModal  logs={timerLogs} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} onSave={rows=>upd('timerLogs',rows)} onClose={()=>setShowTL(false)} onReset={timerReset}/>}
       {showRest && <RestoreModal   onRestore={restoreSession} onClose={()=>setShowRest(false)}/>}
+      {showSync && <SyncModal today={ds} tasks={tasks} done={done} timeBlocks={timeBlocks} deferred={deferred} timerLogs={timerLogs} awayMs={awayMs+logAwayMs} trainMs={trainMs+logTrainMs} watchMs={watchMs+logWatchMs} notes={gd('notes')||[]} onMerge={mergeFromSync} onClose={()=>setShowSync(false)} isSendFirst={true}/>}
     </div>
   );
 }
