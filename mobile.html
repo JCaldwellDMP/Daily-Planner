@@ -917,13 +917,14 @@ function useGistSync(sd, setSd) {
   const [gistStatus,   setGistStatus]     = useState('idle');
   const [gistLastSync, setGistLastSync]   = useState(null);
   const [gistError,    setGistError]      = useState('');
+  const [gistMsg,      setGistMsg]        = useState(''); // last operation result message
 
   const setGistToken = v => { store.setItem('dps-gist-token', v); setGistTokenState(v); };
   const setGistId    = v => { store.setItem('dps-gist-id',    v); setGistIdState(v); };
 
   const gistPush = useCallback(async (currentSd) => {
     if (!gistToken) return;
-    setGistStatus('syncing');
+    setGistStatus('syncing'); setGistMsg('');
     const payload = { savedAt: new Date().toISOString(), device: 'mobile', sd: currentSd || sd };
     const fileBody = { files: { 'dps-session.json': { content: JSON.stringify(payload) } } };
     try {
@@ -937,12 +938,13 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
       }
       setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
-    } catch(e) { setGistStatus('error'); setGistError(e.message); }
+      setGistMsg('✓ Push successful — ' + new Date().toLocaleTimeString());
+    } catch(e) { setGistStatus('error'); setGistError(e.message); setGistMsg('✗ Push failed: ' + e.message); }
   }, [gistToken, gistId, sd]);
 
   const gistPull = useCallback(async (force=false) => {
     if (!gistToken || !gistId) return;
-    setGistStatus('syncing');
+    setGistStatus('syncing'); setGistMsg('');
     try {
       const r = await fetch(`https://api.github.com/gists/${gistId}`, { headers:{'Authorization':`Bearer ${gistToken}`} });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -954,18 +956,22 @@ function useGistSync(sd, setSd) {
       if (remote.savedAt && remote.sd && (force || !localSavedAt || remote.savedAt > localSavedAt)) {
         setSd(remote.sd);
         store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
+        setGistMsg('✓ Remote data applied — ' + new Date().toLocaleTimeString());
+      } else {
+        setGistMsg('⚠ Remote not newer — nothing applied (remote: ' + (remote.savedAt||'?') + ')');
       }
       setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
-    } catch(e) { setGistStatus('error'); setGistError(e.message); }
+    } catch(e) { setGistStatus('error'); setGistError(e.message); setGistMsg('✗ Pull failed: ' + e.message); }
   }, [gistToken, gistId]);
 
-  useEffect(() => {
-    if (!gistToken || !gistId) return;
-    const iv = setInterval(gistPull, 60000);
-    return () => clearInterval(iv);
-  }, [gistToken, gistId, gistPull]);
+  // Auto-poll disabled — re-enable once sync is confirmed working
+  // useEffect(() => {
+  //   if (!gistToken || !gistId) return;
+  //   const iv = setInterval(gistPull, 60000);
+  //   return () => clearInterval(iv);
+  // }, [gistToken, gistId, gistPull]);
 
-  return { gistToken, setGistToken, gistId, setGistId, gistStatus, gistLastSync, gistError, gistPush, gistPull };
+  return { gistToken, setGistToken, gistId, setGistId, gistStatus, gistLastSync, gistError, gistMsg, gistPush, gistPull };
 }
 
 // ── Mobile SyncModal ───────────────────────────────────────────────────────────
@@ -1151,6 +1157,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 <button onClick={()=>{gs.setGistToken&&gs.setGistToken('');gs.setGistId&&gs.setGistId('');setTokenInp('');}} style={{fontFamily:MO,fontSize:11,padding:'8px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
               </div>
             )}
+            {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.bg,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
           </div>
 
           <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:10,textAlign:'center'}}>── QR FALLBACK ──</div>
