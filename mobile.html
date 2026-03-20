@@ -921,6 +921,7 @@ function useGistSync(sd, setSd) {
 
   const setGistToken = v => { store.setItem('dps-gist-token', v); setGistTokenState(v); };
   const setGistId    = v => { store.setItem('dps-gist-id',    v); setGistIdState(v); };
+  const justPulled   = useRef(false); // prevents auto-save from overwriting Gist after a pull
 
   const gistPush = useCallback(async (currentSd) => {
     if (!gistToken) return;
@@ -954,6 +955,7 @@ function useGistSync(sd, setSd) {
       const remote = JSON.parse(content);
       const localSavedAt = (() => { try { return JSON.parse(store.getItem('dps-v2')||'{}').savedAt||''; } catch(e){ return ''; } })();
       if (remote.savedAt && remote.sd && (force || !localSavedAt || remote.savedAt > localSavedAt)) {
+        justPulled.current = true;
         setSd(remote.sd);
         store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
         setGistMsg('✓ Remote data applied — ' + new Date().toLocaleTimeString());
@@ -971,7 +973,7 @@ function useGistSync(sd, setSd) {
   //   return () => clearInterval(iv);
   // }, [gistToken, gistId, gistPull]);
 
-  return { gistToken, setGistToken, gistId, setGistId, gistStatus, gistLastSync, gistError, gistMsg, gistPush, gistPull };
+  return { gistToken, setGistToken, gistId, setGistId, gistStatus, gistLastSync, gistError, gistMsg, gistPush, gistPull, justPulled };
 }
 
 // ── Mobile SyncModal ───────────────────────────────────────────────────────────
@@ -1157,6 +1159,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 <button onClick={()=>{gs.setGistToken&&gs.setGistToken('');gs.setGistId&&gs.setGistId('');setTokenInp('');}} style={{fontFamily:MO,fontSize:11,padding:'8px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
               </div>
             )}
+            {gs.gistMsg && <div style={{fontFamily:MO,fontSize:11,marginTop:8,color:gs.gistStatus==='error'?C.rd:gs.gistMsg.startsWith('—')?C.yl:C.gr}}>{gs.gistMsg}</div>}
             {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.bg,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
           </div>
 
@@ -1262,7 +1265,11 @@ function MobileApp() {
         const mergedSd = {...(existing.sd||{}), ...sd};
         const savedAt = new Date().toISOString();
         store.setItem('dps-v2', JSON.stringify({...existing, sd:mergedSd, savedAt}));
-        gistSyncer.gistPush(mergedSd);
+        if (gistSyncer.justPulled?.current) {
+          gistSyncer.justPulled.current = false; // data came FROM Gist — don't push it back
+        } else {
+          gistSyncer.gistPush(mergedSd);
+        }
       } catch(e) {}
     }, 800);
   }, [sd, loaded]);
