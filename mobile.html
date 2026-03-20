@@ -943,8 +943,18 @@ function useGistSync(sd, setSd) {
       const r = await fetch(`https://api.github.com/gists/${gistId}`, { headers:{'Authorization':`Bearer ${gistToken}`} });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
       const j = await r.json();
-      const content = j.files?.['dps-session.json']?.content;
-      if (!content) throw new Error('No session file in Gist');
+      const fileInfo = j.files?.['dps-session.json'];
+      if (!fileInfo) throw new Error('No session file in Gist');
+      // Always use raw_url — avoids GitHub's 1MB inline content truncation as file grows
+      let content;
+      if (fileInfo.raw_url) {
+        const rawR = await fetch(fileInfo.raw_url, { headers: { 'Authorization': `Bearer ${gistToken}`, 'Cache-Control': 'no-cache' } });
+        if (!rawR.ok) throw new Error(`GitHub raw fetch ${rawR.status}`);
+        content = await rawR.text();
+      } else {
+        content = fileInfo.content;
+      }
+      if (!content) throw new Error('Empty session file in Gist');
       const remote = JSON.parse(content);
       const localSavedAt = (() => { try { return JSON.parse(store.getItem('dps-v2')||'{}').savedAt||''; } catch(e){ return ''; } })();
       if (remote.savedAt && remote.sd && (force || !localSavedAt || remote.savedAt > localSavedAt)) {
