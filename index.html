@@ -2025,7 +2025,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
             <OBtn onClick={()=>gs.gistPush&&gs.gistPush()} style={{padding:'7px 14px',fontSize:12}}>↑ Sync Now</OBtn>
             <Btn onClick={()=>gs.gistPull&&gs.gistPull(true)} style={{padding:'7px 14px',fontSize:12}}>↓ Pull</Btn>
             <button onClick={()=>{ gs.setGistToken&&gs.setGistToken(''); gs.setGistId&&gs.setGistId(''); setTokenInp(''); }} style={{fontFamily:MO,fontSize:11,padding:'7px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
-            {gs.gistId&&<span style={{fontFamily:MO,fontSize:9,color:C.mu,alignSelf:'center'}}>Gist: {gs.gistId.slice(0,8)}…</span>}
+            {gs.gistId&&<div style={{fontFamily:MO,fontSize:9,color:C.mu,marginTop:6,wordBreak:'break-all'}}>Gist ID: <span style={{color:C.tx,userSelect:'all'}}>{gs.gistId}</span></div>}
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
