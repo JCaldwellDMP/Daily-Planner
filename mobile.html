@@ -29,7 +29,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <!-- QR sync: qrcode (canvas renderer) + jsQR (scanner) + pako (compress) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 </head>
@@ -917,7 +917,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const [pending, setPending]   = useState(null);
   const [camErr, setCamErr]     = useState('');
   const [scanning, setScanning] = useState(false);
-  const qrCanvas = useRef(null);
+  const qrDiv   = useRef(null);
   const videoEl = useRef(null);
   const canvEl  = useRef(null);
   const rafId   = useRef(null);
@@ -954,15 +954,16 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const tooBig = qrData.length > 2900;
 
   useEffect(() => {
-    if (tab !== 'send' || tooBig || !qrCanvas.current) return;
-    const QRGen = window.QRCode;
-    if (!QRGen?.toCanvas) return;
-    QRGen.toCanvas(qrCanvas.current, qrData, {
-      errorCorrectionLevel: 'L',
-      width: 300,
-      margin: 3,
-      color: { dark: '#000000', light: '#ffffff' },
-    });
+    if (tab !== 'send' || tooBig || !qrDiv.current) return;
+    qrDiv.current.innerHTML = '';
+    try {
+      new window.QRCode(qrDiv.current, {
+        text: qrData,
+        width: 300, height: 300,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.L,
+      });
+    } catch(e) { console.error('QR gen failed', e); }
   }, [tab]);
 
   const stopCam = useCallback(() => {
@@ -1104,7 +1105,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 </div>
               : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14}}>
                   <div style={{background:'#fff',borderRadius:10,lineHeight:0,overflow:'hidden'}}>
-                    <canvas ref={qrCanvas}/>
+                    <div ref={qrDiv}/>
                   </div>
                   <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
                     Show this to the desktop camera.<br/>Click 📷 GET FROM PHONE on desktop.
