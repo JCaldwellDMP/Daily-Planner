@@ -1791,9 +1791,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
       }
       setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
-      const pushed = currentSd || sd || {};
-      const todayDbg = new Date().toISOString().split('T')[0];
-      setGistMsg(`↑ Pushed ${Object.keys(pushed).length} keys — tasks-${todayDbg}: ${(pushed[`tasks-${todayDbg}`]||[]).length} items`);
+      setGistMsg('↑ Pushed to Gist — ' + new Date().toLocaleTimeString());
     } catch(e) { setGistStatus('error'); setGistError(e.message); setGistMsg('✗ Push failed: ' + e.message); }
   }, [gistToken, gistId, sd]);
 
@@ -1811,7 +1809,7 @@ function useGistSync(sd, setSd) {
       // Always use raw_url — avoids GitHub's 1MB inline content truncation as file grows
       let content;
       if (fileInfo.raw_url) {
-        const rawR = await fetch(fileInfo.raw_url, { headers: { 'Authorization': `Bearer ${gistToken}`, 'Cache-Control': 'no-cache' } });
+        const rawR = await fetch(fileInfo.raw_url);
         if (!rawR.ok) throw new Error(`GitHub raw fetch ${rawR.status}`);
         content = await rawR.text();
       } else {
@@ -1821,7 +1819,15 @@ function useGistSync(sd, setSd) {
       const remote = JSON.parse(content);
       const localSavedAt = (() => { try { return JSON.parse(store.getItem('dps-v2')||'{}').savedAt||''; } catch(e){ return ''; } })();
       if (remote.savedAt && remote.sd && (force || !localSavedAt || remote.savedAt > localSavedAt)) {
-        setSd(remote.sd);
+        const todayKey = new Date().toISOString().split('T')[0];
+        setSd(prev => {
+          const merged = { ...remote.sd };
+          // Preserve local dismissed/done for today so dropped tasks stay dropped
+          [`dismissed-${todayKey}`, `done-${todayKey}`].forEach(k => {
+            if (prev[k]?.length) merged[k] = prev[k];
+          });
+          return merged;
+        });
         store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
         setGistMsg('✓ Remote data applied — ' + new Date().toLocaleTimeString());
       } else {
@@ -2042,8 +2048,8 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
         {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at github.com/settings/tokens → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
-      {/* ── QR FALLBACK ── */}
-      <div style={{padding:'8px 20px 4px',borderBottom:`1px solid ${C.bo}`}}>
+      {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
+      {false && <><div style={{padding:'8px 20px 4px',borderBottom:`1px solid ${C.bo}`}}>
         <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2}}>── QR FALLBACK ──</span>
       </div>
       <div style={{display:'flex',borderBottom:`1px solid ${C.bo}`}}>
@@ -2092,7 +2098,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 </div>
               </div>
         )}
-      </div>
+      </div></>}
     </Modal>
   );
 }
@@ -2143,7 +2149,7 @@ function DailyPlanner() {
   const watchMs    = gd('watchMs')    || 0;
   const watchRun   = gd('watchRun')   || false;
 
-  const lastDate = idx.filter(Boolean).slice(-1)[0];
+  const lastDate = idx.filter(Boolean).filter(d => d < TODAY).slice(-1)[0];
   const lastSum  = lastDate ? sums[lastDate] : null;
   const exportJson = JSON.stringify({version:2,savedAt:new Date().toISOString(),sd,sums,summaryIndex:idx},null,2);
 
@@ -2194,29 +2200,31 @@ function DailyPlanner() {
   useEffect(()=>{
     if (!storageReady) return;
     setSd(p => {
-      // Step 1: wipe ALL carries from today (any task with carrySrcId OR carried:true)
-      // then re-pull clean from the most recent past day. This is the only
-      // approach that works regardless of how the bug mangled the data.
-      const todayOwnTasks = (p[`tasks-${TODAY}`]||[]).filter(t => !t.carrySrcId && !t.carried);
+      const existing = p[`tasks-${TODAY}`] || [];
 
-      // Step 2: find most recent past day with tasks
+      // Find most recent past day with tasks
       const srcDate = Object.keys(p)
         .filter(k => k.startsWith('tasks-'))
         .map(k => k.replace('tasks-',''))
         .filter(d => d < TODAY && (p[`tasks-${d}`]||[]).length > 0)
         .sort().reverse()[0];
 
-      if (!srcDate) return {...p, [`tasks-${TODAY}`]: todayOwnTasks};
+      if (!srcDate) return p;
 
       const srcTasks    = p[`tasks-${srcDate}`]    || [];
       const srcDone     = new Set(p[`done-${srcDate}`]     || []);
       const srcDeferred = p[`deferred-${srcDate}`] || {};
 
+      // Only add carries that don't already exist — never wipe existing ones
+      // so user-assigned priorities and edits are preserved across reloads
+      const existingCarrySrcIds = new Set(existing.filter(t=>t.carrySrcId).map(t=>String(t.carrySrcId)));
+
       const toAdd = srcTasks
-        .filter(t => !srcDone.has(t.id) && !(String(t.id) in srcDeferred))
+        .filter(t => !srcDone.has(t.id) && !(String(t.id) in srcDeferred) && !existingCarrySrcIds.has(String(t.id)))
         .map(t => ({...t, id:nid(), carrySrcId:String(t.id), carrySrcDate:srcDate, carried:true, source:'brain'}));
 
-      return {...p, [`tasks-${TODAY}`]: [...todayOwnTasks, ...toAdd]};
+      if (!toAdd.length) return p;
+      return {...p, [`tasks-${TODAY}`]: [...existing, ...toAdd]};
     });
   },[storageReady]);
 
