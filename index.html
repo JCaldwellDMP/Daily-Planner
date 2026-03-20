@@ -2015,63 +2015,48 @@ function DailyPlanner() {
   // ── Carry-forward: carry incomplete tasks from most recent past day only ──────
   useEffect(()=>{
     if (!storageReady) return;
-
-    // ── One-time cleanup: remove duplicate carried tasks from all days ──────────
     setSd(p => {
+      // Step 1: deduplicate carried tasks across all days
       const cleaned = {};
       Object.keys(p).forEach(k => {
         if (!k.startsWith('tasks-')) { cleaned[k]=p[k]; return; }
-        const arr = p[k] || [];
         const seen = new Set();
-        const deduped = arr.filter(t => {
+        cleaned[k] = (p[k]||[]).filter(t => {
           if (!t.carrySrcId) return true;
           const key = t.carrySrcDate+'|'+String(t.carrySrcId);
           if (seen.has(key)) return false;
           seen.add(key); return true;
         });
-        cleaned[k] = deduped;
       });
-      return cleaned;
-    });
 
-    // Find the most recent past day that has tasks — carry from there only.
-    // That day already contains everything carried forward from all prior days,
-    // so there is no need to scan further back.
-    const pastDates = Object.keys(sd)
-      .filter(k => k.startsWith('tasks-'))
-      .map(k => k.replace('tasks-',''))
-      .filter(d => d < TODAY && (sd[`tasks-${d}`]||[]).length > 0)
-      .sort()
-      .reverse();
+      // Step 2: find most recent past day with tasks
+      const srcDate = Object.keys(cleaned)
+        .filter(k => k.startsWith('tasks-'))
+        .map(k => k.replace('tasks-',''))
+        .filter(d => d < TODAY && (cleaned[`tasks-${d}`]||[]).length > 0)
+        .sort().reverse()[0];
 
-    const srcDate = pastDates[0];
-    if (!srcDate) return;
+      if (!srcDate) return cleaned;
 
-    const srcTasks   = sd[`tasks-${srcDate}`] || [];
-    const srcDone    = new Set(sd[`done-${srcDate}`]     || []);
-    const srcDeferred= sd[`deferred-${srcDate}`]         || {};
-    const todayTasks = sd[`tasks-${TODAY}`]              || [];
+      const srcTasks    = cleaned[`tasks-${srcDate}`]    || [];
+      const srcDone     = new Set(cleaned[`done-${srcDate}`]     || []);
+      const srcDeferred = cleaned[`deferred-${srcDate}`] || {};
+      const todayTasks  = cleaned[`tasks-${TODAY}`]      || [];
 
-    // Dedup by the source task's own id (not carrySrcId) to avoid re-adding
-    const existingCarriedSrcIds = new Set(
-      todayTasks.filter(t=>t.carrySrcId).map(t=>String(t.carrySrcId))
-    );
+      const alreadyCarried = new Set(
+        todayTasks.filter(t=>t.carrySrcId).map(t=>String(t.carrySrcId))
+      );
 
-    const toAdd = srcTasks
-      .filter(t =>
-        !srcDone.has(t.id) &&
-        !(String(t.id) in srcDeferred) &&
-        !existingCarriedSrcIds.has(String(t.id))
-      )
-      .map(t => ({...t, id:nid(), carrySrcId:String(t.id), carrySrcDate:srcDate, carried:true, source:'brain'}));
+      const toAdd = srcTasks
+        .filter(t =>
+          !srcDone.has(t.id) &&
+          !(String(t.id) in srcDeferred) &&
+          !alreadyCarried.has(String(t.id))
+        )
+        .map(t => ({...t, id:nid(), carrySrcId:String(t.id), carrySrcDate:srcDate, carried:true, source:'brain'}));
 
-    if (!toAdd.length) return;
-    setSd(p => {
-      const cur = p[`tasks-${TODAY}`] || [];
-      const already = new Set(cur.filter(t=>t.carrySrcId).map(t=>String(t.carrySrcId)));
-      const fresh = toAdd.filter(t => !already.has(String(t.carrySrcId)));
-      if (!fresh.length) return p;
-      return {...p, [`tasks-${TODAY}`]: [...cur, ...fresh]};
+      if (!toAdd.length) return cleaned;
+      return {...cleaned, [`tasks-${TODAY}`]: [...todayTasks, ...toAdd]};
     });
   },[storageReady]);
 
@@ -2226,17 +2211,31 @@ function DailyPlanner() {
 
   const resetAndRepull = useCallback(() => {
     if (!window.confirm(`Reset carried tasks for ${ds} and re-pull from previous days?`)) return;
-    setSd(p => ({
-      ...p,
-      [`tasks-${ds}`]: (p[`tasks-${ds}`]||[]).filter(t => !t.carrySrcId),
-      [`done-${ds}`]:  (p[`done-${ds}`]||[]).filter(id => {
-        const task = (p[`tasks-${ds}`]||[]).find(t=>t.id===id);
-        return task && !task.carrySrcId;
-      }),
-    }));
-    // Re-trigger carry-forward by briefly toggling storageReady
-    setStorageReady(false);
-    setTimeout(() => setStorageReady(true), 50);
+    setSd(p => {
+      // Wipe all carried tasks (and their done entries) from today
+      const todayTasks    = (p[`tasks-${ds}`]||[]).filter(t => !t.carrySrcId);
+      const todayDoneSet  = new Set(todayTasks.map(t=>t.id));
+      const todayDone     = (p[`done-${ds}`]||[]).filter(id => todayDoneSet.has(id));
+
+      // Find most recent past day with tasks
+      const srcDate = Object.keys(p)
+        .filter(k => k.startsWith('tasks-'))
+        .map(k => k.replace('tasks-',''))
+        .filter(d => d < ds && (p[`tasks-${d}`]||[]).length > 0)
+        .sort().reverse()[0];
+
+      if (!srcDate) return {...p, [`tasks-${ds}`]:todayTasks, [`done-${ds}`]:todayDone};
+
+      const srcTasks    = p[`tasks-${srcDate}`]    || [];
+      const srcDone     = new Set(p[`done-${srcDate}`]     || []);
+      const srcDeferred = p[`deferred-${srcDate}`] || {};
+
+      const toAdd = srcTasks
+        .filter(t => !srcDone.has(t.id) && !(String(t.id) in srcDeferred))
+        .map(t => ({...t, id:nid(), carrySrcId:String(t.id), carrySrcDate:srcDate, carried:true, source:'brain'}));
+
+      return {...p, [`tasks-${ds}`]:[...todayTasks,...toAdd], [`done-${ds}`]:todayDone};
+    });
   }, [ds]);
 
   const saveSummary=sum=>{ setSums(p=>({...p,[ds]:sum})); setIdx(p=>{const n=p.filter(Boolean);if(!n.includes(ds))n.push(ds);return n;}); };
