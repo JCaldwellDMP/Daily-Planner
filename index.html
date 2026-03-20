@@ -637,7 +637,7 @@ function InboxTab({ inp, setInp, scanItems, onUpdate, onBack, onNext }) {
   );
 }
 
-function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateScanItems, onUpdateTasks, onUpdateDismissed, onBack, onNext }) {
+function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateScanItems, onUpdateTasks, onUpdateDismissed, onBack, onNext, onResetCarry }) {
   const [inp,setInp]                 = useState('');
   const [editId,setEditId]           = useState(null);
   const [editVal,setEditVal]         = useState('');
@@ -697,8 +697,12 @@ function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateSc
       <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>STEP 2 OF 5</div>
       <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Brain Dump</h2>
       <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 20px'}}>Get everything out of your head. Don't filter. Don't prioritize yet.</p>
-      <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:16}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext} disabled={brainTasks.length===0}>Next →</OBtn>
+      <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:16,flexWrap:'wrap'}}>
+        <Btn onClick={onBack}>← Back</Btn>
+        <div style={{display:'flex',gap:6}}>
+          {onResetCarry && <button onClick={onResetCarry} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${C.rd}44`,background:C.rd+'11',color:C.rd,whiteSpace:'nowrap'}} title="Wipe carried tasks for today and re-pull fresh from previous days">↺ Reset &amp; Re-pull</button>}
+          <OBtn onClick={onNext} disabled={brainTasks.length===0}>Next →</OBtn>
+        </div>
       </div>
       {pendingInbox.length>0&&(
         <div style={{background:'#0d1520',border:`1px solid ${C.bl}55`,borderRadius:8,padding:14,marginBottom:16}}>
@@ -2208,6 +2212,21 @@ function DailyPlanner() {
     });
   }, [ds]);
 
+  const resetAndRepull = useCallback(() => {
+    if (!window.confirm(`Reset carried tasks for ${ds} and re-pull from previous days?`)) return;
+    setSd(p => ({
+      ...p,
+      [`tasks-${ds}`]: (p[`tasks-${ds}`]||[]).filter(t => !t.carrySrcId),
+      [`done-${ds}`]:  (p[`done-${ds}`]||[]).filter(id => {
+        const task = (p[`tasks-${ds}`]||[]).find(t=>t.id===id);
+        return task && !task.carrySrcId;
+      }),
+    }));
+    // Re-trigger carry-forward by briefly toggling storageReady
+    setStorageReady(false);
+    setTimeout(() => setStorageReady(true), 50);
+  }, [ds]);
+
   const saveSummary=sum=>{ setSums(p=>({...p,[ds]:sum})); setIdx(p=>{const n=p.filter(Boolean);if(!n.includes(ds))n.push(ds);return n;}); };
 
   useEffect(()=>{
@@ -2377,7 +2396,7 @@ function DailyPlanner() {
 
       <div style={{padding:isMobile?'16px 12px':'24px 20px'}}>
         {tab==='inbox'    && <InboxTab    inp={inboxInp} setInp={setInboxInpSafe} scanItems={scanItems} onUpdate={v=>{upd('scanItems',v);window._dpsInboxDraft='';}} onBack={goBack} onNext={goNext}/>}
-        {tab==='dump'     && <DumpTab     tasks={tasks} dismissed={dismissed} lastSum={lastSum} scanItems={scanItems} deferred={deferred} onUpdateScanItems={v=>upd('scanItems',v)} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext}/>}
+        {tab==='dump'     && <DumpTab     tasks={tasks} dismissed={dismissed} lastSum={lastSum} scanItems={scanItems} deferred={deferred} onUpdateScanItems={v=>upd('scanItems',v)} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
         {tab==='schedule' && <ScheduleTab timeBlocks={timeBlocks} tasks={tasks} done={done} timerLogs={timerLogs} deferred={deferred} onUpdateTime={v=>upd('time',v)} onBack={goBack} onNext={goNext} isCompact={isCompact}/>}
         {tab==='capture'  && <CaptureTab  tasks={tasks} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDeferred={v=>upd('deferred',v)}/>}
         {tab==='progress' && <ProgressTab tasks={tasks} done={done} deferred={deferred} timeBlocks={timeBlocks} onUpdateDone={v=>upd('done',v)} onUpdateDeferred={v=>upd('deferred',v)} onBack={goBack} onNext={goNext} isMobile={isMobile}/>}
