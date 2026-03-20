@@ -924,20 +924,13 @@ function useGistSync(sd, setSd) {
   const justPulled   = useRef(false); // prevents auto-save from overwriting Gist after a pull
 
   const gistPush = useCallback(async (currentSd) => {
-    if (!gistToken) return;
+    if (!gistToken || !gistId) return; // never auto-create a Gist on mobile — must have ID from desktop
     setGistStatus('syncing'); setGistMsg('');
     const payload = { savedAt: new Date().toISOString(), device: 'mobile', sd: currentSd || sd };
     const fileBody = { files: { 'dps-session.json': { content: JSON.stringify(payload) } } };
     try {
-      let id = gistId;
-      if (!id) {
-        const r = await fetch('https://api.github.com/gists', { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${gistToken}`}, body: JSON.stringify({...fileBody, public:false, description:'DPS Session Sync'}) });
-        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-        const j = await r.json(); id = j.id; setGistId(id);
-      } else {
-        const r = await fetch(`https://api.github.com/gists/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json','Authorization':`Bearer ${gistToken}`}, body: JSON.stringify(fileBody) });
-        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
-      }
+      const r = await fetch(`https://api.github.com/gists/${gistId}`, { method:'PATCH', headers:{'Content-Type':'application/json','Authorization':`Bearer ${gistToken}`}, body: JSON.stringify(fileBody) });
+      if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
       setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
       setGistMsg('✓ Push successful — ' + new Date().toLocaleTimeString());
     } catch(e) { setGistStatus('error'); setGistError(e.message); setGistMsg('✗ Push failed: ' + e.message); }
@@ -989,6 +982,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const [camErr, setCamErr]     = useState('');
   const [scanning, setScanning] = useState(false);
   const [tokenInp, setTokenInp] = useState(gistSyncer?.gistToken||'');
+  const [gistIdInp, setGistIdInp] = useState(gistSyncer?.gistId||'');
   const qrDiv    = useRef(null);
   const fileRef  = useRef(null);
   const decodeCanvas = useRef(null);
@@ -996,7 +990,11 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const gs = gistSyncer || {};
   const statusDot = gs.gistStatus==='ok'?C.gr:gs.gistStatus==='error'?C.rd:gs.gistStatus==='syncing'?C.yl:C.mu;
   const statusLabel = gs.gistStatus==='ok'?`✓ Synced ${gs.gistLastSync||''}`:gs.gistStatus==='error'?`✗ ${gs.gistError}`:gs.gistStatus==='syncing'?'⟳ Syncing…':gs.gistToken&&gs.gistId?'Connected':'Not configured';
-  const connectGist = () => { if(!tokenInp.trim())return; gs.setGistToken&&gs.setGistToken(tokenInp.trim()); };
+  const connectGist = () => {
+    if (!tokenInp.trim()) return;
+    gs.setGistToken && gs.setGistToken(tokenInp.trim());
+    if (gistIdInp.trim()) gs.setGistId && gs.setGistId(gistIdInp.trim());
+  };
 
   // V3 compact payload: single-char keys, indexed tb, no def/notes/tlogs
   const payload = JSON.stringify({
@@ -1152,21 +1150,26 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
             </div>
             {!gs.gistToken ? (
               <>
-                <div style={{display:'flex',gap:8,marginBottom:8}}>
+                <div style={{display:'flex',gap:8,marginBottom:6}}>
                   <input type="password" value={tokenInp} onChange={e=>setTokenInp(e.target.value)} placeholder="GitHub PAT (gist scope)…" style={{fontFamily:MO,fontSize:12,background:C.bg,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 10px',flex:1,color:C.tx,outline:'none'}}/>
+                </div>
+                <div style={{display:'flex',gap:8,marginBottom:8}}>
+                  <input type="text" value={gistIdInp} onChange={e=>setGistIdInp(e.target.value)} placeholder="Gist ID (from desktop SYNC modal)…" style={{fontFamily:MO,fontSize:12,background:C.bg,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 10px',flex:1,color:C.tx,outline:'none'}}/>
                   <button onClick={connectGist} style={{fontFamily:MO,fontSize:12,padding:'8px 12px',background:C.or,color:'#000',border:'none',borderRadius:6,cursor:'pointer',fontWeight:'bold',whiteSpace:'nowrap'}}>Connect</button>
                 </div>
-                <div style={{fontFamily:MO,fontSize:10,color:C.mu,lineHeight:1.6}}>github.com/settings/tokens → New classic → check <strong style={{color:C.tx}}>gist</strong></div>
+                <div style={{fontFamily:MO,fontSize:10,color:C.mu,lineHeight:1.6}}>Paste your GitHub PAT and the Gist ID shown on the desktop SYNC modal.</div>
               </>
             ) : (
-              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                <button onClick={()=>gs.gistPush&&gs.gistPush()} style={{fontFamily:MO,fontSize:12,padding:'8px 14px',background:C.or,color:'#000',border:'none',borderRadius:6,cursor:'pointer',fontWeight:'bold'}}>↑ Sync Now</button>
-                <button onClick={()=>gs.gistPull&&gs.gistPull(true)} style={{fontFamily:MO,fontSize:12,padding:'8px 12px',background:C.ca,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:6,cursor:'pointer'}}>↓ Pull</button>
-                <button onClick={()=>{gs.setGistToken&&gs.setGistToken('');gs.setGistId&&gs.setGistId('');setTokenInp('');}} style={{fontFamily:MO,fontSize:11,padding:'8px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
-              </div>
+              <>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:6}}>
+                  <button onClick={()=>gs.gistPush&&gs.gistPush()} style={{fontFamily:MO,fontSize:12,padding:'8px 14px',background:C.or,color:'#000',border:'none',borderRadius:6,cursor:'pointer',fontWeight:'bold'}}>↑ Sync Now</button>
+                  <button onClick={()=>gs.gistPull&&gs.gistPull(true)} style={{fontFamily:MO,fontSize:12,padding:'8px 12px',background:C.ca,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:6,cursor:'pointer'}}>↓ Pull</button>
+                  <button onClick={()=>{gs.setGistToken&&gs.setGistToken('');gs.setGistId&&gs.setGistId('');setTokenInp('');setGistIdInp('');}} style={{fontFamily:MO,fontSize:11,padding:'8px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
+                </div>
+                {gs.gistId && <div style={{fontFamily:MO,fontSize:9,color:C.mu,wordBreak:'break-all'}}>Gist: {gs.gistId}</div>}
+              </>
             )}
-            {gs.gistMsg && <div style={{fontFamily:MO,fontSize:11,marginTop:8,color:gs.gistStatus==='error'?C.rd:gs.gistMsg.startsWith('—')?C.yl:C.gr}}>{gs.gistMsg}</div>}
-            {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.bg,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
+            {gs.gistMsg && <div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.bg,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')||gs.gistMsg.startsWith('—')?C.yl:C.rd}}>{gs.gistMsg}</div>}
           </div>
 
           <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:10,textAlign:'center'}}>── QR FALLBACK ──</div>
