@@ -940,7 +940,7 @@ function useGistSync(sd, setSd) {
     } catch(e) { setGistStatus('error'); setGistError(e.message); }
   }, [gistToken, gistId, sd]);
 
-  const gistPull = useCallback(async () => {
+  const gistPull = useCallback(async (force=false) => {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing');
     try {
@@ -951,7 +951,7 @@ function useGistSync(sd, setSd) {
       if (!content) throw new Error('No session file in Gist');
       const remote = JSON.parse(content);
       const localSavedAt = (() => { try { return JSON.parse(store.getItem('dps-v2')||'{}').savedAt||''; } catch(e){ return ''; } })();
-      if (remote.savedAt && remote.sd && (!localSavedAt || remote.savedAt > localSavedAt)) {
+      if (remote.savedAt && remote.sd && (force || !localSavedAt || remote.savedAt > localSavedAt)) {
         setSd(remote.sd);
         store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
       }
@@ -1147,7 +1147,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
             ) : (
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 <button onClick={()=>gs.gistPush&&gs.gistPush()} style={{fontFamily:MO,fontSize:12,padding:'8px 14px',background:C.or,color:'#000',border:'none',borderRadius:6,cursor:'pointer',fontWeight:'bold'}}>↑ Sync Now</button>
-                <button onClick={()=>gs.gistPull&&gs.gistPull()} style={{fontFamily:MO,fontSize:12,padding:'8px 12px',background:C.ca,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:6,cursor:'pointer'}}>↓ Pull</button>
+                <button onClick={()=>gs.gistPull&&gs.gistPull(true)} style={{fontFamily:MO,fontSize:12,padding:'8px 12px',background:C.ca,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:6,cursor:'pointer'}}>↓ Pull</button>
                 <button onClick={()=>{gs.setGistToken&&gs.setGistToken('');gs.setGistId&&gs.setGistId('');setTokenInp('');}} style={{fontFamily:MO,fontSize:11,padding:'8px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
               </div>
             )}
