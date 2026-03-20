@@ -948,7 +948,7 @@ function useGistSync(sd, setSd) {
       // Always use raw_url — avoids GitHub's 1MB inline content truncation as file grows
       let content;
       if (fileInfo.raw_url) {
-        const rawR = await fetch(fileInfo.raw_url, { headers: { 'Authorization': `Bearer ${gistToken}`, 'Cache-Control': 'no-cache' } });
+        const rawR = await fetch(fileInfo.raw_url);
         if (!rawR.ok) throw new Error(`GitHub raw fetch ${rawR.status}`);
         content = await rawR.text();
       } else {
