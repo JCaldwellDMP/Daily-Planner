@@ -959,12 +959,13 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
         text: qrData,
         width: 300, height: 300,
         colorDark: '#000000', colorLight: '#ffffff',
-        correctLevel: window.QRCode.CorrectLevel.L,
+        correctLevel: window.QRCode.CorrectLevel.M,
       });
     } catch(e) { console.error('QR gen failed', e); }
   }, [tab]);
 
-  // Decode a photo taken by the native camera
+  // Decode a photo taken by the native camera.
+  // Tries multiple downscale factors so moire/JPEG artifacts average out.
   const decodePhoto = e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -973,14 +974,22 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
     const img = new Image();
     img.onload = () => {
       const cv = decodeCanvas.current;
-      cv.width = img.width; cv.height = img.height;
-      cv.getContext('2d').drawImage(img, 0, 0);
-      const imageData = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
-      const code = window.jsQR && window.jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'attemptBoth'});
+      const ctx = cv.getContext('2d');
+      // Try decoding at multiple scales — moire cancels out at certain downscales
+      const scales = [1.0, 0.5, 0.25, 0.75];
+      let code = null;
+      for (const scale of scales) {
+        cv.width  = Math.round(img.width  * scale);
+        cv.height = Math.round(img.height * scale);
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        const imageData = ctx.getImageData(0, 0, cv.width, cv.height);
+        code = window.jsQR && window.jsQR(imageData.data, imageData.width, imageData.height, {inversionAttempts:'attemptBoth'});
+        if (code) break;
+      }
       setScanning(false);
-      // reset file input so same photo can be retried
       if (fileRef.current) fileRef.current.value = '';
-      if (!code) { setCamErr('No QR code found — try again closer or with better lighting.'); return; }
+      URL.revokeObjectURL(img.src);
+      if (!code) { setCamErr('No QR code found — try again with better lighting and hold steady.'); return; }
       try {
         let parsed = null;
         const raw = code.data;
@@ -994,8 +1003,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
         }
         if (parsed && parsed.d) { setPending(expandSyncData(parsed)); }
         else { setCamErr('QR decoded but data was unrecognised.'); }
-      } catch(err) { setCamErr('Failed to read QR data — make sure you scanned the right code.'); }
-      URL.revokeObjectURL(img.src);
+      } catch(err) { setCamErr('Failed to read QR data — make sure you scanned the correct code.'); }
     };
     img.onerror = () => { setCamErr('Could not load image.'); setScanning(false); };
     img.src = URL.createObjectURL(file);
