@@ -1754,17 +1754,97 @@ function StatsTab({ sums, idx, isMobile }) {
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
+
+// ── GitHub Gist Sync Hook ─────────────────────────────────────────────────────
+function useGistSync(sd, setSd) {
+  const [gistToken,    setGistTokenState] = useState(() => store.getItem('dps-gist-token')||'');
+  const [gistId,       setGistIdState]    = useState(() => store.getItem('dps-gist-id')||'');
+  const [gistStatus,   setGistStatus]     = useState('idle'); // idle|syncing|ok|error
+  const [gistLastSync, setGistLastSync]   = useState(null);
+  const [gistError,    setGistError]      = useState('');
+
+  const setGistToken = v => { store.setItem('dps-gist-token', v); setGistTokenState(v); };
+  const setGistId    = v => { store.setItem('dps-gist-id',    v); setGistIdState(v); };
+
+  const gistPush = useCallback(async (currentSd) => {
+    if (!gistToken) return;
+    setGistStatus('syncing');
+    const payload = { savedAt: new Date().toISOString(), device: 'desktop', sd: currentSd || sd };
+    const fileBody = { files: { 'dps-session.json': { content: JSON.stringify(payload) } } };
+    try {
+      let id = gistId;
+      if (!id) {
+        const r = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
+          body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
+        });
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+        const j = await r.json(); id = j.id; setGistId(id);
+      } else {
+        const r = await fetch(`https://api.github.com/gists/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
+          body: JSON.stringify(fileBody),
+        });
+        if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
+      }
+      setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
+    } catch(e) { setGistStatus('error'); setGistError(e.message); }
+  }, [gistToken, gistId, sd]);
+
+  const gistPull = useCallback(async () => {
+    if (!gistToken || !gistId) return;
+    setGistStatus('syncing');
+    try {
+      const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+        headers: { 'Authorization': `Bearer ${gistToken}` },
+      });
+      if (!r.ok) throw new Error(`GitHub ${r.status}`);
+      const j = await r.json();
+      const content = j.files?.['dps-session.json']?.content;
+      if (!content) throw new Error('No session file in Gist');
+      const remote = JSON.parse(content);
+      const localSavedAt = (() => { try { return JSON.parse(store.getItem('dps-v2')||'{}').savedAt||''; } catch(e){ return ''; } })();
+      if (remote.savedAt && remote.sd && (!localSavedAt || remote.savedAt > localSavedAt)) {
+        setSd(remote.sd);
+        store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
+      }
+      setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
+    } catch(e) { setGistStatus('error'); setGistError(e.message); }
+  }, [gistToken, gistId]);
+
+  useEffect(() => {
+    if (!gistToken || !gistId) return;
+    const iv = setInterval(gistPull, 60000);
+    return () => clearInterval(iv);
+  }, [gistToken, gistId, gistPull]);
+
+  return { gistToken, setGistToken, gistId, setGistId, gistStatus, gistLastSync, gistError, gistPush, gistPull };
+}
+
 // ── SyncModal ──────────────────────────────────────────────────────────────────
-function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs, trainMs, watchMs, notes, onMerge, onClose, isSendFirst=true }) {
+function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs, trainMs, watchMs, notes, onMerge, onClose, isSendFirst=true, gistSyncer }) {
   const [tab, setTab]         = useState(isSendFirst ? 'send' : 'scan');
   const [pending, setPending] = useState(null);
   const [camErr, setCamErr]   = useState('');
   const [scanning, setScanning] = useState(false);
+  const [tokenInp, setTokenInp] = useState(gistSyncer?.gistToken||'');
   const qrDiv   = useRef(null);
   const videoEl = useRef(null);
   const canvEl  = useRef(null);
   const rafId   = useRef(null);
   const streamR = useRef(null);
+
+  const gs = gistSyncer || {};
+  const isConnected = gs.gistStatus === 'ok' || (gs.gistToken && gs.gistId && gs.gistStatus !== 'error');
+  const statusDot = gs.gistStatus === 'ok' ? C.gr : gs.gistStatus === 'error' ? C.rd : gs.gistStatus === 'syncing' ? C.yl : C.mu;
+  const statusLabel = gs.gistStatus === 'ok' ? `✓ Synced ${gs.gistLastSync||''}` : gs.gistStatus === 'error' ? `✗ ${gs.gistError}` : gs.gistStatus === 'syncing' ? '⟳ Syncing…' : gs.gistToken && gs.gistId ? 'Connected' : 'Not configured';
+
+  const connectGist = () => {
+    if (!tokenInp.trim()) return;
+    gs.setGistToken && gs.setGistToken(tokenInp.trim());
+  };
 
   // ── V3 compact payload: single-char keys, indexed tb, no def/notes/tlogs ──
   const payload = JSON.stringify({
@@ -1909,10 +1989,43 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
     <Modal onClose={onClose} width={540}>
       <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.bo}`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
         <div>
-          <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:2}}>📱 MOBILE SYNC</div>
+          <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:2}}>📱 SYNC</div>
           <div style={{fontFamily:MO,fontSize:13,color:C.tx}}>Today: {today}</div>
         </div>
         <Btn onClick={onClose} style={{padding:'6px 10px'}}>✕</Btn>
+      </div>
+
+      {/* ── GIST SYNC SECTION ── */}
+      <div style={{padding:'14px 20px',borderBottom:`1px solid ${C.bo}`,background:C.su}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:statusDot,flexShrink:0,boxShadow:isConnected?`0 0 6px ${statusDot}`:'none'}}/>
+          <span style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,flex:1}}>GITHUB GIST SYNC</span>
+          <span style={{fontFamily:MO,fontSize:10,color:statusDot}}>{statusLabel}</span>
+        </div>
+        {!gs.gistToken ? (
+          <div style={{display:'flex',gap:8}}>
+            <input
+              type="password" value={tokenInp} onChange={e=>setTokenInp(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&connectGist()}
+              placeholder="GitHub Personal Access Token (gist scope)…"
+              style={{fontFamily:MO,fontSize:12,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 10px',flex:1,color:C.tx,outline:'none'}}
+            />
+            <OBtn onClick={connectGist} style={{padding:'8px 14px',fontSize:12,whiteSpace:'nowrap'}}>Connect</OBtn>
+          </div>
+        ) : (
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <OBtn onClick={()=>gs.gistPush&&gs.gistPush()} style={{padding:'7px 14px',fontSize:12}}>↑ Sync Now</OBtn>
+            <Btn onClick={()=>gs.gistPull&&gs.gistPull()} style={{padding:'7px 14px',fontSize:12}}>↓ Pull</Btn>
+            <button onClick={()=>{ gs.setGistToken&&gs.setGistToken(''); gs.setGistId&&gs.setGistId(''); setTokenInp(''); }} style={{fontFamily:MO,fontSize:11,padding:'7px 10px',background:'none',border:`1px solid ${C.rd}44`,borderRadius:6,color:C.rd,cursor:'pointer'}}>Disconnect</button>
+            {gs.gistId&&<span style={{fontFamily:MO,fontSize:9,color:C.mu,alignSelf:'center'}}>Gist: {gs.gistId.slice(0,8)}…</span>}
+          </div>
+        )}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at github.com/settings/tokens → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+      </div>
+
+      {/* ── QR FALLBACK ── */}
+      <div style={{padding:'8px 20px 4px',borderBottom:`1px solid ${C.bo}`}}>
+        <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2}}>── QR FALLBACK ──</span>
       </div>
       <div style={{display:'flex',borderBottom:`1px solid ${C.bo}`}}>
         {isSendFirst ? <>{tabBtn('send','📱 Send to Phone')}{tabBtn('scan','📷 Get from Phone')}</>
@@ -2186,10 +2299,14 @@ function DailyPlanner() {
     },800);
   },[sd,sums,idx]);
 
+  const gistSyncer = useGistSync(sd, setSd);
+
   const saveSession=()=>{
     try{
-      store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new Date().toISOString()}));
+      const savedAt = new Date().toISOString();
+      store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt}));
       setStorOk(true);
+      gistSyncer.gistPush(sd);
     }catch(e){}
   };
 
@@ -2404,7 +2521,10 @@ function DailyPlanner() {
             <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:storOk?'#0d2010':C.ca,border:`1px solid ${storOk?C.gr:C.bo}`,borderRadius:6,color:storOk?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>{storOk?'💾 SAVED':'💾 SAVE'}</button>
             <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
             <button onClick={()=>setShowHist(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>■ {isCompact?'HIST':'HISTORY'}</button>
-            <button onClick={()=>setShowSync(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#001a1a',border:`1px solid ${C.gr}`,borderRadius:6,color:C.gr,cursor:'pointer',whiteSpace:'nowrap'}}>📱 {isCompact?'':'SYNC'}</button>
+            <button onClick={()=>setShowSync(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#001a1a',border:`1px solid ${gistSyncer.gistStatus==='ok'?C.gr:C.gr}`,borderRadius:6,color:C.gr,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+              {gistSyncer.gistToken&&<span style={{width:7,height:7,borderRadius:'50%',background:gistSyncer.gistStatus==='ok'?C.gr:gistSyncer.gistStatus==='error'?C.rd:C.mu,flexShrink:0}}/>}
+              📱 {isCompact?'':'SYNC'}
+            </button>
             <button onClick={()=>{const b=new Blob([exportJson],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`jesse-planner-session-${ds}.json`;a.click();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'EXP':'EXPORT'}</button>
           </div>
         </div>
@@ -2446,7 +2566,7 @@ function DailyPlanner() {
 
       {showTL   && <TimerLogModal  logs={timerLogs} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} onSave={rows=>upd('timerLogs',rows)} onClose={()=>setShowTL(false)} onReset={timerReset}/>}
       {showRest && <RestoreModal   onRestore={restoreSession} onClose={()=>setShowRest(false)}/>}
-      {showSync && <SyncModal today={ds} tasks={tasks} done={done} timeBlocks={timeBlocks} deferred={deferred} timerLogs={timerLogs} awayMs={awayMs+logAwayMs} trainMs={trainMs+logTrainMs} watchMs={watchMs+logWatchMs} notes={gd('notes')||[]} onMerge={mergeFromSync} onClose={()=>setShowSync(false)} isSendFirst={true}/>}
+      {showSync && <SyncModal today={ds} tasks={tasks} done={done} timeBlocks={timeBlocks} deferred={deferred} timerLogs={timerLogs} awayMs={awayMs+logAwayMs} trainMs={trainMs+logTrainMs} watchMs={watchMs+logWatchMs} notes={gd('notes')||[]} onMerge={mergeFromSync} onClose={()=>setShowSync(false)} isSendFirst={true} gistSyncer={gistSyncer}/>}
     </div>
   );
 }
