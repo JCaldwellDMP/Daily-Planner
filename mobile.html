@@ -959,15 +959,18 @@ function useGistSync(sd, setSd) {
       const localSavedAt = (() => { try { return JSON.parse(store.getItem('dps-v2')||'{}').savedAt||''; } catch(e){ return ''; } })();
       if (remote.savedAt && remote.sd && (force || !localSavedAt || remote.savedAt > localSavedAt)) {
         justPulled.current = true;
-        setSd(remote.sd);
-        store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
-        // Debug: show exactly what keys exist and task count for today
         const todayKey = new Date().toISOString().split('T')[0];
-        const allKeys = Object.keys(remote.sd||{});
-        const taskKey = `tasks-${todayKey}`;
-        const taskCount = (remote.sd[taskKey]||[]).length;
-        const dateKeys = [...new Set(allKeys.map(k => k.split('-').slice(-3).join('-')))].join(', ');
-        setGistMsg(`✓ Applied ${allKeys.length} keys. tasks-${todayKey}: ${taskCount} items. Dates in data: ${dateKeys}`);
+        setSd(prev => {
+          const merged = { ...remote.sd };
+          // Preserve local dismissed/done for today so dropped tasks stay dropped
+          [`dismissed-${todayKey}`, `done-${todayKey}`].forEach(k => {
+            if (prev[k]?.length) merged[k] = prev[k];
+          });
+          return merged;
+        });
+        store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
+        const taskCount = (remote.sd[`tasks-${todayKey}`]||[]).length;
+        setGistMsg(`✓ Applied from Gist — ${taskCount} tasks for ${todayKey}`);
       } else {
         setGistMsg('⚠ Remote not newer — nothing applied (remote: ' + (remote.savedAt||'?') + ', local: ' + (localSavedAt||'none') + ')');
       }
@@ -1182,7 +1185,8 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
             {gs.gistMsg && <div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.bg,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')||gs.gistMsg.startsWith('—')?C.yl:C.rd}}>{gs.gistMsg}</div>}
           </div>
 
-          <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:10,textAlign:'center'}}>── QR FALLBACK ──</div>
+          {/* ── QR FALLBACK — hidden until further notice ── */}
+          {false && <><div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:10,textAlign:'center'}}>── QR FALLBACK ──</div>
           <div style={{display:'flex',borderBottom:`1px solid ${C.bo}`,marginBottom:20}}>
             <button onClick={()=>setTab('scan')} style={S.btn(tab==='scan')}>📷 SCAN DESKTOP</button>
             <button onClick={()=>setTab('send')} style={S.btn(tab==='send')}>📱 SHOW MY QR</button>
@@ -1194,30 +1198,13 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
               <div style={{fontFamily:MO,fontSize:13,color:C.tx,textAlign:'center',lineHeight:1.7}}>
                 Take a photo of the QR code<br/>shown on your desktop app.
               </div>
-              <input
-                ref={fileRef}
-                type='file'
-                accept='image/*'
-                capture='environment'
-                onChange={decodePhoto}
-                style={{display:'none'}}
-              />
+              <input ref={fileRef} type='file' accept='image/*' capture='environment' onChange={decodePhoto} style={{display:'none'}}/>
               <canvas ref={decodeCanvas} style={{display:'none'}}/>
-              <button
-                onClick={()=>fileRef.current&&fileRef.current.click()}
-                disabled={scanning}
-                style={{width:'100%',fontFamily:MO,fontSize:14,fontWeight:'bold',padding:'16px',borderRadius:10,cursor:scanning?'wait':'pointer',border:'none',background:scanning?C.bo:C.or,color:scanning?C.mu:'#000',transition:'all .15s'}}
-              >
+              <button onClick={()=>fileRef.current&&fileRef.current.click()} disabled={scanning} style={{width:'100%',fontFamily:MO,fontSize:14,fontWeight:'bold',padding:'16px',borderRadius:10,cursor:scanning?'wait':'pointer',border:'none',background:scanning?C.bo:C.or,color:scanning?C.mu:'#000',transition:'all .15s'}}>
                 {scanning ? '⏳ Reading…' : '📸 Open Camera'}
               </button>
-              {camErr && (
-                <div style={{fontFamily:MO,fontSize:12,color:C.rd,textAlign:'center',lineHeight:1.7,padding:'4px 0'}}>
-                  ⚠ {camErr}
-                </div>
-              )}
-              <div style={{fontFamily:MO,fontSize:10,color:C.mu,textAlign:'center',lineHeight:1.6}}>
-                Or choose a screenshot from your camera roll.
-              </div>
+              {camErr && <div style={{fontFamily:MO,fontSize:12,color:C.rd,textAlign:'center',lineHeight:1.7,padding:'4px 0'}}>⚠ {camErr}</div>}
+              <div style={{fontFamily:MO,fontSize:10,color:C.mu,textAlign:'center',lineHeight:1.6}}>Or choose a screenshot from your camera roll.</div>
             </div>
           )}
 
@@ -1227,15 +1214,11 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                   ⚠ Data too large for QR ({qrData.length} bytes).<br/><span style={{color:C.mu,fontSize:11}}>Use desktop JSON export instead.</span>
                 </div>
               : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14}}>
-                  <div style={{background:'#fff',borderRadius:10,lineHeight:0,overflow:'hidden'}}>
-                    <div ref={qrDiv}/>
-                  </div>
-                  <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
-                    Show this to the desktop camera.<br/>Click 📷 GET FROM PHONE on desktop.
-                  </div>
+                  <div style={{background:'#fff',borderRadius:10,lineHeight:0,overflow:'hidden'}}><div ref={qrDiv}/></div>
+                  <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>Show this to the desktop camera.<br/>Click 📷 GET FROM PHONE on desktop.</div>
                   <div style={{fontFamily:MO,fontSize:9,color:C.mu+'66'}}>{qrData.length} bytes compressed · {tasks.length} tasks</div>
                 </div>
-          )}
+          )}</>}
         </div>
       </div>
     </>
