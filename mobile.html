@@ -28,6 +28,9 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <!-- QR sync -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -173,7 +176,7 @@ function SplashScreen({ date }) {
 }
 
 // ── Countdown Banner ───────────────────────────────────────────────────────────
-function CountdownBanner({ timeBlocks, nowMin, endTime }) {
+function CountdownBanner({ timeBlocks, nowMin, endTime, onSync }) {
   const getItemText = i => (typeof i==='string' ? i : i?.text||'').trim().toLowerCase();
 
   // Lunch
@@ -275,11 +278,14 @@ function CountdownBanner({ timeBlocks, nowMin, endTime }) {
           )}
         </div>
 
-        {/* Shift End */}
-        <div style={{flex:'0 0 auto', textAlign:'right'}}>
-          <div style={{fontFamily:MO, fontSize:8, color:C.mu, letterSpacing:2, marginBottom:2}}>🏁 SHIFT</div>
-          <div style={{fontFamily:MO, fontSize:18, fontWeight:'bold', color:endDiff===0?C.mu:C.bl, lineHeight:1}}>
-            {endCd}
+        {/* Shift End + Sync */}
+        <div style={{flex:'0 0 auto', textAlign:'right', display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6}}>
+          <button onClick={onSync} style={{fontFamily:MO,fontSize:9,padding:'3px 8px',borderRadius:5,cursor:'pointer',border:`1px solid ${C.gr}`,background:C.gr+'22',color:C.gr,letterSpacing:1,whiteSpace:'nowrap'}}>📱 SYNC</button>
+          <div>
+            <div style={{fontFamily:MO, fontSize:8, color:C.mu, letterSpacing:2, marginBottom:2}}>🏁 SHIFT</div>
+            <div style={{fontFamily:MO, fontSize:18, fontWeight:'bold', color:endDiff===0?C.mu:C.bl, lineHeight:1}}>
+              {endCd}
+            </div>
           </div>
         </div>
       </div>
@@ -886,9 +892,187 @@ function BottomNav({ tab, setTab }) {
 }
 
 // ── Main App ───────────────────────────────────────────────────────────────────
+// ── Mobile SyncModal ───────────────────────────────────────────────────────────
+function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs, trainMs, watchMs, notes, onMerge, onClose }) {
+  // Mobile: primary action is SCAN (scan desktop), secondary is SEND (show QR for desktop to scan)
+  const [tab, setTab]           = useState('scan');
+  const [pending, setPending]   = useState(null);
+  const [camErr, setCamErr]     = useState('');
+  const [scanning, setScanning] = useState(false);
+  const qrDiv   = useRef(null);
+  const videoEl = useRef(null);
+  const canvEl  = useRef(null);
+  const rafId   = useRef(null);
+  const streamR = useRef(null);
+
+  const payload = JSON.stringify({
+    v:1, d:today,
+    ea: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
+    tasks, done, tb:timeBlocks, def:deferred,
+    notes: notes||[],
+    tmr: {a:awayMs, tr:trainMs, w:watchMs},
+    tlogs: timerLogs,
+  });
+  const tooBig = payload.length > 2800;
+
+  useEffect(() => {
+    if (tab !== 'send' || !qrDiv.current || tooBig) return;
+    qrDiv.current.innerHTML = '';
+    try {
+      new window.QRCode(qrDiv.current, {
+        text: payload, width:200, height:200,
+        colorDark:'#000000', colorLight:'#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.L,
+      });
+    } catch(e) {}
+  }, [tab]);
+
+  const stopCam = useCallback(() => {
+    if (rafId.current)   { cancelAnimationFrame(rafId.current); rafId.current=null; }
+    if (streamR.current) { streamR.current.getTracks().forEach(t=>t.stop()); streamR.current=null; }
+    setScanning(false);
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'scan') { stopCam(); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+        if (!alive) { s.getTracks().forEach(t=>t.stop()); return; }
+        streamR.current = s;
+        if (!videoEl.current) return;
+        videoEl.current.srcObject = s;
+        await videoEl.current.play();
+        setScanning(true);
+        const scan = () => {
+          if (!alive || !videoEl.current || !canvEl.current) return;
+          const v = videoEl.current;
+          if (v.readyState === v.HAVE_ENOUGH_DATA) {
+            canvEl.current.width=v.videoWidth; canvEl.current.height=v.videoHeight;
+            const ctx=canvEl.current.getContext('2d'); ctx.drawImage(v,0,0);
+            const img=ctx.getImageData(0,0,v.videoWidth,v.videoHeight);
+            const code=window.jsQR&&window.jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+            if (code) {
+              try {
+                const d=JSON.parse(code.data);
+                if (d.v===1&&d.d) { setPending(d); stopCam(); return; }
+              } catch(e) {}
+            }
+          }
+          rafId.current=requestAnimationFrame(scan);
+        };
+        rafId.current=requestAnimationFrame(scan);
+      } catch(e) {
+        if (alive) setCamErr(e.name==='NotAllowedError'?'Camera permission denied.':'Camera error: '+e.message);
+      }
+    })();
+    return () => { alive=false; stopCam(); };
+  }, [tab]);
+
+  const doMerge = () => { if (pending) { onMerge(pending); onClose(); } };
+
+  const S = { // style shortcuts
+    btn: (active) => ({fontFamily:MO,fontSize:11,flex:1,padding:'10px 0',border:'none',borderBottom:`2px solid ${active?C.or:'transparent'}`,background:'transparent',color:active?C.or:C.mu,cursor:'pointer',letterSpacing:1}),
+    inp: {fontFamily:MO,fontSize:13,background:C.bg,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:8,padding:'10px 12px',outline:'none'},
+  };
+
+  if (pending) {
+    const tc=(pending.tasks||[]).length, dc=(pending.done||[]).length, nc=(pending.notes||[]).length;
+    return (
+      <>
+        <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:300}}/>
+        <div className="sheet-enter" style={{position:'fixed',bottom:0,left:0,right:0,background:C.su,borderRadius:'16px 16px 0 0',border:`1px solid ${C.bo}`,borderBottom:'none',zIndex:301,padding:'20px 18px',paddingBottom:`calc(20px + env(safe-area-inset-bottom, 0px))`}}>
+          <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>SYNC IMPORT</div>
+          <div style={{fontFamily:MO,fontSize:15,fontWeight:'bold',color:C.tx,marginBottom:14}}>Confirm Import</div>
+          <div style={{background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:12,marginBottom:12}}>
+            <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginBottom:8}}>Session from {pending.ea||'—'} · {pending.d}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+              {[{l:'TASKS',v:tc,c:C.or},{l:'DONE',v:dc,c:C.gr},{l:'NOTES',v:nc,c:C.bl}].map(x=>(
+                <div key={x.l} style={{textAlign:'center',background:C.bg,borderRadius:6,padding:'8px 0'}}>
+                  <div style={{fontFamily:MO,fontSize:22,fontWeight:'bold',color:x.c,lineHeight:1}}>{x.v}</div>
+                  <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:2,marginTop:4}}>{x.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:16,lineHeight:1.7}}>Tasks, schedule, and notes will be overwritten. Timers merge (highest wins).</div>
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={()=>setPending(null)} style={{...S.inp,flex:'0 0 auto',padding:'12px 16px',cursor:'pointer'}}>← Back</button>
+            <button onClick={doMerge} style={{flex:1,fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',borderRadius:8,cursor:'pointer',border:'none',background:C.or,color:'#000'}}>✓ Import</button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:300}}/>
+      <div className="sheet-enter" style={{
+        position:'fixed',bottom:0,left:0,right:0,
+        background:C.su,borderRadius:'16px 16px 0 0',
+        border:`1px solid ${C.bo}`,borderBottom:'none',
+        maxHeight:'92vh',overflow:'auto',zIndex:301,
+        paddingBottom:`env(safe-area-inset-bottom, 0px)`,
+      }}>
+        <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px'}}>
+          <div style={{width:36,height:4,borderRadius:2,background:C.bo}}/>
+        </div>
+        <div style={{padding:'0 18px 20px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.or}}>📱 MOBILE SYNC</div>
+            <button onClick={onClose} style={{background:'none',border:'none',color:C.mu,fontSize:20,cursor:'pointer'}}>×</button>
+          </div>
+          <div style={{display:'flex',borderBottom:`1px solid ${C.bo}`,marginBottom:20}}>
+            <button onClick={()=>setTab('scan')} style={S.btn(tab==='scan')}>📷 SCAN DESKTOP</button>
+            <button onClick={()=>setTab('send')} style={S.btn(tab==='send')}>📱 SHOW MY QR</button>
+          </div>
+
+          {tab==='scan' && (
+            camErr
+              ? <div style={{fontFamily:MO,fontSize:12,color:C.rd,textAlign:'center',lineHeight:1.8,padding:'20px 0'}}>
+                  ⚠ {camErr}<br/><span style={{color:C.mu,fontSize:11}}>Check camera permissions in your browser settings.</span>
+                </div>
+              : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+                  <div style={{position:'relative',width:'100%',maxWidth:320,aspectRatio:'4/3',background:'#000',borderRadius:12,overflow:'hidden',border:`2px solid ${scanning?C.gr:C.bo}`,transition:'border-color .3s'}}>
+                    <video ref={videoEl} style={{width:'100%',height:'100%',objectFit:'cover'}} playsInline muted/>
+                    {scanning && (
+                      <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+                        <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:'55%',paddingTop:'55%',border:`2px solid ${C.gr}`,borderRadius:8,boxShadow:`0 0 0 9999px rgba(0,0,0,0.45)`}}/>
+                      </div>
+                    )}
+                    {!scanning&&!camErr&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{fontFamily:MO,fontSize:11,color:C.mu}}>Starting camera…</div></div>}
+                  </div>
+                  <canvas ref={canvEl} style={{display:'none'}}/>
+                  <div style={{fontFamily:MO,fontSize:11,color:scanning?C.gr:C.mu,letterSpacing:1}}>{scanning?'● SCANNING — hold steady':'Initializing camera…'}</div>
+                  <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.6}}>Click 📱 SYNC on the desktop app,<br/>then scan the QR code shown there.</div>
+                </div>
+          )}
+
+          {tab==='send' && (
+            tooBig
+              ? <div style={{fontFamily:MO,fontSize:12,color:C.yl,textAlign:'center',lineHeight:1.8,padding:'20px 0'}}>
+                  ⚠ Data too large for QR ({payload.length} bytes).<br/><span style={{color:C.mu,fontSize:11}}>Use desktop JSON export instead.</span>
+                </div>
+              : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14}}>
+                  <div ref={qrDiv} style={{background:'#fff',padding:12,borderRadius:10}}/>
+                  <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
+                    Show this to the desktop camera.<br/>Click 📷 GET FROM PHONE on desktop.
+                  </div>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu+'66'}}>{payload.length} bytes · {tasks.length} tasks</div>
+                </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function MobileApp() {
   const TODAY = new Date().toISOString().split('T')[0];
   const [showSplash, setShowSplash] = useState(true);
+  const [showSync, setShowSync]     = useState(false);
   const [loaded, setLoaded]         = useState(false);
   const [tab, setTab]               = useState('schedule');
   const [sd, setSd]                 = useState({});
@@ -986,6 +1170,32 @@ function MobileApp() {
   );
 
   // ── Timer toggle (exact same logic as desktop) ────────────────────────────
+  // ── Sync merge ────────────────────────────────────────────────────────────
+  const mergeFromSync = useCallback((data) => {
+    const today = TODAY;
+    setSd(p => {
+      const u = {};
+      if (data.tasks !== undefined) u[`tasks-${today}`]    = data.tasks;
+      if (data.done  !== undefined) u[`done-${today}`]     = data.done;
+      if (data.tb    !== undefined) u[`time-${today}`]     = data.tb;
+      if (data.def   !== undefined) u[`deferred-${today}`] = data.def;
+      if (data.notes !== undefined) u[`notes-${today}`]    = data.notes;
+      if (data.tmr) {
+        u[`awayMs-${today}`]  = Math.max(p[`awayMs-${today}`] ||0, data.tmr.a ||0);
+        u[`trainMs-${today}`] = Math.max(p[`trainMs-${today}`]||0, data.tmr.tr||0);
+        u[`watchMs-${today}`] = Math.max(p[`watchMs-${today}`]||0, data.tmr.w ||0);
+      }
+      if (data.tlogs) {
+        const existing = p[`timerLogs-${today}`]||[];
+        const existIds = new Set(existing.map(l=>String(l.id)));
+        const fresh    = data.tlogs.filter(l=>!existIds.has(String(l.id)));
+        const t2m      = s=>{const[h,m]=(s||'00:00').split(':').map(Number);return h*60+m;};
+        u[`timerLogs-${today}`] = [...existing,...fresh].sort((a,b)=>t2m(a.startTime)-t2m(b.startTime));
+      }
+      return {...p,...u};
+    });
+  }, []);
+
   const timerToggle = type => {
     const k = type==='away'?'away':type==='training'?'train':'watch';
     const logType = type==='away'?'Away':type==='training'?'Training':'Watching';
@@ -1017,7 +1227,7 @@ function MobileApp() {
       onTouchEnd={handleTouchEnd}
     >
       {/* Countdown Banner */}
-      <CountdownBanner timeBlocks={timeBlocks} nowMin={nowMin} endTime={endTime}/>
+      <CountdownBanner timeBlocks={timeBlocks} nowMin={nowMin} endTime={endTime} onSync={()=>setShowSync(true)}/>
 
       {/* Tab Content */}
       <div style={{flex:1, overflow:'hidden', position:'relative'}}>
@@ -1056,6 +1266,18 @@ function MobileApp() {
 
       {/* Bottom Nav */}
       <BottomNav tab={tab} setTab={setTab}/>
+
+      {showSync && (
+        <SyncModal
+          today={TODAY}
+          tasks={tasks} done={done} timeBlocks={timeBlocks}
+          deferred={deferred} timerLogs={timerLogs}
+          awayMs={awayMs} trainMs={trainMs} watchMs={watchMs}
+          notes={notes}
+          onMerge={mergeFromSync}
+          onClose={()=>setShowSync(false)}
+        />
+      )}
     </div>
   );
 }
