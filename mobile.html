@@ -958,9 +958,15 @@ function useGistSync(sd, setSd) {
         justPulled.current = true;
         setSd(remote.sd);
         store.setItem('dps-v2', JSON.stringify({ sd: remote.sd, sums: {}, summaryIndex: [], savedAt: remote.savedAt }));
-        setGistMsg('✓ Remote data applied — ' + new Date().toLocaleTimeString());
+        // Debug: show exactly what keys exist and task count for today
+        const todayKey = new Date().toISOString().split('T')[0];
+        const allKeys = Object.keys(remote.sd||{});
+        const taskKey = `tasks-${todayKey}`;
+        const taskCount = (remote.sd[taskKey]||[]).length;
+        const dateKeys = [...new Set(allKeys.map(k => k.split('-').slice(-3).join('-')))].join(', ');
+        setGistMsg(`✓ Applied ${allKeys.length} keys. tasks-${todayKey}: ${taskCount} items. Dates in data: ${dateKeys}`);
       } else {
-        setGistMsg('⚠ Remote not newer — nothing applied (remote: ' + (remote.savedAt||'?') + ')');
+        setGistMsg('⚠ Remote not newer — nothing applied (remote: ' + (remote.savedAt||'?') + ', local: ' + (localSavedAt||'none') + ')');
       }
       setGistStatus('ok'); setGistLastSync(new Date().toLocaleTimeString()); setGistError('');
     } catch(e) { setGistStatus('error'); setGistError(e.message); setGistMsg('✗ Pull failed: ' + e.message); }
