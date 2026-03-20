@@ -28,8 +28,8 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <!-- QR sync -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- QR sync: qrcode (canvas renderer) + jsQR (scanner) + pako (compress) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 </head>
@@ -81,6 +81,23 @@ const TIME_SLOTS = (() => {
 })();
 
 const ALL_TIME_SLOTS = [...TIME_SLOTS, ...AFTER5_SLOTS];
+
+// ── Normalise incoming sync payload (v3 compact → internal format) ────────────
+const expandSyncData = data => {
+  if (!data || data.v !== 3) return data;
+  return {
+    ...data,
+    tasks: (data.tk||[]).map(({i,t,p}) => ({id:i, text:t, priority:p})),
+    done:  data.dn || [],
+    tb:    data.tb
+      ? Object.fromEntries(
+          (data.tb||[])
+            .filter(([idx]) => ALL_TIME_SLOTS[idx])
+            .map(([idx, texts]) => [ALL_TIME_SLOTS[idx], texts.map(t => ({text:t}))])
+        )
+      : undefined,
+  };
+};
 const DEFAULTS = ['Lunch','PTO','Clean Out Inbox','New Hire: Next Day Tasks','Plan for the Day','New Dealer Webinar','Clinic','Watch the Department'];
 const DEFAULT_TAGS = ['#meeting','#training','#watching','#action','#general','#reminder'];
 
@@ -900,29 +917,29 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const [pending, setPending]   = useState(null);
   const [camErr, setCamErr]     = useState('');
   const [scanning, setScanning] = useState(false);
-  const qrDiv   = useRef(null);
+  const qrCanvas = useRef(null);
   const videoEl = useRef(null);
   const canvEl  = useRef(null);
   const rafId   = useRef(null);
   const streamR = useRef(null);
 
-  const slimTasks = (tasks||[]).map(({id,text,priority}) => ({id,text,priority}));
-  const slimTb = Object.fromEntries(
-    Object.entries(timeBlocks||{})
-      .filter(([,v])=>v!=null)
-      .map(([k,v]) => [k, (Array.isArray(v)?v:[v]).map(i=>typeof i==='string'?i:{text:i.text})])
-  );
-  const slimNotes = (notes||[]).map(({id,text,tag,timestamp})=>({id,text,tag,timestamp}));
-  const slimLogs  = (timerLogs||[]).map(({id,type,startTime,endTime,duration})=>({id,type,startTime,endTime,duration}));
-
+  // V3 compact payload: single-char keys, indexed tb, no def/notes/tlogs
   const payload = JSON.stringify({
-    v:2, d:today,
+    v: 3, d: today,
     ea: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
-    tasks: slimTasks,
-    done:  (done||[]).map(i => (typeof i==='object' ? i.id : i)),
-    tb:    slimTb,
-    def:   deferred,
-    tmr:   {a:awayMs, tr:trainMs, w:watchMs},
+    tk: (tasks||[]).map(({id,text,priority}) => ({i:id, t:text, p:priority})),
+    dn: (done||[]).map(i => (typeof i==='object' ? i.id : i)),
+    tb: Object.entries(timeBlocks||{})
+          .filter(([,v])=>v!=null)
+          .reduce((acc,[slot,items]) => {
+            const idx = ALL_TIME_SLOTS.indexOf(slot);
+            if (idx < 0) return acc;
+            const texts = (Array.isArray(items)?items:[items])
+              .filter(Boolean).map(i=>typeof i==='string'?i:i.text).filter(Boolean);
+            if (texts.length) acc.push([idx, texts]);
+            return acc;
+          }, []),
+    tmr: {a:awayMs, tr:trainMs, w:watchMs},
   });
 
   const qrData = (() => {
@@ -937,15 +954,15 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   const tooBig = qrData.length > 2900;
 
   useEffect(() => {
-    if (tab !== 'send' || !qrDiv.current || tooBig) return;
-    qrDiv.current.innerHTML = '';
-    try {
-      new window.QRCode(qrDiv.current, {
-        text: qrData, width:300, height:300,
-        colorDark:'#000000', colorLight:'#ffffff',
-        correctLevel: window.QRCode.CorrectLevel.L,
-      });
-    } catch(e) {}
+    if (tab !== 'send' || tooBig || !qrCanvas.current) return;
+    const QRGen = window.QRCode;
+    if (!QRGen?.toCanvas) return;
+    QRGen.toCanvas(qrCanvas.current, qrData, {
+      errorCorrectionLevel: 'L',
+      width: 300,
+      margin: 3,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
   }, [tab]);
 
   const stopCam = useCallback(() => {
@@ -986,7 +1003,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 } else {
                   parsed = JSON.parse(raw);
                 }
-                if (parsed && parsed.d) { setPending(parsed); stopCam(); return; }
+                if (parsed && parsed.d) { setPending(expandSyncData(parsed)); stopCam(); return; }
               } catch(e) {}
             }
           }
@@ -1086,7 +1103,9 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                   ⚠ Data too large for QR ({qrData.length} bytes).<br/><span style={{color:C.mu,fontSize:11}}>Use desktop JSON export instead.</span>
                 </div>
               : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14}}>
-                  <div ref={qrDiv} style={{background:'#fff',padding:10,borderRadius:10,lineHeight:0}}/>
+                  <div style={{background:'#fff',borderRadius:10,lineHeight:0,overflow:'hidden'}}>
+                    <canvas ref={qrCanvas}/>
+                  </div>
                   <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
                     Show this to the desktop camera.<br/>Click 📷 GET FROM PHONE on desktop.
                   </div>
@@ -1203,22 +1222,23 @@ function MobileApp() {
   // ── Sync merge ────────────────────────────────────────────────────────────
   const mergeFromSync = useCallback((data) => {
     const today = TODAY;
+    const d = expandSyncData(data);
     setSd(p => {
       const u = {};
-      if (data.tasks !== undefined) u[`tasks-${today}`]    = data.tasks;
-      if (data.done  !== undefined) u[`done-${today}`]     = data.done;
-      if (data.tb    !== undefined) u[`time-${today}`]     = data.tb;
-      if (data.def   !== undefined) u[`deferred-${today}`] = data.def;
-      if (data.notes !== undefined) u[`notes-${today}`]    = data.notes;
-      if (data.tmr) {
-        u[`awayMs-${today}`]  = Math.max(p[`awayMs-${today}`] ||0, data.tmr.a ||0);
-        u[`trainMs-${today}`] = Math.max(p[`trainMs-${today}`]||0, data.tmr.tr||0);
-        u[`watchMs-${today}`] = Math.max(p[`watchMs-${today}`]||0, data.tmr.w ||0);
+      if (d.tasks !== undefined) u[`tasks-${today}`]    = d.tasks;
+      if (d.done  !== undefined) u[`done-${today}`]     = d.done;
+      if (d.tb    !== undefined) u[`time-${today}`]     = d.tb;
+      if (d.def   !== undefined) u[`deferred-${today}`] = d.def;
+      if (d.notes !== undefined) u[`notes-${today}`]    = d.notes;
+      if (d.tmr) {
+        u[`awayMs-${today}`]  = Math.max(p[`awayMs-${today}`] ||0, d.tmr.a ||0);
+        u[`trainMs-${today}`] = Math.max(p[`trainMs-${today}`]||0, d.tmr.tr||0);
+        u[`watchMs-${today}`] = Math.max(p[`watchMs-${today}`]||0, d.tmr.w ||0);
       }
-      if (data.tlogs) {
+      if (d.tlogs) {
         const existing = p[`timerLogs-${today}`]||[];
         const existIds = new Set(existing.map(l=>String(l.id)));
-        const fresh    = data.tlogs.filter(l=>!existIds.has(String(l.id)));
+        const fresh    = d.tlogs.filter(l=>!existIds.has(String(l.id)));
         const t2m      = s=>{const[h,m]=(s||'00:00').split(':').map(Number);return h*60+m;};
         u[`timerLogs-${today}`] = [...existing,...fresh].sort((a,b)=>t2m(a.startTime)-t2m(b.startTime));
       }
