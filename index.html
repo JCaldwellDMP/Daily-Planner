@@ -57,6 +57,8 @@ const C = {
 const MO = "'Courier New', Courier, monospace";
 const PD = { High: C.rd, Medium: C.yl, Low: C.gr };
 
+const BEFORE8_SLOTS = ['7:00 AM','7:15 AM','7:30 AM','7:45 AM'];
+
 const AFTER5_SLOTS = (() => {
   const s = [];
   for (let h = 17; h <= 21; h++)
@@ -81,7 +83,7 @@ const TIME_SLOTS = (() => {
   return s;
 })();
 
-const ALL_TIME_SLOTS = [...TIME_SLOTS, ...AFTER5_SLOTS];
+const ALL_TIME_SLOTS = [...BEFORE8_SLOTS, ...TIME_SLOTS, ...AFTER5_SLOTS];
 
 // ── Normalise incoming sync payload (v3 compact → internal format) ────────────
 const expandSyncData = data => {
@@ -607,76 +609,39 @@ function RestoreModal({ onRestore, onClose }) {
   );
 }
 
-function InboxTab({ inp, setInp, scanItems, onUpdate, onBack, onNext }) {
-  const [st,setSt]           = useState('');
-  const [editId,setEditId]   = useState(null);
-  const [editVal,setEditVal] = useState('');
-  const add = () => { if(!inp.trim())return; onUpdate([...scanItems,{id:nid(),text:inp.trim(),status:st}]); setInp(''); };
-  const del = id => onUpdate(scanItems.filter(i=>i.id!==id));
-  const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
-  const commitEdit = id => { if(editVal.trim()) onUpdate(scanItems.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
+function CollectTab({ inp, setInp, scanItems, onUpdateScanItems, tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onUpdateDismissed, onBack, onNext, onResetCarry }) {
+  const [inboxSt,setInboxSt]           = useState('');
+  const [inboxEditId,setInboxEditId]   = useState(null);
+  const [inboxEditVal,setInboxEditVal] = useState('');
+  const [brainInp,setBrainInp]         = useState('');
+  const [editId,setEditId]             = useState(null);
+  const [editVal,setEditVal]           = useState('');
+  const [triage,setTriage]             = useState({});
+  const [inboxTriage,setInboxTriage]   = useState({});
+  const [inboxDeferDate,setInboxDeferDate] = useState({});
+  const [deferDate,setDeferDate]       = useState({});
+
   const statColor = s => s==='urgent'?C.rd:s==='note'?C.yl:s==='clear'?C.gr:C.mu;
   const statLabel = s => s==='urgent'?'Urgent':s==='note'?'Note':s==='clear'?'Schedule':'—';
-  return (
-    <div>
-      <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>STEP 1 OF 5</div>
-      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Email &amp; Teams Scan</h2>
-      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 20px'}}>Quick scan only — 5 minutes max. Capture each item as its own task.</p>
-      <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:20}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext}>Next →</OBtn>
-      </div>
-      <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
-        {[{k:'urgent',l:'🔴 Urgent'},{k:'note',l:'🟡 Note'},{k:'clear',l:'🟢 Schedule'}].map(x=>(
-          <button key={x.k} onClick={()=>setSt(st===x.k?'':x.k)} style={{fontFamily:MO,fontSize:12,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${st===x.k?statColor(x.k):C.bo}`,background:st===x.k?`${statColor(x.k)}22`:C.ca,color:C.tx}}>{x.l}</button>
-        ))}
-      </div>
-      <div style={{display:'flex',gap:8,marginBottom:16}}>
-        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); add(); }}} placeholder="Type what you found in email or Teams… press Enter" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'10px 14px',flex:1,outline:'none',minWidth:0}}/>
-        <OBtn onClick={add} style={{padding:'10px 16px',fontSize:18,flexShrink:0}}>+</OBtn>
-      </div>
-      {scanItems.length===0
-        ? <div style={{fontFamily:MO,fontSize:13,color:C.mu,textAlign:'center',marginTop:30}}>Nothing captured yet.</div>
-        : scanItems.map(item=>(
-          <div key={item.id} style={{display:'flex',gap:10,alignItems:'center',background:C.ca,border:`1px solid ${editId===item.id?C.or:C.bo}`,borderRadius:6,padding:'9px 14px',marginBottom:6,flexWrap:'wrap'}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:statColor(item.status),flexShrink:0}}/>
-            {editId===item.id
-              ? <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitEdit(item.id);if(e.key==='Escape'){setEditId(null);setEditVal('');}}} onBlur={()=>commitEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'2px 0',minWidth:100}}/>
-              : <span onClick={()=>startEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',borderBottom:`1px dashed ${C.bo}`,minWidth:100}}>{item.text}</span>
-            }
-            <span style={{fontFamily:MO,fontSize:10,color:statColor(item.status),border:`1px solid ${statColor(item.status)}44`,padding:'2px 6px',borderRadius:3,flexShrink:0}}>{statLabel(item.status)}</span>
-            <button onClick={e=>{flash(e);del(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}}>✕</button>
-          </div>
-        ))
-      }
-      <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:20}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext}>Next →</OBtn>
-      </div>
-    </div>
-  );
-}
 
-function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateScanItems, onUpdateTasks, onUpdateDismissed, onBack, onNext, onResetCarry }) {
-  const [inp,setInp]                 = useState('');
-  const [editId,setEditId]           = useState(null);
-  const [editVal,setEditVal]         = useState('');
-  const [triage,setTriage]           = useState({});
-  const [inboxTriage,setInboxTriage] = useState({});
-  const [inboxDeferDate,setInboxDeferDate] = useState({});
-  const [deferDate,setDeferDate]     = useState({});
+  // ── Inbox section ──
+  const addInbox = () => { if(!inp.trim())return; onUpdateScanItems([...scanItems,{id:nid(),text:inp.trim(),status:inboxSt}]); setInp(''); };
+  const delInbox = id => onUpdateScanItems(scanItems.filter(i=>i.id!==id));
+  const startInboxEdit  = item => { setInboxEditId(item.id); setInboxEditVal(item.text); };
+  const commitInboxEdit = id => { if(inboxEditVal.trim()) onUpdateScanItems(scanItems.map(i=>i.id===id?{...i,text:inboxEditVal.trim()}:i)); setInboxEditId(null); setInboxEditVal(''); };
 
-  const allScanItems = scanItems || [];
-  const deferredSet  = new Set(Object.keys(deferred));
-  const brainTasks   = tasks.filter(i=>(i.source==='brain'||i.carried||!i.source)&&!deferredSet.has(String(i.id)));
-  const addedSrcIds  = new Set(tasks.filter(i=>i.srcId).map(i=>String(i.srcId)));
-  const disSet       = new Set(dismissed.map(String));
+  // ── Brain section ──
+  const allScanItems    = scanItems || [];
+  const deferredSet     = new Set(Object.keys(deferred));
+  const brainTasks      = tasks.filter(i=>(i.source==='brain'||i.carried||!i.source)&&!deferredSet.has(String(i.id)));
+  const addedSrcIds     = new Set(tasks.filter(i=>i.srcId).map(i=>String(i.srcId)));
+  const disSet          = new Set(dismissed.map(String));
   const carriedInboxIds = new Set(tasks.filter(i=>i.inboxSrc).map(i=>String(i.inboxSrc)));
   const pendingInbox    = allScanItems.filter(i=>!carriedInboxIds.has(String(i.id)));
-
-  const pending = lastSum
-    ? [...(lastSum.undone||[])].filter(i=>!disSet.has(String(i.id))&&!addedSrcIds.has(String(i.id))).sort(priSort)
-    : [];
-
-  const setT = (id,val) => setTriage(p=>({...p,[id]:val}));
+  const pending         = lastSum ? [...(lastSum.undone||[])].filter(i=>!disSet.has(String(i.id))&&!addedSrcIds.has(String(i.id))).sort(priSort) : [];
+  const unprioritized   = brainTasks.filter(i=>!i.priority).reverse();
+  const prioritized     = brainTasks.filter(i=>!!i.priority).sort(priSort);
+  const setT            = (id,val) => setTriage(p=>({...p,[id]:val}));
 
   const commitInboxTriage = () => {
     const newTasks = [];
@@ -702,26 +667,73 @@ function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateSc
     onUpdateDismissed(dismissed2);
   };
 
-  const addNew     = () => { if(!inp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:inp.trim(),priority:null,source:'brain'}]); setInp(''); };
+  const addBrain   = () => { if(!brainInp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:brainInp.trim(),priority:null,source:'brain'}]); setBrainInp(''); };
   const delBrain   = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
   const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
   const commitEdit = id => { if(editVal.trim()) onUpdateTasks(tasks.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
-  const unprioritized = brainTasks.filter(i=>!i.priority).reverse();
-  const prioritized   = brainTasks.filter(i=>!!i.priority).sort(priSort);
-  const statColor = s => s==='urgent'?C.rd:s==='note'?C.yl:s==='clear'?C.gr:C.mu;
+
+  const taskRow = item => (
+    <div key={item.id} style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:`1px solid ${editId===item.id?C.or:C.bo}`,borderRadius:6,padding:'6px 14px',marginBottom:5,flexWrap:'wrap'}}>
+      <Dot p={item.priority}/>
+      {editId===item.id
+        ? <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitEdit(item.id);if(e.key==='Escape'){setEditId(null);setEditVal('');}}} onBlur={()=>commitEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'4px 0',minWidth:100}}/>
+        : <span onClick={()=>startEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',padding:'4px 0',borderBottom:`1px dashed ${C.bo}`,minWidth:100}}>{item.text}</span>
+      }
+      {item.carried&&<span style={{fontFamily:MO,fontSize:9,color:C.yl,border:`1px solid ${C.yl}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>carried</span>}
+      <SrcBadge source={item.source}/>
+      {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
+      <div style={{display:'flex',gap:3,flexShrink:0}}>
+        {['High','Medium','Low'].map(l=>{
+          const active=item.priority===l, col={High:C.rd,Medium:C.yl,Low:C.gr}[l];
+          return <button key={l} onClick={()=>onUpdateTasks(tasks.map(i=>i.id===item.id?{...i,priority:l}:i))} style={{fontFamily:'monospace',fontSize:9,padding:'2px 6px',borderRadius:3,cursor:'pointer',border:'1px solid '+(active?col:C.bo),background:active?col+'22':C.ca,color:active?col:C.mu,fontWeight:active?'bold':'normal'}}>{l[0]}</button>;
+        })}
+      </div>
+      <button onClick={e=>{flash(e);delBrain(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
+    </div>
+  );
 
   return (
     <div>
-      <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>STEP 2 OF 5</div>
-      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Brain Dump</h2>
-      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 20px'}}>Get everything out of your head. Don't filter. Don't prioritize yet.</p>
+      <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>STEP 1 OF 4</div>
+      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Collect &amp; Prioritize</h2>
+      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 16px'}}>Scan email &amp; Teams, dump everything on your mind, then triage.</p>
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:16,flexWrap:'wrap'}}>
         <Btn onClick={onBack}>← Back</Btn>
         <div style={{display:'flex',gap:6}}>
-          {onResetCarry && <button onClick={onResetCarry} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${C.rd}44`,background:C.rd+'11',color:C.rd,whiteSpace:'nowrap'}} title="Wipe carried tasks for today and re-pull fresh from previous days">↺ Reset &amp; Re-pull</button>}
+          {onResetCarry&&<button onClick={onResetCarry} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${C.rd}44`,background:C.rd+'11',color:C.rd,whiteSpace:'nowrap'}} title="Wipe carried tasks for today and re-pull fresh from previous days">↺ Reset &amp; Re-pull</button>}
           <OBtn onClick={onNext} disabled={brainTasks.length===0}>Next →</OBtn>
         </div>
       </div>
+
+      {/* ── INBOX SCAN ── */}
+      <div style={{background:'#0d1520',border:`1px solid ${C.bl}44`,borderRadius:8,padding:14,marginBottom:16}}>
+        <div style={{fontFamily:MO,fontSize:11,color:C.bl,letterSpacing:2,marginBottom:10}}>📥 INBOX SCAN — email &amp; Teams, 5 min max</div>
+        <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+          {[{k:'urgent',l:'🔴 Urgent'},{k:'note',l:'🟡 Note'},{k:'clear',l:'🟢 Schedule'}].map(x=>(
+            <button key={x.k} onClick={()=>setInboxSt(inboxSt===x.k?'':x.k)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${inboxSt===x.k?statColor(x.k):C.bo}`,background:inboxSt===x.k?`${statColor(x.k)}22`:C.ca,color:C.tx}}>{x.l}</button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:8,marginBottom:10}}>
+          <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addInbox();}}} placeholder="Type what you found in email or Teams… Enter to add" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 12px',flex:1,outline:'none',minWidth:0}}/>
+          <OBtn onClick={addInbox} style={{padding:'8px 14px',fontSize:18,flexShrink:0}}>+</OBtn>
+        </div>
+        {scanItems.length===0
+          ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,textAlign:'center',padding:'10px 0'}}>Nothing captured yet.</div>
+          : scanItems.map(item=>(
+            <div key={item.id} style={{display:'flex',gap:8,alignItems:'center',background:'#0a1525',border:`1px solid ${inboxEditId===item.id?C.or:C.bo}`,borderRadius:6,padding:'7px 12px',marginBottom:5,flexWrap:'wrap'}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:statColor(item.status),flexShrink:0}}/>
+              {inboxEditId===item.id
+                ? <input autoFocus value={inboxEditVal} onChange={e=>setInboxEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitInboxEdit(item.id);if(e.key==='Escape'){setInboxEditId(null);setInboxEditVal('');}}} onBlur={()=>commitInboxEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'2px 0',minWidth:100}}/>
+                : <span onClick={()=>startInboxEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',borderBottom:`1px dashed ${C.bo}`,minWidth:100}}>{item.text}</span>
+              }
+              <span style={{fontFamily:MO,fontSize:10,color:statColor(item.status),border:`1px solid ${statColor(item.status)}44`,padding:'2px 6px',borderRadius:3,flexShrink:0}}>{statLabel(item.status)}</span>
+              <button onClick={e=>{flash(e);delInbox(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}}>✕</button>
+            </div>
+          ))
+        }
+      </div>
+
+      {/* ── INBOX TRIAGE ── */}
       {pendingInbox.length>0&&(
         <div style={{background:'#0d1520',border:`1px solid ${C.bl}55`,borderRadius:8,padding:14,marginBottom:16}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10,flexWrap:'wrap',gap:8}}>
@@ -757,6 +769,8 @@ function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateSc
           })}
         </div>
       )}
+
+      {/* ── UNFINISHED TRIAGE ── */}
       {pending.length>0&&(
         <div style={{background:'#1a1500',border:`1px solid ${C.yl}55`,borderRadius:8,padding:14,marginBottom:16}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10,flexWrap:'wrap',gap:8}}>
@@ -793,56 +807,26 @@ function DumpTab({ tasks, dismissed, lastSum, scanItems, deferred={}, onUpdateSc
           })}
         </div>
       )}
-      <div style={{display:'flex',gap:8,marginBottom:16}}>
-        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addNew()} placeholder="Type a task, idea, or concern… then press Enter" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'10px 14px',flex:1,outline:'none',minWidth:0}}/>
-        <OBtn onClick={addNew} style={{padding:'10px 16px',fontSize:18,flexShrink:0}}>+</OBtn>
+
+      {/* ── BRAIN DUMP ── */}
+      <div style={{background:C.su,border:`1px solid ${C.bo}`,borderRadius:8,padding:14,marginBottom:16}}>
+        <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:10}}>🧠 BRAIN DUMP — get it all out, prioritize below</div>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <input value={brainInp} onChange={e=>setBrainInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addBrain()} placeholder="Type a task, idea, or concern… press Enter" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 12px',flex:1,outline:'none',minWidth:0}}/>
+          <OBtn onClick={addBrain} style={{padding:'8px 14px',fontSize:18,flexShrink:0}}>+</OBtn>
+        </div>
+        {brainTasks.length===0
+          ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,textAlign:'center',padding:'10px 0'}}>Start typing above.</div>
+          : <>
+            {unprioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:2,margin:'4px 0 6px',paddingBottom:4,borderBottom:'1px solid '+C.yl+'44'}}>⚠ UNPRIORITIZED — assign a priority below</div>}
+            {unprioritized.map(taskRow)}
+            {prioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,margin:'12px 0 6px',paddingBottom:4,borderBottom:'1px solid '+C.or+'44'}}>PRIORITIZED</div>}
+            {prioritized.map(taskRow)}
+          </>
+        }
       </div>
-      {brainTasks.length===0
-        ? <div style={{fontFamily:MO,fontSize:13,color:C.mu,textAlign:'center',marginTop:20}}>Start typing above.</div>
-        : <>
-          {unprioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:2,margin:'8px 0 5px',paddingBottom:4,borderBottom:'1px solid '+C.yl+'44'}}>⚠ UNPRIORITIZED — assign a priority below</div>}
-          {unprioritized.map(item=>(
-          <div key={item.id} style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:`1px solid ${editId===item.id?C.or:C.bo}`,borderRadius:6,padding:'6px 14px',marginBottom:5,flexWrap:'wrap'}}>
-            <Dot p={item.priority}/>
-            {editId===item.id
-              ? <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitEdit(item.id);if(e.key==='Escape'){setEditId(null);setEditVal('');}}} onBlur={()=>commitEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'4px 0',minWidth:100}}/>
-              : <span onClick={()=>startEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',padding:'4px 0',borderBottom:`1px dashed ${C.bo}`,minWidth:100}}>{item.text}</span>
-            }
-            {item.carried&&<span style={{fontFamily:MO,fontSize:9,color:C.yl,border:`1px solid ${C.yl}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>carried</span>}
-            <SrcBadge source={item.source}/>
-            {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
-            <div style={{display:'flex',gap:3,flexShrink:0}}>
-              {['High','Medium','Low'].map(l=>{
-                const active=item.priority===l, col={High:C.rd,Medium:C.yl,Low:C.gr}[l];
-                return <button key={l} onClick={()=>onUpdateTasks(tasks.map(i=>i.id===item.id?{...i,priority:l}:i))} style={{fontFamily:'monospace',fontSize:9,padding:'2px 6px',borderRadius:3,cursor:'pointer',border:'1px solid '+(active?col:C.bo),background:active?col+'22':C.ca,color:active?col:C.mu,fontWeight:active?'bold':'normal'}}>{l[0]}</button>;
-              })}
-            </div>
-            <button onClick={e=>{flash(e);delBrain(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
-          </div>
-          ))}
-          {prioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,margin:'12px 0 5px',paddingBottom:4,borderBottom:'1px solid '+C.or+'44'}}>PRIORITIZED</div>}
-          {prioritized.map(item=>(
-          <div key={item.id} style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:`1px solid ${editId===item.id?C.or:C.bo}`,borderRadius:6,padding:'6px 14px',marginBottom:5,flexWrap:'wrap'}}>
-            <Dot p={item.priority}/>
-            {editId===item.id
-              ? <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitEdit(item.id);if(e.key==='Escape'){setEditId(null);setEditVal('');}}} onBlur={()=>commitEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'4px 0',minWidth:100}}/>
-              : <span onClick={()=>startEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',padding:'4px 0',borderBottom:`1px dashed ${C.bo}`,minWidth:100}}>{item.text}</span>
-            }
-            {item.carried&&<span style={{fontFamily:MO,fontSize:9,color:C.yl,border:`1px solid ${C.yl}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>carried</span>}
-            <SrcBadge source={item.source}/>
-            {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
-            <div style={{display:'flex',gap:3,flexShrink:0}}>
-              {['High','Medium','Low'].map(l=>{
-                const active=item.priority===l, col={High:C.rd,Medium:C.yl,Low:C.gr}[l];
-                return <button key={l} onClick={()=>onUpdateTasks(tasks.map(i=>i.id===item.id?{...i,priority:l}:i))} style={{fontFamily:'monospace',fontSize:9,padding:'2px 6px',borderRadius:3,cursor:'pointer',border:'1px solid '+(active?col:C.bo),background:active?col+'22':C.ca,color:active?col:C.mu,fontWeight:active?'bold':'normal'}}>{l[0]}</button>;
-              })}
-            </div>
-            <button onClick={e=>{flash(e);delBrain(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
-          </div>
-          ))}
-        </>
-      }
-      <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:20}}>
+
+      <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:4}}>
         <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext} disabled={brainTasks.length===0}>Next →</OBtn>
       </div>
     </div>
@@ -999,6 +983,7 @@ function BlockEditor({ slot, timeBlocks, allTasks, onSave, onClose }) {
 function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdateTime, onBack, onNext, isCompact }) {
   const [editSlot,setEditSlot]     = useState(null);
   const [showAfter5,setShowAfter5] = useState(false);
+  const [showBefore8,setShowBefore8] = useState(false);
   const [showSidebar,setShowSidebar] = useState(!isCompact);
   const [nowMin,setNowMin]         = useState(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); });
   const [nowLabel,setNowLabel]     = useState(()=>new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
@@ -1016,13 +1001,13 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   },[]);
 
   const deferredTaskIds = new Set(Object.keys(deferred).map(String));
-  const allSlots=showAfter5?[...TIME_SLOTS,...AFTER5_SLOTS]:TIME_SLOTS;
+  const allSlots=[...(showBefore8?BEFORE8_SLOTS:[]),...(showAfter5?[...TIME_SLOTS,...AFTER5_SLOTS]:TIME_SLOTS)];
 
   const pMin=t=>{ if(!t)return null; const m12=t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); if(m12){let h=parseInt(m12[1]),mn=parseInt(m12[2]);const ap=m12[3].toUpperCase();if(ap==='PM'&&h!==12)h+=12;if(ap==='AM'&&h===12)h=0;return h*60+mn;} const m24=t.match(/^(\d{1,2}):(\d{2})$/); if(m24){let h=parseInt(m24[1]);if(h>=1&&h<=7)h+=12;return h*60+parseInt(m24[2]);} return null; };
   const timerColor=type=>type==='Away'?C.rd:type==='Training'?C.pu:type==='Watching'?C.bl:null;
   useEffect(()=>{
     const out=[]; (timerLogs||[]).forEach((log,li)=>{ const ls=pMin(log.startTime); if(ls===null)return; const le=ls+(parseInt(log.duration)||0); const col=timerColor(log.type); if(!col)return; let fi=-1,la=-1; allSlots.forEach((s,i)=>{const sm=slotToMin(s);if(ls<sm+15&&le>sm){if(fi===-1)fi=i;la=i;}}); if(fi===-1)return; const firstEl=slotRefs.current[allSlots[fi]]; const lastEl=slotRefs.current[allSlots[la]]; if(!firstEl||!lastEl)return; const fsm=slotToMin(allSlots[fi]); const lsm=slotToMin(allSlots[la]); const fh=firstEl.offsetHeight; const lh=lastEl.offsetHeight; const topPx=firstEl.offsetTop+Math.max(0,(ls-fsm)/15*fh); const botPx=lastEl.offsetTop+Math.min(lh,(le-lsm)/15*lh); out.push({col,top:topPx,height:Math.max(6,botPx-topPx),key:li}); }); setOverlays(out);
-  },[timerLogs, showAfter5]);
+  },[timerLogs, showAfter5, showBefore8]);
   const slotZoneBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return C.gr+'10'; if(m>=570&&m<690)return C.rd+'0e'; if(m>=690&&m<720)return C.or+'0e'; if(m>=720&&m<780)return C.mu+'18'; if(m>=780&&m<900)return C.rd+'0e'; if(m>=900&&m<930)return C.or+'0e'; if(m>=930&&m<990)return C.bl+'0e'; if(m>=990)return C.bl+'10'; return 'transparent'; };
   const slotContentBg=slot=>{ const m=slotToMin(slot); if(m>=480&&m<570)return '#0d1f0d'; if(m>=570&&m<930)return '#1a1010'; if(m>=930)return '#0d0d1f'; return C.ca; };
   const removeSlotItem=(slot,idx,e)=>{ e.stopPropagation(); const cur=slotArr(timeBlocks[slot]),nb={...timeBlocks},next=cur.filter((_,i)=>i!==idx); nb[slot]=next.length>0?next:undefined; onUpdateTime(nb); };
@@ -1079,6 +1064,14 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
       <div style={{display:'flex',gap:16}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{position:'relative'}}>
+          <div onClick={()=>setShowBefore8(p=>!p)} style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',padding:'10px 12px',marginBottom:2,borderRadius:6,border:'1px dashed '+C.bo,background:showBefore8?C.ca:'transparent',transition:'all .2s'}}>
+            <span style={{fontFamily:MO,fontSize:10,color:C.mu,letterSpacing:1}}>{showBefore8?'▲ HIDE BEFORE 8 AM':'▼ EXPAND BEFORE 8 AM (from 7:00 AM)'}</span>
+            {!showBefore8&&BEFORE8_SLOTS.some(s=>slotArr(timeBlocks[s]).length>0)&&(
+              <span style={{fontFamily:MO,fontSize:9,color:C.or,border:'1px solid '+C.or+'66',borderRadius:3,padding:'1px 6px'}}>
+                {BEFORE8_SLOTS.filter(s=>slotArr(timeBlocks[s]).length>0).length} slot{BEFORE8_SLOTS.filter(s=>slotArr(timeBlocks[s]).length>0).length!==1?'s':''} scheduled
+              </span>
+            )}
+          </div>
           {allSlots.map(slot=>{
             const m=slotToMin(slot),isCurrentSlot=nowMin>=m&&nowMin<m+15;
             const nowOffset=isCurrentSlot?Math.round(((nowMin-m)/15)*40):null;
@@ -1979,7 +1972,7 @@ function DailyPlanner() {
   const isCompact = w < 1050;
 
   const [ds,setDs]     = useState(TODAY);
-  const [tab,setTab]   = useState('inbox');
+  const [tab,setTab]   = useState('collect');
   const [sd,setSd]     = useState(()=>initDay(TODAY));
   const [sums,setSums] = useState({});
   const [idx,setIdx]   = useState([]);
@@ -2309,7 +2302,7 @@ function DailyPlanner() {
     }
   };
 
-  const TABS=['inbox','dump','schedule','progress','wrapup'];
+  const TABS=['collect','schedule','progress','wrapup'];
   const ALL_TABS=[...TABS,'stats','capture'];
   const goNext=()=>{ const i=TABS.indexOf(tab); if(i<TABS.length-1)setTab(TABS[i+1]); };
   const goBack=()=>{ const i=TABS.indexOf(tab); if(i>0)setTab(TABS[i-1]); };
@@ -2324,19 +2317,18 @@ function DailyPlanner() {
       if(e.key==='Escape'){setShowHist(false);setShowTL(false);setShowRest(false);}
       const n=parseInt(e.key);
       if(n>=1&&n<=TABS.length)setTab(TABS[n-1]);
-      if(n===6)setTab('stats');
-      if(n===7)setTab('capture');
+      if(n===5)setTab('stats');
+      if(n===6)setTab('capture');
     };
     window.addEventListener('keydown',handler);
     return ()=>window.removeEventListener('keydown',handler);
   },[tab]);
 
   const tabInfo={
-    inbox:   {label:'Inbox',   icon:'📥', step:1},
-    dump:    {label:'Dump',    icon:'🧠', step:2},
-    schedule:{label:'Schedule',icon:'📅', step:3},
-    progress:{label:'Progress',icon:'☑',  step:4},
-    wrapup:  {label:'Wrap Up', icon:'🎁', step:5},
+    collect: {label:'Collect',  icon:'📥', step:1},
+    schedule:{label:'Schedule',icon:'📅', step:2},
+    progress:{label:'Progress',icon:'☑',  step:3},
+    wrapup:  {label:'Wrap Up', icon:'🎁', step:4},
     stats:   {label:'Stats',   icon:'📊', step:null},
     capture: {label:'Capture', icon:'⚡', step:null},
   };
@@ -2402,7 +2394,7 @@ function DailyPlanner() {
             </div>
           </div>
         </div>
-        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>← → navigate steps &nbsp;·&nbsp; 1–5 jump to step &nbsp;·&nbsp; 6 = stats &nbsp;·&nbsp; 7 = capture &nbsp;·&nbsp; Esc close modals</div>}
+        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>← → navigate steps &nbsp;·&nbsp; 1–4 jump to step &nbsp;·&nbsp; 5 = stats &nbsp;·&nbsp; 6 = capture &nbsp;·&nbsp; Esc close modals</div>}
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
           <TimerCtrl type="away"     ms={awayMs+logAwayMs}   running={awayRun}  color={C.rd}/>
           <TimerCtrl type="training" ms={trainMs+logTrainMs} running={trainRun} color={C.pu}/>
@@ -2442,8 +2434,7 @@ function DailyPlanner() {
       </div>
 
       <div style={{padding:isMobile?'16px 12px':'24px 20px'}}>
-        {tab==='inbox'    && <InboxTab    inp={inboxInp} setInp={setInboxInpSafe} scanItems={scanItems} onUpdate={v=>{upd('scanItems',v);window._dpsInboxDraft='';}} onBack={goBack} onNext={goNext}/>}
-        {tab==='dump'     && <DumpTab     tasks={tasks} dismissed={dismissed} lastSum={lastSum} scanItems={scanItems} deferred={deferred} onUpdateScanItems={v=>upd('scanItems',v)} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
+        {tab==='collect'  && <CollectTab  inp={inboxInp} setInp={setInboxInpSafe} scanItems={scanItems} onUpdateScanItems={v=>upd('scanItems',v)} tasks={tasks} dismissed={dismissed} lastSum={lastSum} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
         {tab==='schedule' && <ScheduleTab timeBlocks={timeBlocks} tasks={tasks} done={done} timerLogs={timerLogs} deferred={deferred} onUpdateTime={v=>upd('time',v)} onBack={goBack} onNext={goNext} isCompact={isCompact}/>}
         {tab==='capture'  && <CaptureTab  tasks={tasks} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDeferred={v=>upd('deferred',v)}/>}
         {tab==='progress' && <ProgressTab tasks={tasks} done={done} deferred={deferred} timeBlocks={timeBlocks} onUpdateDone={v=>upd('done',v)} onUpdateDeferred={v=>upd('deferred',v)} onBack={goBack} onNext={goNext} isMobile={isMobile}/>}
