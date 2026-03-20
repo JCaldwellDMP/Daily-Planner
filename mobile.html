@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>DPS Mobile — Jesse Caldwell</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #111318; overflow: hidden; }
+    #root { height: 100%; }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+    input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+    select option { background: #1c1f2b; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #111318; }
+    ::-webkit-scrollbar-thumb { background: #252836; border-radius: 2px; }
+    .sheet-enter { animation: slideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .tab-fade { animation: tabFade 0.15s ease; }
+    @keyframes tabFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    input, textarea, select { -webkit-appearance: none; appearance: none; }
+    * { -webkit-tap-highlight-color: transparent; }
+  </style>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+<script type="text/babel" data-presets="react,env">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Storage (same as desktop) ──────────────────────────────────────────────────
+const _mem = {};
+const store = (() => {
+  try { localStorage.setItem('_m','1'); localStorage.removeItem('_m'); return localStorage; }
+  catch(e) { return { getItem:k=>_mem[k]||null, setItem:(k,v)=>{_mem[k]=v;}, removeItem:k=>{delete _mem[k];} }; }
+})();
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:'#111318', su:'#181b24', ca:'#1c1f2b', bo:'#252836',
+  or:'#f97316', gr:'#22c55e', rd:'#ef4444', yl:'#eab308',
+  pu:'#a855f7', bl:'#3b82f6', tx:'#dde1ee', mu:'#52566a',
+};
+const MO = "'Courier New', Courier, monospace";
+const PD = { High:C.rd, Medium:C.yl, Low:C.gr };
+
+// ── Time slots (identical to desktop) ─────────────────────────────────────────
+const AFTER5_SLOTS = (() => {
+  const s = [];
+  for (let h = 17; h <= 21; h++)
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 17 && m === 0) continue;
+      if (h === 21 && m > 0) break;
+      const hd = h > 12 ? h - 12 : h;
+      s.push(`${hd}:${m === 0 ? '00' : m} PM`);
+    }
+  return s;
+})();
+
+const TIME_SLOTS = (() => {
+  const s = [];
+  for (let h = 8; h <= 16; h++)
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 16 && m > 45) break;
+      const ap = h >= 12 ? 'PM' : 'AM';
+      const hd = h > 12 ? h - 12 : h === 0 ? 12 : h;
+      s.push(`${hd}:${m === 0 ? '00' : m} ${ap}`);
+    }
+  return s;
+})();
+
+const ALL_TIME_SLOTS = [...TIME_SLOTS, ...AFTER5_SLOTS];
+const DEFAULTS = ['Lunch','PTO','Clean Out Inbox','New Hire: Next Day Tasks','Plan for the Day','New Dealer Webinar','Clinic','Watch the Department'];
+const DEFAULT_TAGS = ['#meeting','#training','#watching','#action','#general','#reminder'];
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const nid = () => Date.now() + Math.random();
+const fmtMs = ms => {
+  const tot = Math.floor(ms/1000), m = Math.floor(tot/60), h = Math.floor(m/60);
+  return h > 0 ? `${h}h ${m%60}m` : `${m}m ${tot%60}s`;
+};
+const fmtDate = str => {
+  const d = new Date(str + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric', year:'numeric' });
+};
+const slotToMin = slot => {
+  const [h, rest] = slot.split(':');
+  const [mn, ap] = rest.split(' ');
+  let hh = parseInt(h);
+  if (ap === 'PM' && hh !== 12) hh += 12;
+  if (ap === 'AM' && hh === 12) hh = 0;
+  return hh * 60 + parseInt(mn);
+};
+const slotArr = v => !v ? [] : Array.isArray(v) ? v.filter(Boolean) : [v];
+const priSort = (a,b) => {
+  const o = {High:0, Medium:1, Low:2};
+  const av = a.priority==null ? 3 : (o[a.priority]??3);
+  const bv = b.priority==null ? 3 : (o[b.priority]??3);
+  return av !== bv ? av - bv : (a.text||'').localeCompare(b.text||'');
+};
+const snapToSlot = str => {
+  const exact = ALL_TIME_SLOTS.indexOf(str);
+  if (exact >= 0) return exact;
+  const m = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return -1;
+  let h = parseInt(m[1]), mn = parseInt(m[2]);
+  const ap = (m[3]||'').toUpperCase();
+  if (ap==='PM' && h!==12) h+=12;
+  if (ap==='AM' && h===12) h=0;
+  const tot = h*60+mn;
+  let bestIdx=-1, bestDiff=Infinity;
+  ALL_TIME_SLOTS.forEach((s,i)=>{ const d=Math.abs(slotToMin(s)-tot); if(d<bestDiff){bestDiff=d;bestIdx=i;} });
+  return bestIdx;
+};
+const fmtTimeLabel = min => {
+  const h = Math.floor(min/60), m = min%60;
+  const ap = h>=12?'PM':'AM', h12 = h>12?h-12:h===0?12:h;
+  return `${h12}:${String(m).padStart(2,'0')} ${ap}`;
+};
+const fmtTimestamp = ts => new Date(ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+// ── Dot component ──────────────────────────────────────────────────────────────
+const Dot = ({p, size=8}) => (
+  <span style={{
+    width:size, height:size, borderRadius:'50%', flexShrink:0,
+    background: p==='High'?C.rd : p==='Medium'?C.yl : p==='Low'?C.gr : C.mu+'66',
+    border: !p ? '1px solid '+C.mu : 'none',
+    display:'inline-block'
+  }}/>
+);
+
+// ── Splash Screen ──────────────────────────────────────────────────────────────
+function SplashScreen({ date }) {
+  return (
+    <div style={{
+      position:'fixed', inset:0, background:C.bg,
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+      gap:16, zIndex:9999
+    }}>
+      <div style={{
+        width:56, height:56, borderRadius:14,
+        background:C.or+'22', border:`2px solid ${C.or}`,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        fontSize:28, marginBottom:8
+      }}>📋</div>
+      <div style={{fontFamily:MO, fontSize:14, color:C.or, letterSpacing:3, textAlign:'center'}}>DAILY PLANNING SYSTEM</div>
+      <div style={{fontFamily:MO, fontSize:11, color:C.mu, textAlign:'center', letterSpacing:1}}>
+        Session loaded — {fmtDate(date)}
+      </div>
+      <div style={{marginTop:16, display:'flex', gap:4}}>
+        {[0,1,2].map(i => (
+          <div key={i} style={{
+            width:6, height:6, borderRadius:'50%',
+            background:i===0?C.or:C.bo,
+            animation:`pulse${i} 1s ease infinite ${i*0.2}s`
+          }}/>
+        ))}
+      </div>
+      <style>{`
+        @keyframes pulse0{0%,100%{opacity:1}50%{opacity:.3}}
+        @keyframes pulse1{0%,100%{opacity:.3}50%{opacity:1}}
+        @keyframes pulse2{0%,100%{opacity:.5}25%{opacity:1}75%{opacity:.3}}
+      `}</style>
+    </div>
+  );
+}
+
+// ── Countdown Banner ───────────────────────────────────────────────────────────
+function CountdownBanner({ timeBlocks, nowMin, endTime }) {
+  const getItemText = i => (typeof i==='string' ? i : i?.text||'').trim().toLowerCase();
+
+  // Lunch
+  const lunchSlot = ALL_TIME_SLOTS.find(s => slotArr(timeBlocks[s]).some(i=>getItemText(i).startsWith('lunch')));
+  const lunchMin  = lunchSlot ? slotToMin(lunchSlot) : null;
+
+  // Appt events
+  const PREFIXES = [
+    {match:'meeting:', label:'Meeting', icon:'📋'},
+    {match:'class:',   label:'Class',   icon:'🎓'},
+    {match:'tour:',    label:'Tour',    icon:'🗺'},
+  ];
+  const events = [];
+  ALL_TIME_SLOTS.forEach(slot => {
+    const min = slotToMin(slot);
+    let matched = null;
+    for (const item of slotArr(timeBlocks[slot])) {
+      const lower = item.text.trim().toLowerCase();
+      for (const p of PREFIXES) {
+        if (lower.startsWith(p.match)) {
+          const displayName = item.text.trim().slice(p.match.length).trim();
+          const mo = displayName.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?/i);
+          let timeOverride = null;
+          if (mo) {
+            let h=parseInt(mo[1]),mn2=parseInt(mo[2]);
+            const ap=(mo[3]||'').toUpperCase();
+            if(ap==='PM'&&h!==12)h+=12; if(ap==='AM'&&h===12)h=0;
+            timeOverride=h*60+mn2;
+          }
+          matched = { fullText:item.text.trim(), label:p.label, icon:p.icon, displayName, timeOverride };
+          break;
+        }
+      }
+      if (matched) break;
+    }
+    if (!matched) return;
+    const last = events[events.length-1];
+    if (last && last.fullText===matched.fullText && min===last.endMin) { last.endMin=min+15; }
+    else { const as=matched.timeOverride??min; events.push({...matched,startMin:as,endMin:as+15}); }
+  });
+
+  // Lunch event
+  if (lunchMin !== null) {
+    const lunchEvent = {label:'Lunch',icon:'🥗',displayName:'Lunch',startMin:lunchMin,endMin:lunchMin+60,fullText:'lunch'};
+    events.push(lunchEvent);
+    events.sort((a,b)=>a.startMin-b.startMin);
+  }
+
+  // Shift end
+  const [eh,em] = endTime.split(':').map(Number);
+  const endMin = eh*60+(em||0);
+
+  // Next and then
+  const upcoming = events.filter(e=>e.startMin>nowMin);
+  const nextUp   = upcoming[0] || null;
+  const thenUp   = upcoming[1] || null;
+  const endDiff  = Math.max(0, endMin - nowMin);
+  const endCd    = `${String(Math.floor(endDiff/60)).padStart(2,'0')}:${String(endDiff%60).padStart(2,'0')}`;
+
+  const fmtDiff = min => `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
+  const nextDiff = nextUp ? Math.max(0, nextUp.startMin - nowMin) : null;
+
+  return (
+    <div style={{
+      background:'#13161f', borderBottom:`1px solid ${C.bo}`,
+      padding:'8px 14px 8px',
+      paddingTop:`calc(8px + env(safe-area-inset-top, 0px))`,
+    }}>
+      <div style={{display:'flex', gap:10, alignItems:'stretch', flexWrap:'wrap'}}>
+        {/* Next Up */}
+        <div style={{flex:'1 1 120px', minWidth:0}}>
+          <div style={{fontFamily:MO, fontSize:8, color:C.mu, letterSpacing:2, marginBottom:2}}>NEXT UP</div>
+          {nextUp ? (
+            <div style={{display:'flex', gap:6, alignItems:'baseline'}}>
+              <span style={{fontFamily:MO, fontSize:18, fontWeight:'bold', color:C.or, lineHeight:1}}>
+                {fmtDiff(nextDiff)}
+              </span>
+              <span style={{fontFamily:MO, fontSize:9, color:C.tx, lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                {nextUp.icon} {nextUp.displayName||nextUp.label}
+              </span>
+            </div>
+          ) : (
+            <div style={{fontFamily:MO, fontSize:12, color:C.mu}}>—</div>
+          )}
+        </div>
+
+        {/* Then */}
+        <div style={{flex:'1 1 100px', minWidth:0}}>
+          <div style={{fontFamily:MO, fontSize:8, color:C.mu, letterSpacing:2, marginBottom:2}}>THEN</div>
+          {thenUp ? (
+            <div>
+              <div style={{fontFamily:MO, fontSize:11, color:C.tx, lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                {thenUp.icon} {thenUp.displayName||thenUp.label}
+              </div>
+              <div style={{fontFamily:MO, fontSize:9, color:C.mu}}>{fmtTimeLabel(thenUp.startMin)}</div>
+            </div>
+          ) : (
+            <div style={{fontFamily:MO, fontSize:11, color:C.mu}}>—</div>
+          )}
+        </div>
+
+        {/* Shift End */}
+        <div style={{flex:'0 0 auto', textAlign:'right'}}>
+          <div style={{fontFamily:MO, fontSize:8, color:C.mu, letterSpacing:2, marginBottom:2}}>🏁 SHIFT</div>
+          <div style={{fontFamily:MO, fontSize:18, fontWeight:'bold', color:endDiff===0?C.mu:C.bl, lineHeight:1}}>
+            {endCd}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Block Bottom Sheet ─────────────────────────────────────────────────────────
+function BlockSheet({ slot, timeBlocks, tasks, done, onSave, onClose }) {
+  const doneSet = new Set(done);
+  const slotIdx  = ALL_TIME_SLOTS.indexOf(slot);
+  const nextSlot = ALL_TIME_SLOTS[slotIdx+1] || slot;
+  const [items, setItems]       = useState(() => slotArr(timeBlocks[slot]));
+  const [startSlot, setStart]   = useState(slot);
+  const [endSlot, setEnd]       = useState(nextSlot);
+  const [custom, setCustom]     = useState('');
+  const availTasks = tasks.filter(t => !doneSet.has(t.id));
+
+  const addItem = (text, itemId=null) => {
+    const t = (text??custom).trim();
+    if (!t) return;
+    setItems(p => [...p, {text:t, itemId}]);
+    setCustom('');
+  };
+  const removeItem = idx => setItems(p => p.filter((_,i)=>i!==idx));
+
+  const save = () => {
+    const si = snapToSlot(startSlot), ei = snapToSlot(endSlot);
+    const nb = {...timeBlocks}, val = items.length > 0 ? items : undefined;
+    if (si>=0 && ei>si) { for(let i=si;i<ei;i++) nb[ALL_TIME_SLOTS[i]]=val; }
+    else if (si>=0) { nb[ALL_TIME_SLOTS[si]]=val; }
+    else { nb[startSlot]=val; }
+    onSave(nb); onClose();
+  };
+  const clearSlot = () => {
+    const si=snapToSlot(startSlot), ei=snapToSlot(endSlot);
+    const nb={...timeBlocks};
+    if(si>=0&&ei>si){for(let i=si;i<ei;i++)nb[ALL_TIME_SLOTS[i]]=undefined;}
+    else if(si>=0){nb[ALL_TIME_SLOTS[si]]=undefined;}
+    onSave(nb); onClose();
+  };
+
+  const inp = {fontFamily:MO,fontSize:13,background:C.bg,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:8,padding:'10px 12px',outline:'none',width:'100%'};
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:200}}/>
+      {/* Sheet */}
+      <div className="sheet-enter" style={{
+        position:'fixed', bottom:0, left:0, right:0,
+        background:C.su, borderRadius:'16px 16px 0 0',
+        border:`1px solid ${C.bo}`, borderBottom:'none',
+        maxHeight:'80vh', overflow:'auto',
+        zIndex:201,
+        paddingBottom:`env(safe-area-inset-bottom, 16px)`,
+      }}>
+        {/* Handle */}
+        <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px'}}>
+          <div style={{width:36,height:4,borderRadius:2,background:C.bo}}/>
+        </div>
+        <div style={{padding:'0 16px 20px'}}>
+          {/* Header */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.or}}>{slot}</div>
+            <button onClick={onClose} style={{background:'none',border:'none',color:C.mu,fontSize:20,cursor:'pointer',padding:'0 4px'}}>×</button>
+          </div>
+
+          {/* Start / End time */}
+          <div style={{display:'flex',gap:10,marginBottom:14}}>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>FROM</div>
+              <select value={startSlot} onChange={e=>setStart(e.target.value)} style={{...inp,fontSize:12,padding:'8px 10px'}}>
+                {ALL_TIME_SLOTS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>TO</div>
+              <select value={endSlot} onChange={e=>setEnd(e.target.value)} style={{...inp,fontSize:12,padding:'8px 10px'}}>
+                {ALL_TIME_SLOTS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Current items */}
+          {items.length > 0 && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:6}}>SCHEDULED</div>
+              {items.map((item,idx) => (
+                <div key={idx} style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'7px 10px',marginBottom:4}}>
+                  <span style={{fontFamily:MO,fontSize:12,color:C.tx,flex:1}}>{item.text}</span>
+                  <button onClick={()=>removeItem(idx)} style={{background:'none',border:'none',color:C.mu,fontSize:16,cursor:'pointer',padding:'0 2px'}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Custom input */}
+          <div style={{display:'flex',gap:8,marginBottom:12}}>
+            <input value={custom} onChange={e=>setCustom(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addItem()} placeholder="Custom text…" style={{...inp,flex:1}}/>
+            <button onClick={()=>addItem()} style={{background:C.or,border:'none',borderRadius:8,color:'#000',fontFamily:MO,fontSize:18,fontWeight:'bold',width:44,cursor:'pointer',flexShrink:0}}>+</button>
+          </div>
+
+          {/* Defaults */}
+          <div style={{marginBottom:12}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:6}}>QUICK ADD</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {DEFAULTS.map(d => (
+                <button key={d} onClick={()=>addItem(d)} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${C.bo}`,background:C.ca,color:C.tx,whiteSpace:'nowrap'}}>
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tasks */}
+          {availTasks.length > 0 && (
+            <div style={{marginBottom:14}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:6}}>FROM TASKS</div>
+              <div style={{maxHeight:140,overflow:'auto',display:'flex',flexDirection:'column',gap:4}}>
+                {availTasks.sort(priSort).map(t => (
+                  <button key={t.id} onClick={()=>addItem(t.text,t.id)} style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'7px 10px',cursor:'pointer',textAlign:'left',width:'100%'}}>
+                    <Dot p={t.priority} size={7}/>
+                    <span style={{fontFamily:MO,fontSize:12,color:C.tx,flex:1,lineHeight:1.3}}>{t.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={clearSlot} style={{flex:'0 0 auto',fontFamily:MO,fontSize:12,padding:'12px 14px',borderRadius:8,cursor:'pointer',border:`1px solid ${C.rd}44`,background:C.rd+'11',color:C.rd}}>Clear</button>
+            <button onClick={save} style={{flex:1,fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',borderRadius:8,cursor:'pointer',border:'none',background:C.or,color:'#000'}}>Save Block</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Schedule Tab ───────────────────────────────────────────────────────────────
+function ScheduleTab({ timeBlocks, tasks, done, deferred, nowMin, onUpdateTime }) {
+  const [editSlot, setEditSlot]     = useState(null);
+  const [showAfter5, setShowAfter5] = useState(false);
+  const doneSet     = new Set(done);
+  const deferredSet = new Set(Object.keys(deferred));
+  const nowRef      = useRef(null);
+
+  // Scroll to current time on mount
+  useEffect(() => {
+    if (nowRef.current) {
+      setTimeout(() => nowRef.current?.scrollIntoView({behavior:'smooth',block:'center'}), 300);
+    }
+  }, []);
+
+  const isItemDeferred = item => item.itemId && deferredSet.has(String(item.itemId));
+  const after5Has = AFTER5_SLOTS.some(s => slotArr(timeBlocks[s]).length > 0);
+
+  const renderSlot = (slot) => {
+    const items = slotArr(timeBlocks[slot]);
+    const min   = slotToMin(slot);
+    const isCurrent = nowMin >= min && nowMin < min + 15;
+
+    return (
+      <div key={slot} ref={isCurrent ? nowRef : null} style={{position:'relative'}}>
+        {/* Current time indicator */}
+        {isCurrent && (
+          <div style={{position:'absolute',left:0,right:0,top:0,height:2,background:C.or,zIndex:2,boxShadow:`0 0 6px ${C.or}`}}/>
+        )}
+        <div onClick={() => setEditSlot(slot)} style={{
+          display:'flex', alignItems:'stretch', minHeight:44,
+          borderBottom:`1px solid ${C.bo}22`,
+          background: isCurrent ? C.or+'08' : 'transparent',
+          cursor:'pointer', transition:'background .1s',
+          WebkitTapHighlightColor: 'transparent',
+        }}>
+          {/* Time label */}
+          <div style={{
+            width:58, flexShrink:0, padding:'8px 6px',
+            display:'flex', alignItems:'flex-start', justifyContent:'flex-end',
+          }}>
+            <span style={{fontFamily:MO, fontSize:10, color:isCurrent?C.or:C.mu, lineHeight:1.3}}>{slot}</span>
+          </div>
+          {/* Content */}
+          <div style={{flex:1, borderLeft:`2px solid ${isCurrent?C.or:C.bo+'44'}`, padding:'6px 10px', display:'flex', flexDirection:'column', justifyContent:'center', gap:2}}>
+            {items.length > 0 ? items.map((item, idx) => {
+              const def = isItemDeferred(item);
+              return (
+                <div key={idx} style={{display:'flex',gap:6,alignItems:'center'}}>
+                  {def && <span style={{fontFamily:MO,fontSize:8,color:C.bl,border:`1px solid ${C.bl}44`,borderRadius:2,padding:'0 3px',flexShrink:0}}>defer</span>}
+                  <span style={{fontFamily:MO,fontSize:12,color:def?C.mu:C.tx,lineHeight:1.3,textDecoration:def?'line-through':'none'}}>{item.text}</span>
+                </div>
+              );
+            }) : (
+              <span style={{fontFamily:MO,fontSize:11,color:C.mu+'44'}}>—</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{height:'100%',overflow:'auto',background:C.bg}} className="tab-fade">
+      <div style={{padding:'12px 14px 6px'}}>
+        <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:2}}>TODAY'S SCHEDULE</div>
+        <div style={{fontFamily:MO,fontSize:12,color:C.mu}}>{fmtDate(new Date().toISOString().split('T')[0])}</div>
+      </div>
+
+      <div style={{paddingBottom:8}}>
+        {TIME_SLOTS.map(renderSlot)}
+      </div>
+
+      {/* After 5 PM toggle */}
+      <div onClick={()=>setShowAfter5(p=>!p)} style={{
+        display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+        padding:'12px 16px',cursor:'pointer',
+        borderTop:`1px dashed ${C.bo}`,
+        borderBottom:`1px dashed ${C.bo}`,
+        margin:'4px 0', background:'transparent',
+      }}>
+        <span style={{fontFamily:MO,fontSize:10,color:C.mu,letterSpacing:1}}>
+          {showAfter5 ? '▲ HIDE AFTER 5 PM' : '▼ EXPAND AFTER 5 PM (up to 9:00 PM)'}
+        </span>
+        {!showAfter5 && after5Has && (
+          <span style={{fontFamily:MO,fontSize:9,color:C.or,border:`1px solid ${C.or}66`,borderRadius:3,padding:'1px 6px'}}>
+            {AFTER5_SLOTS.filter(s=>slotArr(timeBlocks[s]).length>0).length} scheduled
+          </span>
+        )}
+      </div>
+      {showAfter5 && AFTER5_SLOTS.map(renderSlot)}
+
+      <div style={{height:80}}/>
+
+      {editSlot && (
+        <BlockSheet
+          slot={editSlot}
+          timeBlocks={timeBlocks}
+          tasks={tasks}
+          done={done}
+          onSave={onUpdateTime}
+          onClose={()=>setEditSlot(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Add Note Sheet ─────────────────────────────────────────────────────────────
+function AddNoteSheet({ onSave, onClose }) {
+  const [text,setText]   = useState('');
+  const [tag,setTag]     = useState('#general');
+  const [customTag,setCustomTag] = useState('');
+  const [useCustom,setUseCustom] = useState(false);
+  const [ts,setTs]       = useState(() => {
+    const n=new Date();
+    return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  });
+
+  const save = () => {
+    if (!text.trim()) return;
+    const finalTag = useCustom ? customTag.trim() || '#general' : tag;
+    const [h,m] = ts.split(':').map(Number);
+    const now = new Date(); now.setHours(h||0,m||0,0,0);
+    onSave({ id:nid(), text:text.trim(), tag:finalTag, timestamp:now.toISOString() });
+    onClose();
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:200}}/>
+      <div className="sheet-enter" style={{
+        position:'fixed',bottom:0,left:0,right:0,
+        background:C.su,borderRadius:'16px 16px 0 0',
+        border:`1px solid ${C.bo}`,borderBottom:'none',
+        maxHeight:'85vh',overflow:'auto',zIndex:201,
+        paddingBottom:`env(safe-area-inset-bottom, 16px)`,
+      }}>
+        <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px'}}>
+          <div style={{width:36,height:4,borderRadius:2,background:C.bo}}/>
+        </div>
+        <div style={{padding:'0 16px 20px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.or}}>ADD NOTE</div>
+            <button onClick={onClose} style={{background:'none',border:'none',color:C.mu,fontSize:20,cursor:'pointer'}}>×</button>
+          </div>
+
+          <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Note text…" rows={4} style={{fontFamily:MO,fontSize:13,background:C.bg,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:8,padding:'10px 12px',outline:'none',width:'100%',resize:'none',marginBottom:12}}/>
+
+          <div style={{marginBottom:12}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:6}}>TAG</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}}>
+              {DEFAULT_TAGS.map(t => (
+                <button key={t} onClick={()=>{setTag(t);setUseCustom(false);}} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${!useCustom&&tag===t?C.or:C.bo}`,background:!useCustom&&tag===t?C.or+'22':C.ca,color:!useCustom&&tag===t?C.or:C.tx}}>
+                  {t}
+                </button>
+              ))}
+              <button onClick={()=>setUseCustom(true)} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${useCustom?C.bl:C.bo}`,background:useCustom?C.bl+'22':C.ca,color:useCustom?C.bl:C.tx}}>
+                custom…
+              </button>
+            </div>
+            {useCustom && (
+              <input value={customTag} onChange={e=>setCustomTag(e.target.value)} placeholder="#mytag" style={{fontFamily:MO,fontSize:12,background:C.bg,color:C.tx,border:`1px solid ${C.bl}`,borderRadius:8,padding:'8px 12px',outline:'none',width:'100%'}}/>
+            )}
+          </div>
+
+          <div style={{marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:6}}>TIME</div>
+            <input type="time" value={ts} onChange={e=>setTs(e.target.value)} style={{fontFamily:MO,fontSize:13,background:C.bg,color:C.tx,border:`1px solid ${C.bo}`,borderRadius:8,padding:'8px 12px',outline:'none',colorScheme:'dark'}}/>
+          </div>
+
+          <button onClick={save} disabled={!text.trim()} style={{display:'block',width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'14px',borderRadius:8,cursor:'pointer',border:'none',background:text.trim()?C.or:'#333',color:text.trim()?'#000':C.mu}}>
+            Save Note
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Tasks Tab ──────────────────────────────────────────────────────────────────
+function TasksTab({ tasks, done, deferred, notes, onUpdateTasks, onUpdateDone, onUpdateDeferred, onUpdateNotes }) {
+  const [subTab, setSubTab]       = useState('tasks');
+  const [addText, setAddText]     = useState('');
+  const [addPri, setAddPri]       = useState(null);
+  const [showAdd, setShowAdd]     = useState(false);
+  const [showNoteSheet, setShowNoteSheet] = useState(false);
+  const [noteFilter, setNoteFilter] = useState('all');
+
+  const doneSet     = new Set(done);
+  const deferredSet = new Set(Object.keys(deferred));
+  const active      = tasks.filter(t => !doneSet.has(t.id) && !deferredSet.has(String(t.id))).sort(priSort);
+  const deferredTasks = tasks.filter(t => deferredSet.has(String(t.id)) && !doneSet.has(t.id));
+  const completed   = tasks.filter(t => doneSet.has(t.id));
+
+  const toggle = id => onUpdateDone(doneSet.has(id) ? done.filter(x=>x!==id) : [...done, id]);
+  const addTask = () => {
+    if (!addText.trim()) return;
+    onUpdateTasks([...tasks, {id:nid(),text:addText.trim(),priority:addPri,source:'capture'}]);
+    setAddText(''); setAddPri(null); setShowAdd(false);
+  };
+
+  const filteredNotes = noteFilter==='all' ? notes : notes.filter(n=>n.tag===noteFilter);
+  const allTags = [...new Set(notes.map(n=>n.tag).filter(Boolean))];
+
+  const TaskRow = ({item, checked}) => (
+    <div style={{display:'flex',gap:10,alignItems:'center',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:'11px 12px',marginBottom:6}}>
+      <div onClick={()=>toggle(item.id)} style={{width:20,height:20,borderRadius:5,border:`2px solid ${checked?C.gr:C.bo}`,background:checked?C.gr+'33':'transparent',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {checked && <span style={{color:C.gr,fontSize:11}}>✓</span>}
+      </div>
+      <Dot p={item.priority} size={8}/>
+      <span onClick={()=>toggle(item.id)} style={{fontFamily:MO,fontSize:13,color:checked?C.mu:C.tx,flex:1,lineHeight:1.3,textDecoration:checked?'line-through':'none',cursor:'pointer'}}>
+        {item.text}
+      </span>
+      {item.carried && <span style={{fontFamily:MO,fontSize:9,color:C.yl,border:`1px solid ${C.yl}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>carried</span>}
+    </div>
+  );
+
+  return (
+    <div style={{height:'100%',display:'flex',flexDirection:'column',background:C.bg}} className="tab-fade">
+      {/* Sub-tab bar */}
+      <div style={{display:'flex',padding:'10px 14px 0',gap:6,background:C.su,borderBottom:`1px solid ${C.bo}`,flexShrink:0}}>
+        {[['tasks','☑ TASKS'],['notes','📝 NOTES']].map(([k,l]) => (
+          <button key={k} onClick={()=>setSubTab(k)} style={{fontFamily:MO,fontSize:11,padding:'7px 16px',borderRadius:'8px 8px 0 0',cursor:'pointer',border:`1px solid ${subTab===k?C.bo:'transparent'}`,borderBottom:'none',background:subTab===k?C.bg:C.su,color:subTab===k?C.or:C.mu,marginBottom:-1}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{flex:1,overflow:'auto'}}>
+        {subTab === 'tasks' && (
+          <div style={{padding:'14px'}}>
+            {/* Add task area */}
+            {showAdd ? (
+              <div style={{background:C.ca,border:`1px solid ${C.or}44`,borderRadius:10,padding:12,marginBottom:14}}>
+                <input autoFocus value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTask()} placeholder="New task…" style={{fontFamily:MO,fontSize:13,background:'transparent',color:C.tx,border:'none',outline:'none',width:'100%',marginBottom:10}}/>
+                <div style={{display:'flex',gap:6,marginBottom:10}}>
+                  {['High','Medium','Low'].map(p => (
+                    <button key={p} onClick={()=>setAddPri(addPri===p?null:p)} style={{fontFamily:MO,fontSize:11,flex:1,padding:'7px 0',borderRadius:6,cursor:'pointer',border:`1px solid ${addPri===p?PD[p]:C.bo}`,background:addPri===p?PD[p]+'22':C.bg,color:addPri===p?PD[p]:C.mu,fontWeight:addPri===p?'bold':'normal'}}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>{setShowAdd(false);setAddText('');setAddPri(null);}} style={{fontFamily:MO,fontSize:12,flex:'0 0 auto',padding:'10px 14px',borderRadius:8,cursor:'pointer',border:`1px solid ${C.bo}`,background:C.bg,color:C.mu}}>Cancel</button>
+                  <button onClick={addTask} disabled={!addText.trim()} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',flex:1,padding:'10px',borderRadius:8,cursor:'pointer',border:'none',background:addText.trim()?C.or:'#333',color:addText.trim()?'#000':C.mu}}>Add Task</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={()=>setShowAdd(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',fontFamily:MO,fontSize:13,padding:'12px',borderRadius:8,cursor:'pointer',border:`1px dashed ${C.bo}`,background:'transparent',color:C.mu,marginBottom:14}}>
+                <span style={{fontSize:16,color:C.or}}>+</span> ADD TASK
+              </button>
+            )}
+
+            {/* Active tasks */}
+            {active.length > 0 && (
+              <>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:8}}>ACTIVE — {active.length}</div>
+                {active.map(t => <TaskRow key={t.id} item={t} checked={false}/>)}
+              </>
+            )}
+
+            {/* Deferred */}
+            {deferredTasks.length > 0 && (
+              <>
+                <div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:2,margin:'14px 0 8px',paddingTop:10,borderTop:`1px solid ${C.bo}`}}>DEFERRED — {deferredTasks.length}</div>
+                {deferredTasks.map(t => (
+                  <div key={t.id} style={{display:'flex',gap:10,alignItems:'center',background:'#0d1520',border:`1px solid ${C.bl}33`,borderRadius:8,padding:'10px 12px',marginBottom:6,opacity:0.75}}>
+                    <Dot p={t.priority} size={8}/>
+                    <span style={{fontFamily:MO,fontSize:13,color:C.mu,flex:1}}>{t.text}</span>
+                    <span style={{fontFamily:MO,fontSize:9,color:C.bl,border:`1px solid ${C.bl}44`,padding:'1px 6px',borderRadius:3}}>→ {deferred[t.id]||'deferred'}</span>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Completed */}
+            {completed.length > 0 && (
+              <>
+                <div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:2,margin:'14px 0 8px',paddingTop:10,borderTop:`1px solid ${C.bo}`}}>COMPLETED — {completed.length}</div>
+                {completed.map(t => <TaskRow key={t.id} item={t} checked={true}/>)}
+              </>
+            )}
+
+            {tasks.length === 0 && !showAdd && (
+              <div style={{textAlign:'center',padding:'40px 0'}}>
+                <div style={{fontSize:32,marginBottom:10}}>☑</div>
+                <div style={{fontFamily:MO,fontSize:12,color:C.mu}}>No tasks yet today.</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {subTab === 'notes' && (
+          <div style={{padding:'14px'}}>
+            <button onClick={()=>setShowNoteSheet(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',fontFamily:MO,fontSize:13,padding:'12px',borderRadius:8,cursor:'pointer',border:`1px dashed ${C.bo}`,background:'transparent',color:C.mu,marginBottom:14}}>
+              <span style={{fontSize:16,color:C.or}}>+</span> ADD NOTE
+            </button>
+
+            {/* Tag filter */}
+            {allTags.length > 0 && (
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
+                <button onClick={()=>setNoteFilter('all')} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:20,cursor:'pointer',border:`1px solid ${noteFilter==='all'?C.or:C.bo}`,background:noteFilter==='all'?C.or+'22':C.ca,color:noteFilter==='all'?C.or:C.mu}}>all</button>
+                {allTags.map(t => (
+                  <button key={t} onClick={()=>setNoteFilter(noteFilter===t?'all':t)} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:20,cursor:'pointer',border:`1px solid ${noteFilter===t?C.or:C.bo}`,background:noteFilter===t?C.or+'22':C.ca,color:noteFilter===t?C.or:C.mu}}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredNotes.length === 0 ? (
+              <div style={{textAlign:'center',padding:'40px 0'}}>
+                <div style={{fontSize:32,marginBottom:10}}>📝</div>
+                <div style={{fontFamily:MO,fontSize:12,color:C.mu}}>No notes yet today.</div>
+              </div>
+            ) : (
+              [...filteredNotes].reverse().map(note => (
+                <div key={note.id} style={{background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:'10px 12px',marginBottom:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                      <span style={{fontFamily:MO,fontSize:9,color:C.or,border:`1px solid ${C.or}44`,padding:'1px 6px',borderRadius:3}}>{note.tag}</span>
+                      <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>{fmtTimestamp(note.timestamp)}</span>
+                    </div>
+                    <button onClick={()=>onUpdateNotes(notes.filter(n=>n.id!==note.id))} style={{background:'none',border:'none',color:C.mu,fontSize:15,cursor:'pointer',padding:'0 2px'}}>×</button>
+                  </div>
+                  <div style={{fontFamily:MO,fontSize:13,color:C.tx,lineHeight:1.5}}>{note.text}</div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {showNoteSheet && (
+        <AddNoteSheet
+          onSave={note => onUpdateNotes([...notes, note])}
+          onClose={() => setShowNoteSheet(false)}
+        />
+      )}
+      <div style={{height:20}}/>
+    </div>
+  );
+}
+
+// ── Timers Tab ─────────────────────────────────────────────────────────────────
+function TimersTab({ awayMs, awayRun, trainMs, trainRun, watchMs, watchRun, timerLogs, onToggle }) {
+  const timers = [
+    {type:'training', label:'Training', icon:'📚', color:C.pu, ms:trainMs, running:trainRun},
+    {type:'watching', label:'Watching', icon:'👁',  color:C.bl, ms:watchMs, running:watchRun},
+    {type:'away',     label:'Away',     icon:'🚶', color:C.rd, ms:awayMs,  running:awayRun},
+  ];
+
+  const logEntries = [...timerLogs].sort((a,b)=>{
+    const toMin = t => { const [h,m]=(t||'00:00').split(':').map(Number); return h*60+m; };
+    return toMin(a.startTime)-toMin(b.startTime);
+  });
+
+  return (
+    <div style={{height:'100%',overflow:'auto',background:C.bg,padding:'14px'}} className="tab-fade">
+      <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:14}}>TIMERS</div>
+
+      {timers.map(({type,label,icon,color,ms,running}) => (
+        <div key={type} onClick={()=>onToggle(type)} style={{
+          background: running ? color+'22' : C.ca,
+          border: `2px solid ${running ? color : C.bo}`,
+          borderRadius:14, padding:'22px 20px', marginBottom:12,
+          cursor:'pointer', transition:'all .2s', userSelect:'none',
+          boxShadow: running ? `0 0 20px ${color}44` : 'none',
+        }}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
+            <div style={{display:'flex',gap:10,alignItems:'center'}}>
+              <span style={{fontSize:24}}>{icon}</span>
+              <div>
+                <div style={{fontFamily:MO,fontSize:14,fontWeight:'bold',color:running?color:C.tx,letterSpacing:1}}>{label.toUpperCase()}</div>
+                <div style={{fontFamily:MO,fontSize:10,color:running?color:C.mu,marginTop:1}}>
+                  {running ? '● RUNNING — tap to stop' : 'tap to start'}
+                </div>
+              </div>
+            </div>
+            <div style={{
+              width:48, height:48, borderRadius:'50%',
+              background: running ? color : C.bg,
+              border: `2px solid ${running ? color : C.bo}`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:22, flexShrink:0,
+            }}>
+              {running ? '⏹' : '▶'}
+            </div>
+          </div>
+          <div style={{fontFamily:MO,fontSize:28,fontWeight:'bold',color:running?color:C.tx,lineHeight:1,marginTop:8,fontVariantNumeric:'tabular-nums'}}>
+            {fmtMs(ms)}
+          </div>
+        </div>
+      ))}
+
+      {/* Timer log */}
+      {logEntries.length > 0 && (
+        <div style={{marginTop:6}}>
+          <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:10}}>TODAY'S LOG</div>
+          {logEntries.map((entry,i) => {
+            const col = entry.type==='Away'?C.rd:entry.type==='Training'?C.pu:C.bl;
+            return (
+              <div key={i} style={{display:'flex',gap:10,alignItems:'center',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:'9px 12px',marginBottom:6}}>
+                <div style={{width:3,height:28,borderRadius:2,background:col,flexShrink:0}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:MO,fontSize:11,color:col,marginBottom:2}}>{entry.type}</div>
+                  <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>{entry.startTime} – {entry.endTime}</div>
+                </div>
+                <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.tx}}>{entry.duration}m</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{marginTop:12,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:8,padding:'10px 12px'}}>
+        <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:6}}>NOTE</div>
+        <div style={{fontFamily:MO,fontSize:11,color:C.mu,lineHeight:1.5}}>
+          Adjustments (+/−) available on desktop.<br/>
+          Timer values sync with desktop via shared localStorage.
+        </div>
+      </div>
+
+      <div style={{height:80}}/>
+    </div>
+  );
+}
+
+// ── Bottom Nav ─────────────────────────────────────────────────────────────────
+function BottomNav({ tab, setTab }) {
+  const tabs = [
+    {key:'schedule', icon:'📅', label:'Schedule'},
+    {key:'tasks',    icon:'☑',  label:'Tasks'},
+    {key:'timers',   icon:'⏱',  label:'Timers'},
+  ];
+  return (
+    <div style={{
+      display:'flex', background:C.su,
+      borderTop:`1px solid ${C.bo}`,
+      paddingBottom:`env(safe-area-inset-bottom, 0px)`,
+      flexShrink:0, zIndex:10,
+    }}>
+      {tabs.map(({key,icon,label}) => {
+        const active = tab===key;
+        return (
+          <button key={key} onClick={()=>setTab(key)} style={{
+            flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+            gap:3, padding:'10px 0', background:'none', border:'none', cursor:'pointer',
+            borderTop: active ? `2px solid ${C.or}` : '2px solid transparent',
+            transition:'all .15s',
+          }}>
+            <span style={{fontSize:20, filter:active?'none':'grayscale(0.8)', opacity:active?1:0.5}}>{icon}</span>
+            <span style={{fontFamily:MO, fontSize:9, letterSpacing:1, color:active?C.or:C.mu}}>
+              {label.toUpperCase()}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main App ───────────────────────────────────────────────────────────────────
+function MobileApp() {
+  const TODAY = new Date().toISOString().split('T')[0];
+  const [showSplash, setShowSplash] = useState(true);
+  const [loaded, setLoaded]         = useState(false);
+  const [tab, setTab]               = useState('schedule');
+  const [sd, setSd]                 = useState({});
+  const [endTime]                   = useState('17:00'); // imported from desktop if present
+  const [nowMin, setNowMin]         = useState(() => { const n=new Date(); return n.getHours()*60+n.getMinutes(); });
+  const tickRef                     = useRef(Date.now());
+  const saveTimer                   = useRef(null);
+
+  // Touch/swipe state
+  const touchStartX = useRef(null);
+  const TABS = ['schedule','tasks','timers'];
+
+  // ── Load from localStorage ─────────────────────────────────────────────────
+  useEffect(() => {
+    try {
+      const raw = store.getItem('dps-v2');
+      if (raw) {
+        const sv = JSON.parse(raw);
+        if (sv.sd) setSd(sv.sd);
+      }
+    } catch(e) {}
+    setLoaded(true);
+    setTimeout(() => setShowSplash(false), 1000);
+  }, []);
+
+  // ── Auto-save (merge today keys back into full dps-v2) ────────────────────
+  useEffect(() => {
+    if (!loaded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      try {
+        const raw = store.getItem('dps-v2');
+        const existing = raw ? JSON.parse(raw) : {};
+        const mergedSd = {...(existing.sd||{}), ...sd};
+        store.setItem('dps-v2', JSON.stringify({...existing, sd:mergedSd, savedAt:new Date().toISOString()}));
+      } catch(e) {}
+    }, 800);
+  }, [sd, loaded]);
+
+  // ── Timer tick ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const now = Date.now(), delta = now - tickRef.current;
+      tickRef.current = now;
+      setSd(p => {
+        const u = {};
+        if (p[`awayRun-${TODAY}`])  u[`awayMs-${TODAY}`]  = (p[`awayMs-${TODAY}`] ||0)+delta;
+        if (p[`trainRun-${TODAY}`]) u[`trainMs-${TODAY}`] = (p[`trainMs-${TODAY}`]||0)+delta;
+        if (p[`watchRun-${TODAY}`]) u[`watchMs-${TODAY}`] = (p[`watchMs-${TODAY}`]||0)+delta;
+        return Object.keys(u).length ? {...p,...u} : p;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── nowMin tick ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const tick = () => { const n=new Date(); setNowMin(n.getHours()*60+n.getMinutes()); };
+    const ms = 60000 - (Date.now()%60000);
+    let iv;
+    const to = setTimeout(() => { tick(); iv = setInterval(tick,60000); }, ms);
+    return () => { clearTimeout(to); clearInterval(iv); };
+  }, []);
+
+  // ── Swipe to navigate ─────────────────────────────────────────────────────
+  const handleTouchStart = e => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd   = e => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    const cur = TABS.indexOf(tab);
+    if (dx < 0 && cur < TABS.length-1) setTab(TABS[cur+1]);
+    if (dx > 0 && cur > 0)              setTab(TABS[cur-1]);
+  };
+
+  // ── Shortcuts to today's data ──────────────────────────────────────────────
+  const gd  = k => sd[`${k}-${TODAY}`];
+  const upd = (k,v) => setSd(p => ({...p, [`${k}-${TODAY}`]:v}));
+
+  const tasks     = gd('tasks')     || [];
+  const done      = gd('done')      || [];
+  const deferred  = gd('deferred')  || {};
+  const notes     = gd('notes')     || [];
+  const timerLogs = gd('timerLogs') || [];
+  const awayMs    = gd('awayMs')    || 0;
+  const awayRun   = gd('awayRun')   || false;
+  const trainMs   = gd('trainMs')   || 0;
+  const trainRun  = gd('trainRun')  || false;
+  const watchMs   = gd('watchMs')   || 0;
+  const watchRun  = gd('watchRun')  || false;
+
+  const timeBlocks = Object.fromEntries(
+    Object.entries(gd('time')||{}).filter(([,v])=>v!=null)
+  );
+
+  // ── Timer toggle (exact same logic as desktop) ────────────────────────────
+  const timerToggle = type => {
+    const k = type==='away'?'away':type==='training'?'train':'watch';
+    const logType = type==='away'?'Away':type==='training'?'Training':'Watching';
+    const isRunning = sd[`${k}Run-${TODAY}`];
+    if (isRunning) {
+      const startTs = sd[`${k}Start-${TODAY}`], now = Date.now();
+      const durMin  = startTs ? Math.round((now-startTs)/60000) : 0;
+      const fmt     = ts => { const d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+      const newLog  = (durMin>0&&startTs) ? {id:nid(),type:logType,startTime:fmt(startTs),endTime:fmt(now),duration:durMin} : null;
+      setSd(p => ({
+        ...p,
+        [`${k}Ms-${TODAY}`]: 0,
+        [`${k}Run-${TODAY}`]: false,
+        [`${k}Start-${TODAY}`]: null,
+        [`timerLogs-${TODAY}`]: newLog ? [...(p[`timerLogs-${TODAY}`]||[]),newLog] : (p[`timerLogs-${TODAY}`]||[]),
+      }));
+    } else {
+      setSd(p => ({...p, [`${k}Run-${TODAY}`]:true, [`${k}Start-${TODAY}`]:Date.now()}));
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  if (showSplash) return <SplashScreen date={TODAY}/>;
+
+  return (
+    <div
+      style={{height:'100%', display:'flex', flexDirection:'column', background:C.bg, overflow:'hidden'}}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Countdown Banner */}
+      <CountdownBanner timeBlocks={timeBlocks} nowMin={nowMin} endTime={endTime}/>
+
+      {/* Tab Content */}
+      <div style={{flex:1, overflow:'hidden', position:'relative'}}>
+        {tab==='schedule' && (
+          <ScheduleTab
+            timeBlocks={timeBlocks}
+            tasks={tasks}
+            done={done}
+            deferred={deferred}
+            nowMin={nowMin}
+            onUpdateTime={v=>upd('time',v)}
+          />
+        )}
+        {tab==='tasks' && (
+          <TasksTab
+            tasks={tasks}
+            done={done}
+            deferred={deferred}
+            notes={notes}
+            onUpdateTasks={v=>upd('tasks',v)}
+            onUpdateDone={v=>upd('done',v)}
+            onUpdateDeferred={v=>upd('deferred',v)}
+            onUpdateNotes={v=>upd('notes',v)}
+          />
+        )}
+        {tab==='timers' && (
+          <TimersTab
+            awayMs={awayMs} awayRun={awayRun}
+            trainMs={trainMs} trainRun={trainRun}
+            watchMs={watchMs} watchRun={watchRun}
+            timerLogs={timerLogs}
+            onToggle={timerToggle}
+          />
+        )}
+      </div>
+
+      {/* Bottom Nav */}
+      <BottomNav tab={tab} setTab={setTab}/>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<MobileApp/>);
+</script>
+</body>
+</html>
