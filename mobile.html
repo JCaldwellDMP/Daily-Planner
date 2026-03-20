@@ -1769,26 +1769,32 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
   // Strip timer log to essentials
   const slimLogs = (timerLogs||[]).map(({id,type,startTime,endTime,duration})=>({id,type,startTime,endTime,duration}));
 
+  // QR payload — intentionally minimal: no notes, no timer logs, done=IDs only.
+  // Full data is always available via JSON Export.
   const payload = JSON.stringify({
-    v:1, d:today,
+    v:2, d:today,
     ea: new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
-    tasks:slimTasks, done, tb:slimTb, def:deferred,
-    notes:slimNotes,
-    tmr: {a:awayMs, tr:trainMs, w:watchMs},
-    tlogs:slimLogs,
+    tasks: slimTasks,
+    done:  (done||[]).map(i => (typeof i==='object' ? i.id : i)),
+    tb:    slimTb,
+    def:   deferred,
+    tmr:   {a:awayMs, tr:trainMs, w:watchMs},
   });
 
-  // Compress payload with pako deflate → binary string for QR
+  // Compress: pako deflate → base64, prefixed with "z1:" so scanner knows to inflate.
+  // Base64 is ASCII-safe, which QRCode.js handles reliably in byte mode.
   const qrData = (() => {
     if (!window.pako) return payload;
     try {
       const compressed = window.pako.deflate(payload);
-      let s = '';
-      for (let i = 0; i < compressed.length; i++) s += String.fromCharCode(compressed[i]);
-      return s;
+      let bin = '';
+      for (let i = 0; i < compressed.length; i++) bin += String.fromCharCode(compressed[i]);
+      return 'z1:' + btoa(bin);
     } catch(e) { return payload; }
   })();
-  const tooBig = qrData.length > 2800;
+  const rawBytes  = payload.length;
+  const qrBytes   = qrData.length;
+  const tooBig    = qrBytes > 2900;
 
   // Generate QR when on send tab
   useEffect(() => {
@@ -1834,16 +1840,18 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
             if (code) {
               try {
                 let parsed = null;
-                // Try plain JSON first (uncompressed / legacy)
-                try { parsed = JSON.parse(code.data); } catch(_) {}
-                // If that failed, try pako inflate (compressed)
-                if (!parsed && window.pako) {
-                  const bytes = new Uint8Array(code.data.length);
-                  for (let i = 0; i < code.data.length; i++) bytes[i] = code.data.charCodeAt(i);
-                  const decompressed = window.pako.inflate(bytes, { to: 'string' });
-                  parsed = JSON.parse(decompressed);
+                const raw = code.data;
+                if (raw.startsWith('z1:') && window.pako) {
+                  // Compressed: base64-decode then pako inflate
+                  const bin = atob(raw.slice(3));
+                  const bytes = new Uint8Array(bin.length);
+                  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                  parsed = JSON.parse(window.pako.inflate(bytes, { to: 'string' }));
+                } else {
+                  // Legacy uncompressed JSON (v1)
+                  parsed = JSON.parse(raw);
                 }
-                if (parsed && parsed.v===1 && parsed.d) { setPending(parsed); stopCam(); return; }
+                if (parsed && parsed.d) { setPending(parsed); stopCam(); return; }
               } catch(e) {}
             }
           }
@@ -1912,7 +1920,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
         {tab==='send' && (
           tooBig
             ? <div style={{fontFamily:MO,fontSize:12,color:C.yl,textAlign:'center',lineHeight:1.8}}>
-                ⚠ Today's data ({qrData.length} bytes compressed) exceeds QR limit.<br/>
+                ⚠ Today's data ({qrBytes} bytes compressed) exceeds QR limit.<br/>
                 <span style={{color:C.mu,fontSize:11}}>Use the JSON Export instead.</span>
               </div>
             : <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:16}}>
@@ -1920,7 +1928,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 <div style={{fontFamily:MO,fontSize:11,color:C.mu,textAlign:'center',lineHeight:1.7}}>
                   Point your phone camera at this code.<br/>Tap 📱 SYNC on the mobile app to scan.
                 </div>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu+'66'}}>{qrData.length} bytes compressed · {payload.length} bytes raw · {tasks.length} tasks · {(notes||[]).length} notes</div>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu+'66'}}>{qrBytes} bytes (compressed) · {rawBytes} bytes raw · {tasks.length} tasks</div>
               </div>
         )}
         {tab==='scan' && (
