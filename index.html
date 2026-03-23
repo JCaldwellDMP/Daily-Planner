@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/bxArCNk624TNlkpGhmf5SyDK3B', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/zRvACW69l4sj9rKPs6fNSoUZ-8', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/ctiWCOY024UAR1kyIvhLSGyB2U`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Krz5CXD904hn5ERqTVhYSWAsuP`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-d9hCPNV94T4Gznki1iESxOkW6`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/b_jRCYE9ngU31VqNh9ivSxRLPz`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/5RfpCQW824t6AvLyIksgSGW500 → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/8g6mCZ69ojsM4KLDsys5SBB4l- → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2189,6 +2189,66 @@ function HireCard({ hire, selected, onSelect }) {
   );
 }
 
+function parseMockCallEmail(txt) {
+  const out = {date:'',time:'',trainerName:'',agentName:'',agentEmail:'',supervisorEmail:'',
+    askedCompanyName:'',askedMyName:'',askedPanelType:'',callDropped:'',triedCallBack:'',
+    onHoldCount:'',askedBeforeHold:'',thankedForHolding:'',pulledPanelProgramming:'',
+    whatWentWell:'',whatToImprove:'',loggedWintouch:'',wintouchCaseNum:'',
+    wintouchQuality:'good',wintouchNotesFeedback:'',totalCallTime:'',
+    resolved:true,overallPerformance:'good',feedbackFromCall:'',details:'',duration:'15-20'};
+  const lines = txt.split('\n');
+  let i=0, lastAnchor='';
+  const ratingMap=r=>r.toLowerCase().includes('great')?'great':r.toLowerCase().includes('needs')?'needs-work':'good';
+  const boolStr=v=>v.trim().toLowerCase()==='yes';
+  const parseD=s=>{try{const d=new Date(s);return isNaN(d)?'':d.toISOString().split('T')[0];}catch(e){return '';}};
+  const parseT=s=>{try{const d=new Date('2000-01-01 '+s);return isNaN(d)?s:`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}catch(e){return s;}};
+  const parseDur=s=>s.replace(/ min.*/i,'').trim();
+  const tabMap={
+    'Date':v=>{out.date=parseD(v);},'Time':v=>{out.time=parseT(v);},
+    'Mock Call Trainer Name':v=>{out.trainerName=v;},'Agent Name':v=>{out.agentName=v;},
+    'Agent Email':v=>{out.agentEmail=v;},'Supervisor Email':v=>{out.supervisorEmail=v;},
+    'Did the Agent ask for my company name?':v=>{out.askedCompanyName=v;},
+    'Did the Agent ask for my name?':v=>{out.askedMyName=v;},
+    'Did the Agent ask what panel I was using?':v=>{out.askedPanelType=v;},
+    'Did the call Drop?':v=>{out.callDropped=v;},
+    'Did the Agent try and call them back?':v=>{out.triedCallBack=v;},
+    'How many times did they place me on hold?':v=>{out.onHoldCount=v;},
+    'On Hold: Did they ask to place me on hold?':v=>{out.askedBeforeHold=v;},
+    'On Hold: Did they thank me for holding?':v=>{out.thankedForHolding=v;},
+    'Did the Agent try to pull the panel programming in Remote Link or Dealer Admin?':v=>{out.pulledPanelProgramming=v;},
+    'Did they log a Wintouch Ticket?':v=>{out.loggedWintouch=v;lastAnchor='wt';},
+    'Wintouch Case#':v=>{out.wintouchCaseNum=v;lastAnchor='wtcase';},
+    'How long was the call?':v=>{out.duration=parseDur(v);},
+    'Total Call Time':v=>{out.totalCallTime=v;},
+    'Did they resolve the call?':v=>{out.resolved=boolStr(v);lastAnchor='resolved';},
+  };
+  const secMap={'What went well on the call?':'whatWentWell','What can they improve?':'whatToImprove',
+    'Wintouch Case Notes Feedback':'wintouchNotesFeedback','Feedback from the call':'feedbackFromCall'};
+  const allHdrs=[...Object.keys(tabMap),...Object.keys(secMap),'Mock Call Details','On Hold','Review of the Call','On Hold Time'];
+  // Collect Mock Call Details block
+  const di=lines.findIndex(l=>l.trim()==='Mock Call Details');
+  if(di>=0){const dl=[];for(let j=di+1;j<lines.length;j++){if(lines[j].includes('\t')||lines[j].trim()==='Date')break;dl.push(lines[j].trim());}out.details=dl.filter(Boolean).join('\n').trim();}
+  while(i<lines.length){
+    const raw=lines[i],tr=raw.trim();
+    if(raw.includes('\t')){
+      const ti=raw.indexOf('\t'),label=raw.slice(0,ti).trim(),value=raw.slice(ti+1).trim();
+      if(label&&tabMap[label])tabMap[label](value);
+      else if(!label&&value.startsWith('-')){
+        if(lastAnchor==='wtcase')out.wintouchQuality=ratingMap(value);
+        else if(lastAnchor==='resolved')out.overallPerformance=ratingMap(value);
+      }
+      i++;continue;
+    }
+    if(secMap[tr]){
+      const key=secMap[tr];i++;const bl=[];
+      while(i<lines.length){const nx=lines[i].trim();if(lines[i].includes('\t')||allHdrs.includes(nx))break;bl.push(nx);i++;}
+      out[key]=bl.filter(Boolean).join('\n').trim();continue;
+    }
+    i++;
+  }
+  return out;
+}
+
 function HireDetail({ hire, onUpdate, onArchive }) {
   const [section,setSection]             = useState('days');
   const [hwPrompt,setHwPrompt]           = useState(null);
@@ -2211,6 +2271,9 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const [expandedBuddy,setExpandedBuddy] = useState(null);
   const [editProfile,setEditProfile]     = useState(false);
   const [showDiscGuide,setShowDiscGuide] = useState(false);
+  const [showImport,setShowImport]       = useState(false);
+  const [importText,setImportText]       = useState('');
+  const [importError,setImportError]     = useState('');
   const [nameDraft,setNameDraft]         = useState(hire.name);
   const [discDraft,setDiscDraft]         = useState(hire.discProfile||'');
   const [supDraft,setSupDraft]           = useState(hire.supervisor||'');
@@ -2232,7 +2295,7 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const buddyCalls = hire.buddyCalls||[];
   const buddyGoal = hire.buddyCallsGoal||25;
   const buddyPct  = Math.min(100,Math.round((buddyCalls.length/buddyGoal)*100));
-  const dayQuizPct = d => (!d?.quizCorrect||!d?.quizTotal||d.quizTotal===0)?null:Math.round((d.quizCorrect/d.quizTotal)*100);
+  const dayQuizPct = d => { const c=parseFloat(d?.quizCorrect), t=parseFloat(d?.quizTotal); return (!c&&c!==0)||!t||t===0?null:Math.round((c/t)*100); };
 
   // Day handlers
   const toggleDay     = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
@@ -2253,6 +2316,23 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const saveGoal = () => { const n=parseInt(goalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,mockCallsGoal:n}); setEditGoal(false); };
   const openCall = () => { setCallDraft({date:TODAY_T,time:nowTime(),details:'',duration:'5-10',resolved:true,wintouchQuality:'good',overallPerformance:'good'}); setNewCallOpen(true); };
   const saveCall = () => { onUpdate({...hire,mockCalls:[...hire.mockCalls,{id:nid(),callNum:hire.mockCalls.length+1,...callDraft}]}); setNewCallOpen(false); };
+  const importCall = () => {
+    if(!importText.trim()){setImportError('Paste the email text first.');return;}
+    const p=parseMockCallEmail(importText);
+    if(!p.date&&!p.agentName){setImportError('Could not parse — make sure you pasted the full email text.');return;}
+    const c={id:nid(),callNum:hire.mockCalls.length+1,date:p.date||new Date().toISOString().split('T')[0],
+      time:p.time||'',details:p.details||'',duration:p.duration||'15-20',resolved:p.resolved,
+      wintouchQuality:p.wintouchQuality||'good',overallPerformance:p.overallPerformance||'good',
+      trainerName:p.trainerName,agentName:p.agentName,agentEmail:p.agentEmail,supervisorEmail:p.supervisorEmail,
+      askedCompanyName:p.askedCompanyName,askedMyName:p.askedMyName,askedPanelType:p.askedPanelType,
+      callDropped:p.callDropped,triedCallBack:p.triedCallBack,onHoldCount:p.onHoldCount,
+      askedBeforeHold:p.askedBeforeHold,thankedForHolding:p.thankedForHolding,
+      pulledPanelProgramming:p.pulledPanelProgramming,whatWentWell:p.whatWentWell,
+      whatToImprove:p.whatToImprove,loggedWintouch:p.loggedWintouch,wintouchCaseNum:p.wintouchCaseNum,
+      wintouchNotesFeedback:p.wintouchNotesFeedback,totalCallTime:p.totalCallTime,feedbackFromCall:p.feedbackFromCall};
+    onUpdate({...hire,mockCalls:[...hire.mockCalls,c]});
+    setImportText('');setImportError('');setShowImport(false);
+  };
 
   // Buddy calls
   const saveBuddyGoal = () => { const n=parseInt(buddyGoalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,buddyCallsGoal:n}); setEditBuddyGoal(false); };
@@ -2486,9 +2566,9 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                       {d.quizComplete&&<span style={{fontSize:8,color:C.bl,lineHeight:1}}>✓</span>}
                     </button>
                     <span style={{fontFamily:MO,fontSize:10,color:d.quizComplete?C.bl:C.mu,flexShrink:0}}>Day {td.day} Quiz</span>
-                    <input type="number" min={0} value={d.quizCorrect??''} onChange={e=>setQuizField(td.day,'quizCorrect',e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:46,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
+                    <input type="number" min={0} step={0.5} value={d.quizCorrect??''} onChange={e=>setQuizField(td.day,'quizCorrect',e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:52,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
                     <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>/</span>
-                    <input type="number" min={1} value={d.quizTotal??''} onChange={e=>setQuizField(td.day,'quizTotal',e.target.value)} placeholder="?" title="Total" style={{...inpS,width:46,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
+                    <input type="number" min={1} step={0.5} value={d.quizTotal??''} onChange={e=>setQuizField(td.day,'quizTotal',e.target.value)} placeholder="?" title="Total" style={{...inpS,width:52,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
                     {qpct!=null&&<span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:qpct>=90?C.gr:qpct>=70?C.yl:C.rd,flexShrink:0}}>= {qpct}%</span>}
                   </div>}
 
@@ -2518,6 +2598,7 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                 }
               </div>
               <OBtn onClick={openCall} style={{fontSize:11,padding:'5px 12px',flexShrink:0}}>+ Log Call</OBtn>
+              <button onClick={()=>{setShowImport(p=>!p);setImportError('');}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${showImport?C.pu:C.bo}`,background:showImport?C.pu+'22':C.ca,color:showImport?C.pu:C.mu,flexShrink:0}}>📥 Import</button>
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
               <span style={{fontFamily:MO,fontSize:11,color:mockPct>=100?C.gr:C.or,flexShrink:0}}>{hire.mockCalls.length}/{mockGoal}</span>
@@ -2525,6 +2606,18 @@ function HireDetail({ hire, onUpdate, onArchive }) {
               <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:mockPct>=100?C.gr:C.or,flexShrink:0}}>{mockPct}%</span>
             </div>
           </div>
+          {showImport&&(
+            <div style={{background:C.ca,border:'1px solid '+C.pu,borderRadius:8,padding:14,marginBottom:14}}>
+              <div style={{fontFamily:MO,fontSize:10,color:C.pu,letterSpacing:2,marginBottom:8}}>📥 IMPORT FROM EMAIL</div>
+              <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:8}}>Paste the full mock call email submission below. All available fields will be auto-filled.</div>
+              <textarea value={importText} onChange={e=>{setImportText(e.target.value);setImportError('');}} rows={8} placeholder="Paste email text here…" style={{fontFamily:MO,fontSize:11,color:C.tx,background:C.su,border:`1px solid ${importError?C.rd:C.bo}`,borderRadius:6,padding:'8px 10px',width:'100%',resize:'vertical',outline:'none',boxSizing:'border-box',lineHeight:1.5,marginBottom:6}}/>
+              {importError&&<div style={{fontFamily:MO,fontSize:11,color:C.rd,marginBottom:6}}>{importError}</div>}
+              <div style={{display:'flex',gap:8}}>
+                <OBtn onClick={importCall} style={{background:C.pu}}>📥 Parse & Import</OBtn>
+                <Btn onClick={()=>{setShowImport(false);setImportText('');setImportError('');}}>Cancel</Btn>
+              </div>
+            </div>
+          )}
           {newCallOpen&&(
             <div style={{background:C.ca,border:'1px solid '+C.or,borderRadius:8,padding:14,marginBottom:14}}>
               <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:10}}>NEW CALL LOG</div>
@@ -2565,11 +2658,30 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                   <button onClick={e=>{e.stopPropagation();onUpdate({...hire,mockCalls:hire.mockCalls.filter(c=>c.id!==call.id)});}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11,flexShrink:0}}>✕</button>
                 </div>
                 {isExp&&<div style={{padding:'8px 12px 12px',borderTop:'1px solid '+C.bo}}>
-                  {call.details&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,lineHeight:1.5,whiteSpace:'pre-wrap',marginBottom:8}}>{call.details}</div>}
-                  <div style={{display:'flex',gap:12,flexWrap:'wrap',fontFamily:MO,fontSize:11,color:C.tx}}>
+                  {call.details&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,lineHeight:1.5,whiteSpace:'pre-wrap',marginBottom:8,padding:'6px 8px',background:C.bg,borderRadius:4}}>{call.details}</div>}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 12px',fontFamily:MO,fontSize:10,color:C.mu,marginBottom:8}}>
+                    {call.agentName&&<span>Agent: <span style={{color:C.tx}}>{call.agentName}</span></span>}
+                    {call.trainerName&&<span>Trainer: <span style={{color:C.tx}}>{call.trainerName}</span></span>}
+                    {call.totalCallTime&&<span>Total Time: <span style={{color:C.tx}}>{call.totalCallTime}</span></span>}
+                    {call.onHoldCount&&<span>Hold Count: <span style={{color:C.tx}}>{call.onHoldCount}</span></span>}
+                    {call.askedCompanyName&&<span>Asked Company: <span style={{color:C.tx}}>{call.askedCompanyName}</span></span>}
+                    {call.askedMyName&&<span>Asked Name: <span style={{color:C.tx}}>{call.askedMyName}</span></span>}
+                    {call.askedPanelType&&<span>Asked Panel: <span style={{color:C.tx}}>{call.askedPanelType}</span></span>}
+                    {call.callDropped&&<span>Call Dropped: <span style={{color:call.callDropped==='Yes'?C.rd:C.tx}}>{call.callDropped}</span></span>}
+                    {call.pulledPanelProgramming&&<span>Pulled Programming: <span style={{color:C.tx}}>{call.pulledPanelProgramming}</span></span>}
+                    {call.loggedWintouch&&<span>Wintouch Ticket: <span style={{color:C.tx}}>{call.loggedWintouch}</span></span>}
+                    {call.wintouchCaseNum&&<span>Case#: <span style={{color:C.tx}}>{call.wintouchCaseNum}</span></span>}
+                    {call.askedBeforeHold&&<span>Asked Before Hold: <span style={{color:C.tx}}>{call.askedBeforeHold}</span></span>}
+                    {call.thankedForHolding&&<span>Thanked For Hold: <span style={{color:C.tx}}>{call.thankedForHolding}</span></span>}
+                  </div>
+                  <div style={{display:'flex',gap:12,flexWrap:'wrap',fontFamily:MO,fontSize:11,color:C.tx,marginBottom:call.whatWentWell||call.whatToImprove||call.feedbackFromCall||call.wintouchNotesFeedback?8:0}}>
                     <span>Wintouch: <span style={{color:qualColor(call.wintouchQuality)}}>{qualLabel(call.wintouchQuality)}</span></span>
                     <span>Overall: <span style={{color:qualColor(call.overallPerformance)}}>{qualLabel(call.overallPerformance)}</span></span>
                   </div>
+                  {call.whatWentWell&&<div style={{marginBottom:6}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:2}}>WHAT WENT WELL</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.whatWentWell}</div></div>}
+                  {call.whatToImprove&&<div style={{marginBottom:6}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:2}}>WHAT TO IMPROVE</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.whatToImprove}</div></div>}
+                  {call.wintouchNotesFeedback&&<div style={{marginBottom:6}}><div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:1,marginBottom:2}}>WINTOUCH NOTES FEEDBACK</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.wintouchNotesFeedback}</div></div>}
+                  {call.feedbackFromCall&&<div style={{marginBottom:0}}><div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:1,marginBottom:2}}>FEEDBACK FROM CALL</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.feedbackFromCall}</div></div>}
                 </div>}
               </div>
             );
@@ -2842,6 +2954,17 @@ function DailyPlanner() {
   const done       = gd('done')       || [];
   const deferred   = gd('deferred')   || {};
   const notes      = gd('notes')      || [];
+  const allNotes   = Object.entries(sd).filter(([k])=>k.startsWith('notes-')).flatMap(([,v])=>Array.isArray(v)?v:[]).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const handleUpdateAllNotes = updated => {
+    const byDay = {};
+    updated.forEach(n => { const d=n.createdAt?n.createdAt.split('T')[0]:ds; if(!byDay[d])byDay[d]=[]; byDay[d].push(n); });
+    setSd(p => {
+      const u={...p};
+      Object.keys(p).filter(k=>k.startsWith('notes-')).forEach(k=>{ u[k]=byDay[k.replace('notes-','')]||[]; });
+      Object.keys(byDay).forEach(d=>{ u[`notes-${d}`]=byDay[d]; });
+      return u;
+    });
+  };
   const timerLogs  = gd('timerLogs')  || [];
   const awayMs     = gd('awayMs')     || 0;
   const awayRun    = gd('awayRun')    || false;
@@ -3301,7 +3424,7 @@ function DailyPlanner() {
           <div style={{padding:isMobile?'16px 12px':'24px 20px'}}>
             {tab==='collect'  && <CollectTab  tasks={tasks} dismissed={dismissed} lastSum={lastSum} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
             {tab==='schedule' && <ScheduleTab timeBlocks={timeBlocks} tasks={tasks} done={done} timerLogs={timerLogs} deferred={deferred} onUpdateTime={v=>upd('time',v)} onBack={goBack} onNext={goNext} isCompact={isCompact}/>}
-            {tab==='notes'    && <NotesTab    notes={notes} onUpdateNotes={v=>upd('notes',v)}/>}
+            {tab==='notes'    && <NotesTab    notes={allNotes} onUpdateNotes={handleUpdateAllNotes}/>}
             {tab==='progress' && <ProgressTab tasks={tasks} done={done} deferred={deferred} timeBlocks={timeBlocks} onUpdateDone={v=>upd('done',v)} onUpdateDeferred={v=>upd('deferred',v)} onBack={goBack} onNext={goNext} isMobile={isMobile}/>}
             {tab==='wrapup'   && <WrapUpTab   tasks={tasks} done={done} timeBlocks={timeBlocks} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} timerLogs={timerLogs} ds={ds} sums={sums} onSaveSummary={saveSummary} onBack={goBack} isMobile={isMobile} deferred={deferred}/>}
             {tab==='stats'    && <StatsTab    sums={sums} idx={idx} isMobile={isMobile}/>}
