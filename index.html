@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/PgObC68AvZIoOJL6TpfqS5hopx', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/CUEsCERV24FW9jL9uNf0S7p_PV', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/xOjNC73Bw4UmpYGXsWhnSowgD0`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/a84MCG6V24sJY9kYT7hYSBdmeV`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/IFteC82Dx4TjvgN5c2iVSyiC8l`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Isr4CJ6925s8roZrTzixSyIpuR`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/lrz2C9rEy4Im3j4WsOsRSq0Yui → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/9IBqCKrV24IqEkOETAsjS5sCuc → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2089,11 +2089,45 @@ const TRAINING_DAYS = [
   {day:15, topics:'Review Day & Final Quiz', review:true, finalQuiz:true},
 ];
 
+const sanitizeHire = h => ({
+  ...h,
+  supervisor:     h.supervisor     || '',
+  discProfile:    h.discProfile    || '',
+  status:         h.status         || 'active',
+  buddyCalls:     h.buddyCalls     || [],
+  buddyCallsGoal: h.buddyCallsGoal || 25,
+  mockCalls:      h.mockCalls      || [],
+  mockCallsGoal:  h.mockCallsGoal  || 15,
+  notes:          h.notes          || [],
+  quizzes:        h.quizzes        || [],
+  finalQuizScore: h.finalQuizScore != null ? h.finalQuizScore : null,
+  buddyChecks: {
+    etiquette:false, patience:false, troubleshooting:false, fielding:false, clearedDate:null,
+    ...(h.buddyChecks||{}),
+  },
+  days: Object.fromEntries(
+    [...Array(15)].map((_,i)=>{
+      const n=i+1, d=(h.days||{})[n]||{};
+      return [n, {
+        completed:     d.completed     || false,
+        completedDate: d.completedDate || null,
+        hasHw:         d.hasHw         !== false,
+        hwComplete:    d.hwComplete    || false,
+        hwDate:        d.hwDate        || null,
+        hasQuiz:       d.hasQuiz       !== false,
+        quizComplete:  d.quizComplete  || false,
+        quizCorrect:   d.quizCorrect   != null ? d.quizCorrect : null,
+        quizTotal:     d.quizTotal     != null ? d.quizTotal   : null,
+      }];
+    })
+  ),
+});
+
 const initHire = (name, startDate) => ({
   id: nid(), name, startDate, discProfile:'', status:'active',
   days: Object.fromEntries([...Array(15)].map((_,i)=>[i+1,{
     completed:false, completedDate:null,
-    hwComplete:false, hwFile:null, hwDate:null,
+    hwComplete:false, hwDate:null,
     quizComplete:false, quizCorrect:null, quizTotal:null,
   }])),
   quizzes: [], mockCalls: [], mockCallsGoal:15,
@@ -2154,10 +2188,10 @@ function HireCard({ hire, selected, onSelect }) {
   );
 }
 
-function HireDetail({ hire, onUpdate, onClose }) {
+function HireDetail({ hire, onUpdate, onArchive }) {
   const [section,setSection]             = useState('days');
   const [hwPrompt,setHwPrompt]           = useState(null);
-  const [hwDraft,setHwDraft]             = useState({file:'',date:''});
+  const [hwDateDraft,setHwDateDraft]     = useState('');
   const [quizLabel,setQuizLabel]         = useState('');
   const [quizScore,setQuizScore]         = useState('');
   const [newCallOpen,setNewCallOpen]     = useState(false);
@@ -2177,6 +2211,7 @@ function HireDetail({ hire, onUpdate, onClose }) {
   const [editProfile,setEditProfile]     = useState(false);
   const [nameDraft,setNameDraft]         = useState(hire.name);
   const [discDraft,setDiscDraft]         = useState(hire.discProfile||'');
+  const [supDraft,setSupDraft]           = useState(hire.supervisor||'');
   const [startDraft,setStartDraft]       = useState(hire.startDate);
 
   const TODAY_T = new Date().toISOString().split('T')[0];
@@ -2195,49 +2230,59 @@ function HireDetail({ hire, onUpdate, onClose }) {
   const buddyCalls = hire.buddyCalls||[];
   const buddyGoal = hire.buddyCallsGoal||25;
   const buddyPct  = Math.min(100,Math.round((buddyCalls.length/buddyGoal)*100));
+  const dayQuizPct = d => (!d?.quizCorrect||!d?.quizTotal||d.quizTotal===0)?null:Math.round((d.quizCorrect/d.quizTotal)*100);
 
-  const dayQuizPct = d => {
-    if(!d?.quizCorrect||!d?.quizTotal||d.quizTotal===0) return null;
-    return Math.round((d.quizCorrect/d.quizTotal)*100);
-  };
-
-  const toggleDay   = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
-  const setDayDate  = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,completedDate:v}}}); };
-  const toggleHw    = n => { const c=hire.days[n]; if(!c.hwComplete){setHwPrompt(n);setHwDraft({file:'',date:TODAY_T});}else onUpdate({...hire,days:{...hire.days,[n]:{...c,hwComplete:false,hwFile:null,hwDate:null}}}); };
-  const commitHw    = () => { const c=hire.days[hwPrompt]; onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...c,hwComplete:true,hwFile:hwDraft.file.trim()||null,hwDate:hwDraft.date||TODAY_T}}}); setHwPrompt(null); };
-  const setHwDate   = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
+  // Day handlers
+  const toggleDay     = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
+  const setDayDate    = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,completedDate:v}}}); };
+  const toggleDayHasHw  = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hasHw:!c.hasHw,hwComplete:false,hwDate:null}}}); };
+  const toggleDayHasQuiz= n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hasQuiz:!c.hasQuiz,quizComplete:false,quizCorrect:null,quizTotal:null}}}); };
+  const toggleHw      = n => { const c=hire.days[n]; if(!c.hwComplete){setHwPrompt(n);setHwDateDraft(TODAY_T);}else onUpdate({...hire,days:{...hire.days,[n]:{...c,hwComplete:false,hwDate:null}}}); };
+  const commitHw      = () => { const c=hire.days[hwPrompt]; onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...c,hwComplete:true,hwDate:hwDateDraft||TODAY_T}}}); setHwPrompt(null); };
+  const setHwDate     = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
   const toggleDayQuiz = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,quizComplete:!(c.quizComplete||false)}}}); };
   const setQuizField  = (n,f,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,[f]:v===''?null:parseInt(v)||null}}}); };
 
+  // Quiz log
   const addQuiz = () => { if(!quizLabel.trim()||quizScore==='')return; const s=Math.max(0,Math.min(100,parseInt(quizScore))); if(isNaN(s))return; onUpdate({...hire,quizzes:[...hire.quizzes,{id:nid(),label:quizLabel.trim(),score:s,date:TODAY_T}]}); setQuizLabel('');setQuizScore(''); };
 
+  // Mock calls
   const saveGoal = () => { const n=parseInt(goalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,mockCallsGoal:n}); setEditGoal(false); };
   const openCall = () => { setCallDraft({date:TODAY_T,time:nowTime(),details:'',duration:'5-10',resolved:true,wintouchQuality:'good',overallPerformance:'good'}); setNewCallOpen(true); };
   const saveCall = () => { onUpdate({...hire,mockCalls:[...hire.mockCalls,{id:nid(),callNum:hire.mockCalls.length+1,...callDraft}]}); setNewCallOpen(false); };
 
+  // Buddy calls
   const saveBuddyGoal = () => { const n=parseInt(buddyGoalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,buddyCallsGoal:n}); setEditBuddyGoal(false); };
   const openBuddy  = () => { setBuddyDraft({date:TODAY_T,agentNotes:'',traineeNotes:''}); setNewBuddyOpen(true); };
   const saveBuddy  = () => { onUpdate({...hire,buddyCalls:[...buddyCalls,{id:nid(),...buddyDraft}]}); setNewBuddyOpen(false); };
   const deleteBuddy = id => onUpdate({...hire,buddyCalls:buddyCalls.filter(c=>c.id!==id)});
   const toggleBuddyCheck = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
-  const signOff = () => { if(!["etiquette","patience","troubleshooting","fielding"].every(k=>hire.buddyChecks[k]))return; onUpdate({...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T},status:'complete'}); };
+  const signOff = () => {
+    if(!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k]))return;
+    const updated={...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T},status:'complete'};
+    onUpdate(updated);
+    if(onArchive&&window.confirm('Training complete! Move this hire to the Alumni archive?')) onArchive(updated);
+  };
 
+  // Notes
   const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
-  const commitProfile = () => { onUpdate({...hire,name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),startDate:startDraft}); setEditProfile(false); };
+  const commitProfile = () => { onUpdate({...hire,name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),supervisor:supDraft.trim(),startDate:startDraft}); setEditProfile(false); };
   const saveFinalQuiz = () => { const s=parseInt(fqScore); if(!isNaN(s)&&s>=0&&s<=100) onUpdate({...hire,finalQuizScore:s}); };
 
   const generateReport = () => {
     const L=[];
     L.push('NEW HIRE PROGRESS REPORT\n========================');
-    L.push(`Name: ${hire.name}${hire.discProfile?'\nDISC Profile: '+hire.discProfile:''}\nStart Date: ${fmtShortDate(hire.startDate)}\nCurrent Phase: ${phaseLabel(hire)}\nGenerated: ${new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}`);
+    L.push(`Name: ${hire.name}${hire.supervisor?'\nSupervisor: '+hire.supervisor:''}${hire.discProfile?'\nDISC Profile: '+hire.discProfile:''}\nStart Date: ${fmtShortDate(hire.startDate)}\nCurrent Phase: ${phaseLabel(hire)}\nGenerated: ${new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}`);
     L.push(`\nTRAINING DAYS COMPLETED (${daysComp}/15 — ${daysPct}%)`);
     TRAINING_DAYS.forEach(td=>{
       const d=hire.days[td.day]; const qpct=dayQuizPct(d);
-      L.push(`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`+(d.quizComplete?\` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}\`:''));
+      let line=`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`;
+      if(d.hasQuiz&&d.quizComplete) line+=` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}`;
+      L.push(line);
     });
-    const hwDays=TRAINING_DAYS.filter(td=>!td.review), hwDone=hwDays.filter(td=>hire.days[td.day]?.hwComplete).length;
-    L.push(`\nHOMEWORK (${hwDone}/${hwDays.length} complete)`);
-    hwDays.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — ${d.hwFile||'(no filename)'} (${d.hwDate?fmtShortDate(d.hwDate):'?'})`:'  ☐ Day '+td.day+' HW — not submitted');});
+    const hwDays=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);
+    const hwDone=hwDays.filter(td=>hire.days[td.day]?.hwComplete).length;
+    if(hwDays.length>0){L.push(`\nHOMEWORK (${hwDone}/${hwDays.length} complete)`);hwDays.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — completed ${d.hwDate?fmtShortDate(d.hwDate):'(no date)'}`:`  ☐ Day ${td.day} HW — not submitted`);});}
     if(hire.quizzes.length>0||hire.finalQuizScore!=null){L.push('\nQUIZ SCORES');hire.quizzes.forEach(q=>L.push(`  ${q.label} — ${q.score}% (${fmtShortDate(q.date)})`));if(hire.finalQuizScore!=null)L.push(`  Day 15 Final Quiz — ${hire.finalQuizScore}%`);}
     if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/${mockGoal} — ${mockPct}%)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved!==false?'✅':'❌'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
     if(buddyCalls.length>0){L.push(`\nBUDDY CALLS (${buddyCalls.length}/${buddyGoal} — ${buddyPct}%)`);buddyCalls.forEach((c,i)=>{L.push(`  Call ${i+1} — ${fmtShortDate(c.date)}`);if(c.agentNotes)L.push('    Agent: '+c.agentNotes);if(c.traineeNotes)L.push('    Trainee: '+c.traineeNotes);});}
@@ -2246,9 +2291,11 @@ function HireDetail({ hire, onUpdate, onClose }) {
   };
   const copyReport = () => { const t=generateReport(); navigator.clipboard.writeText(t).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);}); };
 
+  // ── render ────────────────────────────────────────────────────────────────
   return (
     <div style={{background:C.su,border:`1px solid ${C.bo}`,borderRadius:10,marginTop:16,overflow:'hidden'}}>
 
+      {/* HEADER */}
       <div style={{background:C.ca,padding:'12px 16px',borderBottom:'1px solid '+C.bo}}>
         {editProfile ? (
           <div>
@@ -2256,6 +2303,9 @@ function HireDetail({ hire, onUpdate, onClose }) {
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
               <input value={nameDraft} onChange={e=>setNameDraft(e.target.value)} placeholder="Full name" style={{...inpS,flex:'2 1 120px'}}/>
               <input type="date" value={startDraft} onChange={e=>setStartDraft(e.target.value)} style={{...inpS,flex:'1 1 110px',colorScheme:'dark'}}/>
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+              <input value={supDraft} onChange={e=>setSupDraft(e.target.value)} placeholder="Supervisor name…" style={{...inpS,flex:'1 1 160px'}}/>
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
               <span style={{fontFamily:MO,fontSize:11,color:C.mu,flexShrink:0}}>DISC:</span>
@@ -2276,17 +2326,17 @@ function HireDetail({ hire, onUpdate, onClose }) {
                 {hire.discProfile&&<span style={{fontFamily:MO,fontSize:10,padding:'1px 7px',borderRadius:3,border:'1px solid '+C.pu+'55',color:C.pu,background:C.pu+'11'}}>DISC: {hire.discProfile}</span>}
                 <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}44`,color:hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}}>{hire.status}</span>
               </div>
-              <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>Started {fmtShortDate(hire.startDate)} · {phaseLabel(hire)}</div>
+              <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>Started {fmtShortDate(hire.startDate)}{hire.supervisor?' · Supervisor: '+hire.supervisor:''} · {phaseLabel(hire)}</div>
             </div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               <Btn onClick={()=>setEditProfile(true)} style={{fontSize:11,padding:'5px 10px'}}>✎ Profile</Btn>
               <button onClick={e=>{flash(e);copyReport();}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',background:copied?C.gr+'22':C.ca,border:`1px solid ${copied?C.gr:C.bo}`,borderRadius:6,color:copied?C.gr:C.tx,cursor:'pointer',transition:'all .3s'}}>{copied?'✓ COPIED':'📤 Copy Report'}</button>
-              <Btn onClick={onClose} style={{padding:'5px 10px',fontSize:11}}>✕ Close</Btn>
             </div>
           </div>
         )}
       </div>
 
+      {/* SECTION TABS */}
       <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,overflowX:'auto'}}>
         {[
           ['days',  `📋 Days ${daysComp}/15 · ${daysPct}%`],
@@ -2300,6 +2350,7 @@ function HireDetail({ hire, onUpdate, onClose }) {
 
       <div style={{padding:16}}>
 
+        {/* ── TRAINING DAYS ── */}
         {section==='days'&&<div>
           <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14}}>
             <span style={{fontFamily:MO,fontSize:11,color:C.tx,flexShrink:0}}>{daysComp}/15 days complete</span>
@@ -2327,8 +2378,10 @@ function HireDetail({ hire, onUpdate, onClose }) {
 
           {TRAINING_DAYS.map(td=>{
             const d=hire.days[td.day]||{}, isRev=td.review, qpct=dayQuizPct(d);
+            const hasHw=d.hasHw!==false, hasQuiz=d.hasQuiz!==false;
             return (
               <div key={td.day} style={{background:isRev?'#1a1500':C.ca,border:`1px solid ${isRev?C.yl+'44':C.bo}`,borderRadius:7,padding:'10px 12px',marginBottom:6}}>
+                {/* Day title row */}
                 <div style={{display:'flex',gap:8,alignItems:'flex-start',flexWrap:'wrap'}}>
                   <button onClick={()=>toggleDay(td.day)} style={{flexShrink:0,width:18,height:18,borderRadius:3,border:`2px solid ${d.completed?C.gr:C.bo}`,background:d.completed?C.gr+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',marginTop:2}}>
                     {d.completed&&<span style={{fontSize:10,color:C.gr,lineHeight:1}}>✓</span>}
@@ -2340,15 +2393,20 @@ function HireDetail({ hire, onUpdate, onClose }) {
                     </div>
                     <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:3,lineHeight:1.4}}>{td.topics}</div>
                   </div>
-                  {d.completed&&<input type="date" value={d.completedDate||''} onChange={e=>setDayDate(td.day,e.target.value)} title="Completion date" style={{...inpS,fontSize:11,padding:'2px 6px',width:120,colorScheme:'dark',flexShrink:0}}/>}
+                  <div style={{display:'flex',gap:4,flexShrink:0,alignItems:'center'}}>
+                    {!isRev&&<button onClick={()=>toggleDayHasHw(td.day)} title={hasHw?'Disable homework for this day':'Enable homework for this day'} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,cursor:'pointer',border:`1px solid ${hasHw?C.gr+'66':C.bo}`,background:hasHw?C.gr+'11':C.ca,color:hasHw?C.gr:C.mu+'88',transition:'all .15s'}}>HW</button>}
+                    <button onClick={()=>toggleDayHasQuiz(td.day)} title={hasQuiz?'Disable quiz for this day':'Enable quiz for this day'} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,cursor:'pointer',border:`1px solid ${hasQuiz?C.bl+'66':C.bo}`,background:hasQuiz?C.bl+'11':C.ca,color:hasQuiz?C.bl:C.mu+'88',transition:'all .15s'}}>QZ</button>
+                    {d.completed&&<input type="date" value={d.completedDate||''} onChange={e=>setDayDate(td.day,e.target.value)} title="Completion date" style={{...inpS,fontSize:11,padding:'2px 6px',width:118,colorScheme:'dark'}}/>}
+                  </div>
                 </div>
-                <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid '+C.bo+'55',display:'flex',flexDirection:'column',gap:7}}>
-                  {!isRev&&(hwPrompt===td.day
+
+                {(hasHw||hasQuiz)&&<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid '+C.bo+'55',display:'flex',flexDirection:'column',gap:7}}>
+                  {/* Homework */}
+                  {hasHw&&!isRev&&(hwPrompt===td.day
                     ? <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
-                        <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>📎</span>
-                        <input autoFocus value={hwDraft.file} onChange={e=>setHwDraft(p=>({...p,file:e.target.value}))} onKeyDown={e=>{if(e.key==='Enter')commitHw();if(e.key==='Escape')setHwPrompt(null);}} placeholder="filename.pdf" style={{...inpS,flex:1,padding:'3px 8px',fontSize:11,minWidth:80}}/>
-                        <input type="date" value={hwDraft.date} onChange={e=>setHwDraft(p=>({...p,date:e.target.value}))} style={{...inpS,padding:'3px 6px',fontSize:11,width:120,colorScheme:'dark',flexShrink:0}}/>
-                        <OBtn onClick={commitHw} style={{fontSize:10,padding:'3px 10px',flexShrink:0}}>✓</OBtn>
+                        <span style={{fontFamily:MO,fontSize:10,color:C.gr,flexShrink:0}}>📎 HW Date:</span>
+                        <input autoFocus type="date" value={hwDateDraft} onChange={e=>setHwDateDraft(e.target.value)} style={{...inpS,padding:'3px 6px',fontSize:11,width:120,colorScheme:'dark',flexShrink:0}}/>
+                        <OBtn onClick={commitHw} style={{fontSize:10,padding:'3px 10px',flexShrink:0}}>✓ Mark Done</OBtn>
                         <Btn onClick={()=>setHwPrompt(null)} style={{fontSize:10,padding:'3px 8px',flexShrink:0}}>✕</Btn>
                       </div>
                     : <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
@@ -2356,33 +2414,37 @@ function HireDetail({ hire, onUpdate, onClose }) {
                           {d.hwComplete&&<span style={{fontSize:8,color:C.gr,lineHeight:1}}>✓</span>}
                         </button>
                         {d.hwComplete
-                          ? <><span style={{fontFamily:MO,fontSize:10,color:C.gr,flex:1,minWidth:0}}>📎 {d.hwFile||'(no filename)'}</span><input type="date" value={d.hwDate||''} onChange={e=>setHwDate(td.day,e.target.value)} title="HW date" style={{...inpS,padding:'2px 6px',fontSize:10,width:110,colorScheme:'dark',flexShrink:0}}/></>
+                          ? <><span style={{fontFamily:MO,fontSize:10,color:C.gr,flex:1}}>📎 Day {td.day} HW — done</span><input type="date" value={d.hwDate||''} onChange={e=>setHwDate(td.day,e.target.value)} title="HW completed date" style={{...inpS,padding:'2px 6px',fontSize:10,width:112,colorScheme:'dark',flexShrink:0}}/></>
                           : <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Day {td.day} Homework</span>
                         }
                       </div>
                   )}
-                  <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+
+                  {/* Per-day quiz */}
+                  {hasQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
                     <button onClick={()=>toggleDayQuiz(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.quizComplete?C.bl:C.bo}`,background:d.quizComplete?C.bl+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                       {d.quizComplete&&<span style={{fontSize:8,color:C.bl,lineHeight:1}}>✓</span>}
                     </button>
                     <span style={{fontFamily:MO,fontSize:10,color:d.quizComplete?C.bl:C.mu,flexShrink:0}}>Day {td.day} Quiz</span>
-                    <input type="number" min={0} value={d.quizCorrect??''} onChange={e=>setQuizField(td.day,'quizCorrect',e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:48,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
+                    <input type="number" min={0} value={d.quizCorrect??''} onChange={e=>setQuizField(td.day,'quizCorrect',e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:46,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
                     <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>/</span>
-                    <input type="number" min={1} value={d.quizTotal??''} onChange={e=>setQuizField(td.day,'quizTotal',e.target.value)} placeholder="?" title="Total" style={{...inpS,width:48,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
+                    <input type="number" min={1} value={d.quizTotal??''} onChange={e=>setQuizField(td.day,'quizTotal',e.target.value)} placeholder="?" title="Total" style={{...inpS,width:46,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
                     {qpct!=null&&<span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:qpct>=90?C.gr:qpct>=70?C.yl:C.rd,flexShrink:0}}>= {qpct}%</span>}
-                  </div>
+                  </div>}
+
                   {td.finalQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4,paddingTop:4,borderTop:'1px solid '+C.bo}}>
-                    <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>🏁 Final Quiz Score:</span>
+                    <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>🏁 Final Quiz:</span>
                     <input type="number" min={0} max={100} value={fqScore} onChange={e=>setFqScore(e.target.value)} style={{...inpS,width:70,padding:'3px 8px',fontSize:11}}/>
                     <OBtn onClick={saveFinalQuiz} style={{fontSize:10,padding:'3px 10px'}}>Save</OBtn>
                     {hire.finalQuizScore!=null&&<span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hire.finalQuizScore>=90?C.gr:hire.finalQuizScore>=75?C.yl:C.rd}}>{hire.finalQuizScore}%</span>}
                   </div>}
-                </div>
+                </div>}
               </div>
             );
           })}
         </div>}
 
+        {/* ── MOCK CALLS ── */}
         {section==='mocks'&&<div>
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
@@ -2454,6 +2516,7 @@ function HireDetail({ hire, onUpdate, onClose }) {
           })}
         </div>}
 
+        {/* ── BUDDY CALLS ── */}
         {section==='buddy'&&<div>
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
@@ -2519,6 +2582,7 @@ function HireDetail({ hire, onUpdate, onClose }) {
           </div>
         </div>}
 
+        {/* ── NOTES ── */}
         {section==='notes'&&<div>
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>ADD SUPERVISOR NOTE</div>
@@ -2550,70 +2614,122 @@ function HireDetail({ hire, onUpdate, onClose }) {
   );
 }
 
+function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
+  const [selectedId,setSelectedId]   = useState(null);
+  const [roster,setRoster]           = useState('active'); // 'active' | 'alumni'
+  const [showAdd,setShowAdd]         = useState(false);
+  const [showAddAlumni,setShowAddAlumni] = useState(false);
+  const [newName,setNewName]         = useState('');
+  const [newStart,setNewStart]       = useState(new Date().toISOString().split('T')[0]);
+  const [newSup,setNewSup]           = useState('');
+  const [newDisc,setNewDisc]         = useState('');
 
-
-function TrainingMode({ hires, onUpdateHires }) {
-  const [selectedId,setSelectedId] = useState(null);
-  const [showAdd,setShowAdd]       = useState(false);
-  const [newName,setNewName]       = useState('');
-  const [newStart,setNewStart]     = useState(new Date().toISOString().split('T')[0]);
-
-  const selectedHire = hires.find(h=>h.id===selectedId);
+  const activeList  = hires;
+  const alumniList  = alumni;
+  const displayList = roster==='active' ? activeList : alumniList;
+  const selectedHire = displayList.find(h=>h.id===selectedId);
   const inpS = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none'};
 
   const addHire = () => {
     if(!newName.trim()) return;
-    if(hires.length>=3){ alert('Maximum 3 hires supported.'); return; }
-    const h=initHire(newName.trim(),newStart);
+    if(hires.length>=3){ alert('Maximum 3 active hires supported.'); return; }
+    const h={...initHire(newName.trim(),newStart),supervisor:newSup.trim(),discProfile:newDisc.trim()};
     onUpdateHires([...hires,h]);
-    setSelectedId(h.id); setShowAdd(false); setNewName('');
+    setSelectedId(h.id); setShowAdd(false); setNewName(''); setNewSup(''); setNewDisc('');
   };
-  const updateHire = hire => onUpdateHires(hires.map(h=>h.id===hire.id?hire:h));
+
+  const addAlumni = () => {
+    if(!newName.trim()) return;
+    const h={...initHire(newName.trim(),newStart,true),supervisor:newSup.trim(),discProfile:newDisc.trim()};
+    onUpdateAlumni([...alumni,h]);
+    setSelectedId(h.id); setShowAddAlumni(false); setNewName(''); setNewSup(''); setNewDisc('');
+  };
+
+  const updateHire = hire => {
+    const s=sanitizeHire(hire);
+    if(roster==='active') onUpdateHires(hires.map(h=>h.id===s.id?s:h));
+    else onUpdateAlumni(alumni.map(h=>h.id===s.id?s:h));
+  };
+
+  const archiveHire = hire => {
+    onUpdateAlumni([...alumni,{...hire,status:'complete'}]);
+    onUpdateHires(hires.filter(h=>h.id!==hire.id));
+    setSelectedId(null);
+  };
+
   const deleteHire = id => {
-    if(window.confirm('Delete this hire and all their data?')){ onUpdateHires(hires.filter(h=>h.id!==id)); if(selectedId===id)setSelectedId(null); }
+    if(!window.confirm('Delete this record and all data?')) return;
+    if(roster==='active'){ onUpdateHires(hires.filter(h=>h.id!==id)); }
+    else { onUpdateAlumni(alumni.filter(h=>h.id!==id)); }
+    if(selectedId===id) setSelectedId(null);
   };
+
+  const AddForm = ({isAlumni, onSave, onCancel}) => (
+    <div style={{background:C.su,border:'1px solid '+(isAlumni?C.bl:C.pu),borderRadius:8,padding:14,marginBottom:16}}>
+      <div style={{fontFamily:MO,fontSize:10,color:isAlumni?C.bl:C.pu,letterSpacing:2,marginBottom:10}}>{isAlumni?'ADD PAST TRAINEE':'ADD NEW HIRE'}</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+        <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&onSave()} placeholder="Full name…" style={{...inpS,flex:'2 1 140px'}}/>
+        <input type="date" value={newStart} onChange={e=>setNewStart(e.target.value)} style={{...inpS,flex:'1 1 120px',colorScheme:'dark'}}/>
+      </div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+        <input value={newSup} onChange={e=>setNewSup(e.target.value)} placeholder="Supervisor name…" style={{...inpS,flex:'2 1 140px'}}/>
+        <input value={newDisc} onChange={e=>setNewDisc(e.target.value)} placeholder="DISC profile…" style={{...inpS,flex:'1 1 80px'}}/>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <OBtn onClick={onSave} disabled={!newName.trim()} style={{background:isAlumni?C.bl:undefined}}>{isAlumni?'Add to Alumni':'Add Hire'}</OBtn>
+        <Btn onClick={onCancel}>Cancel</Btn>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{padding:'24px 20px'}}>
       <div style={{fontFamily:MO,fontSize:11,color:C.pu,letterSpacing:2,marginBottom:4}}>NEW HIRE TRAINING TRACKER</div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:16,flexWrap:'wrap',gap:8}}>
-        <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:0}}>Training Roster</h2>
-        {hires.length<3&&!showAdd&&<OBtn onClick={()=>setShowAdd(true)}>+ New Hire</OBtn>}
+
+      {/* Roster toggle + action buttons */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:8}}>
+        <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo}}>
+          <button onClick={()=>{setRoster('active');setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',background:roster==='active'?C.pu:C.ca,color:roster==='active'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
+            👥 Active ({activeList.length})
+          </button>
+          <button onClick={()=>{setRoster('alumni');setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',borderLeft:'1px solid '+C.bo,background:roster==='alumni'?C.bl:C.ca,color:roster==='alumni'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
+            🏆 Alumni ({alumniList.length})
+          </button>
+        </div>
+        <div style={{display:'flex',gap:6}}>
+          {roster==='active'&&activeList.length<3&&!showAdd&&!showAddAlumni&&<OBtn onClick={()=>setShowAdd(true)}>+ New Hire</OBtn>}
+          {roster==='alumni'&&!showAddAlumni&&!showAdd&&<button onClick={()=>setShowAddAlumni(true)} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 16px',border:'none',borderRadius:6,background:C.bl,color:'#fff',cursor:'pointer'}}>+ Add Past Trainee</button>}
+        </div>
       </div>
 
-      {showAdd&&(
-        <div style={{background:C.su,border:'1px solid '+C.pu,borderRadius:8,padding:14,marginBottom:16}}>
-          <div style={{fontFamily:MO,fontSize:10,color:C.pu,letterSpacing:2,marginBottom:10}}>ADD NEW HIRE</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
-            <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addHire()} placeholder="Full name…" style={{...inpS,flex:'2 1 140px'}}/>
-            <input type="date" value={newStart} onChange={e=>setNewStart(e.target.value)} style={{...inpS,flex:'1 1 120px',colorScheme:'dark'}}/>
-          </div>
-          <div style={{display:'flex',gap:8}}>
-            <OBtn onClick={addHire} disabled={!newName.trim()}>Add Hire</OBtn>
-            <Btn onClick={()=>{setShowAdd(false);setNewName('');}}>Cancel</Btn>
-          </div>
-        </div>
-      )}
+      {showAdd&&<AddForm isAlumni={false} onSave={addHire} onCancel={()=>{setShowAdd(false);setNewName('');setNewSup('');setNewDisc('');}}/>}
+      {showAddAlumni&&<AddForm isAlumni={true} onSave={addAlumni} onCancel={()=>{setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}}/>}
 
-      {hires.length===0&&!showAdd&&(
+      {displayList.length===0&&!showAdd&&!showAddAlumni&&(
         <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'50px 20px',textAlign:'center'}}>
-          <div style={{fontSize:36,marginBottom:12}}>👥</div>
-          <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>No hires yet. Click + New Hire to begin tracking.</div>
+          <div style={{fontSize:36,marginBottom:12}}>{roster==='alumni'?'🏆':'👥'}</div>
+          <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>
+            {roster==='alumni'?'No alumni yet. Hires move here after sign-off, or add past trainees manually.':'No active hires. Click + New Hire to begin tracking.'}
+          </div>
         </div>
       )}
 
-      {hires.length>0&&(
+      {displayList.length>0&&(
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-          {hires.map(h=>(
+          {displayList.map(h=>(
             <div key={h.id} style={{position:'relative',flex:'1 1 190px',maxWidth:280}}>
               <HireCard hire={h} selected={selectedId===h.id} onSelect={id=>setSelectedId(selectedId===id?null:id)}/>
-              <button onClick={()=>deleteHire(h.id)} title="Delete hire" style={{position:'absolute',top:6,right:6,background:C.ca,border:'1px solid '+C.bo,borderRadius:3,color:C.mu,cursor:'pointer',fontSize:10,padding:'1px 5px',lineHeight:1}}>✕</button>
+              <button onClick={()=>deleteHire(h.id)} title="Delete record" style={{position:'absolute',top:6,right:6,background:C.ca,border:'1px solid '+C.bo,borderRadius:3,color:C.mu,cursor:'pointer',fontSize:10,padding:'1px 5px',lineHeight:1}}>✕</button>
             </div>
           ))}
         </div>
       )}
 
-      {selectedHire&&<HireDetail hire={selectedHire} onUpdate={updateHire} onClose={()=>setSelectedId(null)}/>}
+      {selectedHire&&<HireDetail
+        hire={selectedHire}
+        onUpdate={updateHire}
+        onArchive={roster==='active'?archiveHire:null}
+      />}
     </div>
   );
 }
@@ -2633,7 +2749,8 @@ function DailyPlanner() {
   const [fontScale,setFontScale] = useState(()=>{ try{return parseFloat(localStorage.getItem('dps-fontscale')||'1');}catch(e){return 1;} });
   const adjFont = delta => setFontScale(p=>{ const n=Math.min(1.6,Math.max(0.8,parseFloat((p+delta).toFixed(1)))); try{localStorage.setItem('dps-fontscale',String(n));}catch(e){} return n; });
   const [appMode,setAppMode] = useState(()=>{ try{return store.getItem('dps-mode')||'schedule';}catch(e){return 'schedule';} });
-  const [hires,setHires]     = useState(()=>{ try{const r=store.getItem('dps-hires');return r?JSON.parse(r):[];}catch(e){return [];} });
+  const [hires,setHires]     = useState(()=>{ try{const r=store.getItem('dps-hires');return r?JSON.parse(r).map(sanitizeHire):[];}catch(e){return [];} });
+  const [alumni,setAlumni]   = useState(()=>{ try{const r=store.getItem('dps-alumni');return r?JSON.parse(r).map(sanitizeHire):[];}catch(e){return [];} });
   const [showHist,setShowHist] = useState(false);
 
   const [showTL,setShowTL]     = useState(false);
@@ -2847,6 +2964,7 @@ function DailyPlanner() {
   // ── Persist mode and hires separately ────────────────────────────────────
   useEffect(()=>{ try{store.setItem('dps-mode',appMode);}catch(e){} },[appMode]);
   useEffect(()=>{ try{store.setItem('dps-hires',JSON.stringify(hires));}catch(e){} },[hires]);
+  useEffect(()=>{ try{store.setItem('dps-alumni',JSON.stringify(alumni));}catch(e){} },[alumni]);
 
   const gistSyncer = useGistSync(sd, setSd);
 
@@ -3088,7 +3206,7 @@ function DailyPlanner() {
       </div>
 
       {appMode==='training'
-        ? <TrainingMode hires={hires} onUpdateHires={setHires}/>
+        ? <TrainingMode hires={hires} onUpdateHires={setHires} alumni={alumni} onUpdateAlumni={setAlumni}/>
         : <>
           <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'6px 12px',display:'flex',gap:4,flexWrap:'wrap'}}>
             {ALL_TABS.map(t=>{
