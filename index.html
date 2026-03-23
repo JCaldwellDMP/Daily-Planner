@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Js91CJ6925s8roO3sVfxSyAU04', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/bxArCNk624TNlkpGhmf5SyDK3B', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Gi9TCKrV24IqEkKzsvhjS5aE_P`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/ctiWCOY024UAR1kyIvhLSGyB2U`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/0w9aCL9V24HPj2qyCPiqSy9q9M`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-d9hCPNV94T4Gznki1iESxOkW6`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/_yLxCM8V24I5OYPMFWsnS85BKm → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/5RfpCQW824t6AvLyIksgSGW500 → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2115,6 +2115,7 @@ const sanitizeHire = h => ({
         hwComplete:    d.hwComplete    || false,
         hwDate:        d.hwDate        || null,
         hasQuiz:       d.hasQuiz       !== false,
+        quizSent:      d.quizSent      || false,
         quizComplete:  d.quizComplete  || false,
         quizCorrect:   d.quizCorrect   != null ? d.quizCorrect : null,
         quizTotal:     d.quizTotal     != null ? d.quizTotal   : null,
@@ -2128,7 +2129,7 @@ const initHire = (name, startDate) => ({
   days: Object.fromEntries([...Array(15)].map((_,i)=>[i+1,{
     completed:false, completedDate:null,
     hwComplete:false, hwDate:null,
-    quizComplete:false, quizCorrect:null, quizTotal:null,
+    quizSent:false, quizComplete:false, quizCorrect:null, quizTotal:null,
   }])),
   quizzes: [], mockCalls: [], mockCallsGoal:15,
   buddyCalls: [], buddyCallsGoal:25,
@@ -2209,6 +2210,7 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const [buddyDraft,setBuddyDraft]       = useState({});
   const [expandedBuddy,setExpandedBuddy] = useState(null);
   const [editProfile,setEditProfile]     = useState(false);
+  const [showDiscGuide,setShowDiscGuide] = useState(false);
   const [nameDraft,setNameDraft]         = useState(hire.name);
   const [discDraft,setDiscDraft]         = useState(hire.discProfile||'');
   const [supDraft,setSupDraft]           = useState(hire.supervisor||'');
@@ -2236,7 +2238,8 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const toggleDay     = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
   const setDayDate    = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,completedDate:v}}}); };
   const toggleDayHasHw  = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hasHw:!c.hasHw,hwComplete:false,hwDate:null}}}); };
-  const toggleDayHasQuiz= n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hasQuiz:!c.hasQuiz,quizComplete:false,quizCorrect:null,quizTotal:null}}}); };
+  const toggleDayHasQuiz= n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hasQuiz:!c.hasQuiz,quizSent:false,quizComplete:false,quizCorrect:null,quizTotal:null}}}); };
+  const toggleQuizSent  = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,quizSent:!c.quizSent}}}); };
   const toggleHw      = n => { const c=hire.days[n]; if(!c.hwComplete){setHwPrompt(n);setHwDateDraft(TODAY_T);}else onUpdate({...hire,days:{...hire.days,[n]:{...c,hwComplete:false,hwDate:null}}}); };
   const commitHw      = () => { const c=hire.days[hwPrompt]; onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...c,hwComplete:true,hwDate:hwDateDraft||TODAY_T}}}); setHwPrompt(null); };
   const setHwDate     = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
@@ -2277,6 +2280,7 @@ function HireDetail({ hire, onUpdate, onArchive }) {
     TRAINING_DAYS.forEach(td=>{
       const d=hire.days[td.day]; const qpct=dayQuizPct(d);
       let line=`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`;
+      if(d.hasQuiz&&d.quizSent) line+=` | Quiz Sent: ✅`;
       if(d.hasQuiz&&d.quizComplete) line+=` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}`;
       L.push(line);
     });
@@ -2335,6 +2339,55 @@ function HireDetail({ hire, onUpdate, onArchive }) {
           </div>
         )}
       </div>
+
+      {/* DISC INTERACTION GUIDE */}
+      {(()=>{
+        const disc = (hire.discProfile||'').trim().toUpperCase();
+        const mode = disc[0];
+        if(!disc || !['D','I','S','C'].includes(mode)) return null;
+        const modeLabel = {D:'D',I:'I',S:'S',C:'C'}[mode];
+        const modeColor = {D:C.rd,I:C.or,S:C.gr,C:C.bl}[mode];
+        const guides = {
+          D:{
+            strengths:'You both are outgoing and activity-driven. Both of you like to win. You may admire the strengths and achievements of this person.',
+            struggles:'You may find the other person to be too controlling, while you are too permissive. You are more social, while the other person is more task-driven.',
+            strategies:"Understand that a D-type person is direct and results-oriented. Be more direct, and get to the point with them. Do not be afraid of confrontation. Expect it, and do not take it personally. Work first, and THEN have fun.",
+          },
+          I:{
+            strengths:'Both of you live enthusiastically and enjoy being with people. You both like to have fun and tend to forgive easily.',
+            struggles:'Both of you tend to live emotionally and may compete for attention. Both of you are impulsive, and that can lead to challenges with following through with responsibilities and staying organized.',
+            strategies:"Remember to listen to the other person, because he or she likes to talk as much as you do. When working on important tasks, keep each other accountable, and be clear about who is responsible for what. Give sincere recognition of this person's abilities, ideas and contributions.",
+          },
+          S:{
+            strengths:'Both of you are people-oriented. You like to talk and the other person likes to listen. You tend to get along very well.',
+            struggles:'Most struggles are related to pace. You like things fast-paced, exciting, spontaneous and with high energy. The other person likes things to be more calm, quiet and predictable.',
+            strategies:'Slow down your approach. Tone down your enthusiasm. Be sincere with praise and appreciation. Do not embarrass this person in public. Allow this person time to warm up and open up to you.',
+          },
+          C:{
+            strengths:'Your opposite strengths provide a good balance to each other\'s weaknesses. You can learn from the other person\'s analytical nature, and this person can learn not to take things so seriously and to have more fun.',
+            struggles:'Your differences can lead to misunderstandings. You love to talk and be on the go, but the other person likes time alone. You are much more verbal, and it is easy for you to miss the other person\'s more indirect way of sharing concerns.',
+            strategies:"Tone down your emotional reactions. Be more factual and objective, especially in the face of conflict. Do not rush or push this person. Be specific in your communication, and expect this person to speak literally and to take things literally.",
+          },
+        };
+        const g = guides[mode];
+        return (
+          <div style={{borderBottom:'1px solid '+C.bo}}>
+            <button onClick={()=>setShowDiscGuide(p=>!p)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 16px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left'}}>
+              <span style={{fontFamily:MO,fontSize:10,color:C.pu,letterSpacing:2}}>🧠 DISC INTERACTION GUIDE</span>
+              <span style={{fontFamily:MO,fontSize:10,padding:'1px 7px',borderRadius:3,border:'1px solid '+modeColor+'55',color:modeColor,background:modeColor+'11'}}>Jesse I ↔ {hire.name.split(' ')[0]} {modeLabel}</span>
+              <span style={{fontFamily:MO,fontSize:10,color:C.mu,marginLeft:'auto'}}>{showDiscGuide?'▲ hide':'▼ show'}</span>
+            </button>
+            {showDiscGuide&&<div style={{display:'flex',gap:0,padding:'0 12px 14px'}}>
+              {[['💪 Strengths',g.strengths,C.gr],['⚡ Struggles',g.struggles,C.yl],['🎯 Strategies',g.strategies,C.or]].map(([label,text,col])=>(
+                <div key={label} style={{flex:1,background:C.bg,border:'1px solid '+col+'33',borderRadius:7,padding:'10px 12px',margin:'0 4px'}}>
+                  <div style={{fontFamily:MO,fontSize:10,fontWeight:'bold',color:col,letterSpacing:1,marginBottom:6}}>{label}</div>
+                  <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.6}}>{text}</div>
+                </div>
+              ))}
+            </div>}
+          </div>
+        );
+      })()}
 
       {/* SECTION TABS */}
       <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,overflowX:'auto'}}>
@@ -2421,6 +2474,13 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                   )}
 
                   {/* Per-day quiz */}
+                  {hasQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',paddingLeft:4}}>
+                    <button onClick={()=>toggleQuizSent(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.quizSent?C.yl:C.bo}`,background:d.quizSent?C.yl+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      {d.quizSent&&<span style={{fontSize:8,color:C.yl,lineHeight:1}}>✓</span>}
+                    </button>
+                    <span style={{fontFamily:MO,fontSize:10,color:d.quizSent?C.yl:C.mu}}>Day {td.day} Quiz Sent</span>
+                  </div>}
+
                   {hasQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
                     <button onClick={()=>toggleDayQuiz(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.quizComplete?C.bl:C.bo}`,background:d.quizComplete?C.bl+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                       {d.quizComplete&&<span style={{fontSize:8,color:C.bl,lineHeight:1}}>✓</span>}
