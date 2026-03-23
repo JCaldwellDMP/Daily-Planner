@@ -25,10 +25,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
   <!-- Babel Standalone (JSX transform) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <!-- QR sync: qrcodejs (renderer) + jsQR (scanner) + pako (compress) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+  <!-- QR sync scripts removed — Gist sync is primary. Re-add if QR fallback is re-enabled. -->
 </head>
 <body>
   <div id="root"></div>
@@ -45,8 +42,6 @@ const store = (() => {
   catch(e) { return { getItem: k => _memStore[k]||null, setItem: (k,v) => { _memStore[k]=v; }, removeItem: k => { delete _memStore[k]; } }; }
 })();
 
-// ── Inbox draft survives hot reloads (module-level var, not storage) ──────────
-if (typeof window._dpsInboxDraft === 'undefined') window._dpsInboxDraft = '';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const C = {
@@ -164,12 +159,12 @@ const priSort = (a,b) => {
 };
 
 const initDay = ds => ({
-  [`scanItems-${ds}`]:  [],
   [`tasks-${ds}`]:      [],
   [`dismissed-${ds}`]:  [],
   [`time-${ds}`]:       {},
   [`done-${ds}`]:       [],
   [`deferred-${ds}`]:   {},
+  [`notes-${ds}`]:      [],
   [`timerLogs-${ds}`]:  [],
   [`awayRun-${ds}`]:    false, [`awayMs-${ds}`]:   0, [`awayStart-${ds}`]:   null,
   [`trainRun-${ds}`]:   false, [`trainMs-${ds}`]:  0, [`trainStart-${ds}`]:  null,
@@ -185,22 +180,17 @@ const flash = e => {
 
 // ── Shared small components ───────────────────────────────────────────────────
 const SrcBadge = ({ source }) => {
-  if (!source || source === 'brain') return (
-    <span style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,background:'#1a1a2e',border:'1px solid #3b3b6e',color:'#7b7bae',flexShrink:0,whiteSpace:'nowrap'}}>🧠 brain</span>
-  );
+  const cfg = {
+    teams:   { icon:'👥', label:'teams',   bg:'#1a0d2e', bd:'#6b3fa0', color:C.pu },
+    email:   { icon:'📧', label:'email',   bg:'#0d1520', bd:'#1e4d6b', color:C.bl },
+    dump:    { icon:'🧠', label:'dump',    bg:'#1a1000', bd:'#6b4a00', color:C.or },
+    brain:   { icon:'🧠', label:'dump',    bg:'#1a1000', bd:'#6b4a00', color:C.or },
+    capture: { icon:'⚡', label:'capture', bg:'#0d1a12', bd:'#1e5c30', color:C.gr },
+  };
+  const c = cfg[source] || cfg['dump'];
   return (
-    <span style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,background:'#0d1f2d',border:'1px solid #1e4d6b',color:'#4a9eca',flexShrink:0,whiteSpace:'nowrap'}}>⚡ capture</span>
-  );
-};
-
-const InboxStatusBadge = ({ status }) => {
-  if (!status) return null;
-  const col = status==='urgent'?C.rd : status==='note'?C.yl : status==='clear'?C.gr : null;
-  const label = status==='urgent'?'Urgent' : status==='note'?'Note' : status==='clear'?'Schedule' : null;
-  if (!col) return null;
-  return (
-    <span style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,border:`1px solid ${col}66`,color:col,flexShrink:0,whiteSpace:'nowrap',background:col+'11'}}>
-      {label}
+    <span style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,background:c.bg,border:`1px solid ${c.bd}`,color:c.color,flexShrink:0,whiteSpace:'nowrap'}}>
+      {c.icon} {c.label}
     </span>
   );
 };
@@ -609,66 +599,42 @@ function RestoreModal({ onRestore, onClose }) {
   );
 }
 
-function CollectTab({ inp, setInp, scanItems, onUpdateScanItems, tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onUpdateDismissed, onBack, onNext, onResetCarry }) {
-  const [inboxSt,setInboxSt]           = useState('');
-  const [inboxEditId,setInboxEditId]   = useState(null);
-  const [inboxEditVal,setInboxEditVal] = useState('');
-  const [brainInp,setBrainInp]         = useState('');
-  const [editId,setEditId]             = useState(null);
-  const [editVal,setEditVal]           = useState('');
-  const [triage,setTriage]             = useState({});
-  const [inboxTriage,setInboxTriage]   = useState({});
-  const [inboxDeferDate,setInboxDeferDate] = useState({});
-  const [deferDate,setDeferDate]       = useState({});
+function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onUpdateDismissed, onBack, onNext, onResetCarry }) {
+  const [brainInp,setBrainInp]   = useState('');
+  const [source,setSource]       = useState('dump');
+  const [editId,setEditId]       = useState(null);
+  const [editVal,setEditVal]     = useState('');
+  const [triage,setTriage]       = useState({});
+  const [deferDate,setDeferDate] = useState({});
 
-  const statColor = s => s==='urgent'?C.rd:s==='note'?C.yl:s==='clear'?C.gr:C.mu;
-  const statLabel = s => s==='urgent'?'Urgent':s==='note'?'Note':s==='clear'?'Schedule':'—';
+  const SOURCES = [
+    {k:'teams',   label:'👥 Teams',   color:C.pu},
+    {k:'email',   label:'📧 Email',   color:C.bl},
+    {k:'dump',    label:'🧠 Dump',    color:C.or},
+    {k:'capture', label:'⚡ Capture', color:C.gr},
+  ];
 
-  // ── Inbox section ──
-  const addInbox = () => { if(!inp.trim())return; onUpdateScanItems([...scanItems,{id:nid(),text:inp.trim(),status:inboxSt}]); setInp(''); };
-  const delInbox = id => onUpdateScanItems(scanItems.filter(i=>i.id!==id));
-  const startInboxEdit  = item => { setInboxEditId(item.id); setInboxEditVal(item.text); };
-  const commitInboxEdit = id => { if(inboxEditVal.trim()) onUpdateScanItems(scanItems.map(i=>i.id===id?{...i,text:inboxEditVal.trim()}:i)); setInboxEditId(null); setInboxEditVal(''); };
-
-  // ── Brain section ──
-  const allScanItems    = scanItems || [];
-  const deferredSet     = new Set(Object.keys(deferred));
-  const brainTasks      = tasks.filter(i=>(i.source==='brain'||i.carried||!i.source)&&!deferredSet.has(String(i.id)));
-  const addedSrcIds     = new Set(tasks.filter(i=>i.srcId).map(i=>String(i.srcId)));
-  const disSet          = new Set(dismissed.map(String));
-  const carriedInboxIds = new Set(tasks.filter(i=>i.inboxSrc).map(i=>String(i.inboxSrc)));
-  const pendingInbox    = allScanItems.filter(i=>!carriedInboxIds.has(String(i.id)));
-  const pending         = lastSum ? [...(lastSum.undone||[])].filter(i=>!disSet.has(String(i.id))&&!addedSrcIds.has(String(i.id))).sort(priSort) : [];
-  const unprioritized   = brainTasks.filter(i=>!i.priority).reverse();
-  const prioritized     = brainTasks.filter(i=>!!i.priority).sort(priSort);
-  const setT            = (id,val) => setTriage(p=>({...p,[id]:val}));
-
-  const commitInboxTriage = () => {
-    const newTasks = [];
-    const remaining = allScanItems.filter(item => {
-      const d = inboxTriage[item.id];
-      if (d==='carry') { newTasks.push({id:nid(),text:item.text,priority:null,source:'brain',inboxSrc:item.id,inboxStatus:item.status||''}); return false; }
-      if (d==='drop')  return false;
-      if (d==='defer') { newTasks.push({id:nid(),text:item.text,priority:null,source:'capture',inboxSrc:item.id,deferDate:inboxDeferDate[item.id]||null,inboxStatus:item.status||''}); return false; }
-      return true;
-    });
-    onUpdateTasks([...tasks,...newTasks]);
-    onUpdateScanItems(remaining);
-    setInboxTriage({}); setInboxDeferDate({});
-  };
+  const deferredSet   = new Set(Object.keys(deferred));
+  const allTasks      = tasks.filter(i=>!deferredSet.has(String(i.id)));
+  const addedSrcIds   = new Set(tasks.filter(i=>i.srcId).map(i=>String(i.srcId)));
+  const disSet        = new Set(dismissed.map(String));
+  const pending       = lastSum ? [...(lastSum.undone||[])].filter(i=>!disSet.has(String(i.id))&&!addedSrcIds.has(String(i.id))).sort(priSort) : [];
+  const unprioritized = allTasks.filter(i=>!i.priority).reverse();
+  const prioritized   = allTasks.filter(i=>!!i.priority).sort(priSort);
+  const setT          = (id,val) => setTriage(p=>({...p,[id]:val}));
 
   const commitTriage = () => {
     const carried=[]; const dismissed2=[...dismissed];
     pending.forEach(item=>{
-      if(triage[item.id]==='carry') carried.push({id:nid(),text:item.text,priority:item.priority,carried:true,srcId:item.id,source:'brain'});
+      if(triage[item.id]==='carry') carried.push({id:nid(),text:item.text,priority:item.priority,carried:true,srcId:item.id,source:'dump'});
       else dismissed2.push(item.id);
     });
     if(carried.length) onUpdateTasks([...tasks,...carried]);
     onUpdateDismissed(dismissed2);
   };
 
-  const addBrain   = () => { if(!brainInp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:brainInp.trim(),priority:null,source:'brain'}]); setBrainInp(''); };
-  const delBrain   = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
+  const addTask    = () => { if(!brainInp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:brainInp.trim(),priority:null,source}]); setBrainInp(''); };
+  const delTask    = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
   const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
   const commitEdit = id => { if(editVal.trim()) onUpdateTasks(tasks.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
 
@@ -681,14 +647,13 @@ function CollectTab({ inp, setInp, scanItems, onUpdateScanItems, tasks, dismisse
       }
       {item.carried&&<span style={{fontFamily:MO,fontSize:9,color:C.yl,border:`1px solid ${C.yl}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>carried</span>}
       <SrcBadge source={item.source}/>
-      {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
       <div style={{display:'flex',gap:3,flexShrink:0}}>
         {['High','Medium','Low'].map(l=>{
           const active=item.priority===l, col={High:C.rd,Medium:C.yl,Low:C.gr}[l];
           return <button key={l} onClick={()=>onUpdateTasks(tasks.map(i=>i.id===item.id?{...i,priority:l}:i))} style={{fontFamily:'monospace',fontSize:9,padding:'2px 6px',borderRadius:3,cursor:'pointer',border:'1px solid '+(active?col:C.bo),background:active?col+'22':C.ca,color:active?col:C.mu,fontWeight:active?'bold':'normal'}}>{l[0]}</button>;
         })}
       </div>
-      <button onClick={e=>{flash(e);delBrain(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
+      <button onClick={e=>{flash(e);delTask(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
     </div>
   );
 
@@ -696,79 +661,38 @@ function CollectTab({ inp, setInp, scanItems, onUpdateScanItems, tasks, dismisse
     <div>
       <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>STEP 1 OF 4</div>
       <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Collect &amp; Prioritize</h2>
-      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 16px'}}>Scan email &amp; Teams, dump everything on your mind, then triage.</p>
+      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 16px'}}>Dump everything on your mind, tag the source, then prioritize.</p>
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:16,flexWrap:'wrap'}}>
         <Btn onClick={onBack}>← Back</Btn>
         <div style={{display:'flex',gap:6}}>
           {onResetCarry&&<button onClick={onResetCarry} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${C.rd}44`,background:C.rd+'11',color:C.rd,whiteSpace:'nowrap'}} title="Wipe carried tasks for today and re-pull fresh from previous days">↺ Reset &amp; Re-pull</button>}
-          <OBtn onClick={onNext} disabled={brainTasks.length===0}>Next →</OBtn>
+          <OBtn onClick={onNext} disabled={allTasks.length===0}>Next →</OBtn>
         </div>
       </div>
 
-      {/* ── INBOX SCAN ── */}
-      <div style={{background:'#0d1520',border:`1px solid ${C.bl}44`,borderRadius:8,padding:14,marginBottom:16}}>
-        <div style={{fontFamily:MO,fontSize:11,color:C.bl,letterSpacing:2,marginBottom:10}}>📥 INBOX SCAN — email &amp; Teams, 5 min max</div>
-        <div style={{display:'flex',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-          {[{k:'urgent',l:'🔴 Urgent'},{k:'note',l:'🟡 Note'},{k:'clear',l:'🟢 Schedule'}].map(x=>(
-            <button key={x.k} onClick={()=>setInboxSt(inboxSt===x.k?'':x.k)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${inboxSt===x.k?statColor(x.k):C.bo}`,background:inboxSt===x.k?`${statColor(x.k)}22`:C.ca,color:C.tx}}>{x.l}</button>
-          ))}
-        </div>
-        <div style={{display:'flex',gap:8,marginBottom:10}}>
-          <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addInbox();}}} placeholder="Type what you found in email or Teams… Enter to add" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 12px',flex:1,outline:'none',minWidth:0}}/>
-          <OBtn onClick={addInbox} style={{padding:'8px 14px',fontSize:18,flexShrink:0}}>+</OBtn>
-        </div>
-        {scanItems.length===0
-          ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,textAlign:'center',padding:'10px 0'}}>Nothing captured yet.</div>
-          : scanItems.map(item=>(
-            <div key={item.id} style={{display:'flex',gap:8,alignItems:'center',background:'#0a1525',border:`1px solid ${inboxEditId===item.id?C.or:C.bo}`,borderRadius:6,padding:'7px 12px',marginBottom:5,flexWrap:'wrap'}}>
-              <span style={{width:7,height:7,borderRadius:'50%',background:statColor(item.status),flexShrink:0}}/>
-              {inboxEditId===item.id
-                ? <input autoFocus value={inboxEditVal} onChange={e=>setInboxEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitInboxEdit(item.id);if(e.key==='Escape'){setInboxEditId(null);setInboxEditVal('');}}} onBlur={()=>commitInboxEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'2px 0',minWidth:100}}/>
-                : <span onClick={()=>startInboxEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',borderBottom:`1px dashed ${C.bo}`,minWidth:100}}>{item.text}</span>
-              }
-              <span style={{fontFamily:MO,fontSize:10,color:statColor(item.status),border:`1px solid ${statColor(item.status)}44`,padding:'2px 6px',borderRadius:3,flexShrink:0}}>{statLabel(item.status)}</span>
-              <button onClick={e=>{flash(e);delInbox(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}}>✕</button>
-            </div>
-          ))
-        }
-      </div>
-
-      {/* ── INBOX TRIAGE ── */}
-      {pendingInbox.length>0&&(
-        <div style={{background:'#0d1520',border:`1px solid ${C.bl}55`,borderRadius:8,padding:14,marginBottom:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10,flexWrap:'wrap',gap:8}}>
-            <div>
-              <span style={{fontFamily:MO,fontSize:12,color:C.bl}}>📥 FROM INBOX SCAN ({pendingInbox.length})</span>
-              <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginTop:2}}>Carry into today's tasks, Defer, or Drop.</div>
-            </div>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              <Btn onClick={()=>{const u={};pendingInbox.forEach(i=>{u[i.id]='carry';});setInboxTriage(u);}} style={{fontSize:11,padding:'4px 10px',color:C.gr,border:`1px solid ${C.gr}44`}}>All Carry</Btn>
-              <OBtn onClick={commitInboxTriage} style={{fontSize:11,padding:'5px 12px'}}>✓ Commit</OBtn>
-            </div>
-          </div>
-          {pendingInbox.map(item=>{
-            const t=inboxTriage[item.id];
-            const btnS=(val,col)=>({fontFamily:MO,fontSize:10,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:'1px solid '+(t===val?col:C.bo),background:t===val?col+'33':C.ca,color:t===val?col:C.mu,fontWeight:t===val?'bold':'normal',transition:'all .12s'});
-            return (
-              <div key={item.id} style={{padding:'8px 10px',background:'#0a1525',borderRadius:6,marginBottom:4,border:'1px solid '+(t?C.bo+'99':C.bl+'33')}}>
-                <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                  <span style={{width:7,height:7,borderRadius:'50%',background:statColor(item.status),flexShrink:0}}/>
-                  <span style={{fontFamily:MO,fontSize:12,color:t==='drop'?C.mu:C.tx,flex:1,textDecoration:t==='drop'?'line-through':'none',minWidth:100}}>{item.text}</span>
-                  <button onClick={()=>setInboxTriage(p=>({...p,[item.id]:'carry'}))}  style={btnS('carry',C.gr)}>Carry</button>
-                  <button onClick={()=>setInboxTriage(p=>({...p,[item.id]:'drop'}))}   style={btnS('drop',C.rd)}>Drop</button>
-                  <button onClick={()=>setInboxTriage(p=>({...p,[item.id]:'defer'}))}  style={btnS('defer',C.bl)}>Defer</button>
-                </div>
-                {t==='defer'&&(
-                  <div style={{display:'flex',gap:8,alignItems:'center',marginTop:4,paddingLeft:20,flexWrap:'wrap'}}>
-                    <span style={{fontFamily:MO,fontSize:10,color:C.bl}}>Defer to:</span>
-                    <input type="date" value={inboxDeferDate[item.id]||''} onChange={e=>setInboxDeferDate(p=>({...p,[item.id]:e.target.value}))} style={{fontFamily:MO,fontSize:11,background:C.ca,border:'1px solid '+C.bl,borderRadius:4,padding:'2px 6px',color:C.tx,outline:'none'}}/>
-                  </div>
-                )}
-              </div>
-            );
+      {/* ── TASK DUMP ── */}
+      <div style={{background:C.su,border:`1px solid ${C.bo}`,borderRadius:8,padding:14,marginBottom:16}}>
+        <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:10}}>📋 TASK DUMP — tag the source, then add</div>
+        <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+          {SOURCES.map(s=>{
+            const active=source===s.k;
+            return <button key={s.k} onClick={()=>setSource(s.k)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${active?s.color:C.bo}`,background:active?s.color+'22':C.ca,color:active?s.color:C.mu,fontWeight:active?'bold':'normal',transition:'all .12s'}}>{s.label}</button>;
           })}
         </div>
-      )}
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <input value={brainInp} onChange={e=>setBrainInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTask()} placeholder="Type a task… press Enter to add" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 12px',flex:1,outline:'none',minWidth:0}}/>
+          <OBtn onClick={addTask} style={{padding:'8px 14px',fontSize:18,flexShrink:0}}>+</OBtn>
+        </div>
+        {allTasks.length===0
+          ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,textAlign:'center',padding:'10px 0'}}>Start typing above.</div>
+          : <>
+            {unprioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:2,margin:'4px 0 6px',paddingBottom:4,borderBottom:'1px solid '+C.yl+'44'}}>⚠ UNPRIORITIZED — assign a priority below</div>}
+            {unprioritized.map(taskRow)}
+            {prioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,margin:'12px 0 6px',paddingBottom:4,borderBottom:'1px solid '+C.or+'44'}}>PRIORITIZED</div>}
+            {prioritized.map(taskRow)}
+          </>
+        }
+      </div>
 
       {/* ── UNFINISHED TRIAGE ── */}
       {pending.length>0&&(
@@ -808,26 +732,8 @@ function CollectTab({ inp, setInp, scanItems, onUpdateScanItems, tasks, dismisse
         </div>
       )}
 
-      {/* ── BRAIN DUMP ── */}
-      <div style={{background:C.su,border:`1px solid ${C.bo}`,borderRadius:8,padding:14,marginBottom:16}}>
-        <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:10}}>🧠 BRAIN DUMP — get it all out, prioritize below</div>
-        <div style={{display:'flex',gap:8,marginBottom:12}}>
-          <input value={brainInp} onChange={e=>setBrainInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addBrain()} placeholder="Type a task, idea, or concern… press Enter" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 12px',flex:1,outline:'none',minWidth:0}}/>
-          <OBtn onClick={addBrain} style={{padding:'8px 14px',fontSize:18,flexShrink:0}}>+</OBtn>
-        </div>
-        {brainTasks.length===0
-          ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,textAlign:'center',padding:'10px 0'}}>Start typing above.</div>
-          : <>
-            {unprioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:2,margin:'4px 0 6px',paddingBottom:4,borderBottom:'1px solid '+C.yl+'44'}}>⚠ UNPRIORITIZED — assign a priority below</div>}
-            {unprioritized.map(taskRow)}
-            {prioritized.length>0&&<div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,margin:'12px 0 6px',paddingBottom:4,borderBottom:'1px solid '+C.or+'44'}}>PRIORITIZED</div>}
-            {prioritized.map(taskRow)}
-          </>
-        }
-      </div>
-
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:4}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext} disabled={brainTasks.length===0}>Next →</OBtn>
+        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext} disabled={allTasks.length===0}>Next →</OBtn>
       </div>
     </div>
   );
@@ -1167,75 +1073,6 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
   );
 }
 
-function CaptureTaskRow({ item, editId, editVal, setEditVal, commitEdit, setEditId, startEdit, setPri, deferDates, setDeferDates, deferred, onUpdateDeferred, del }) {
-  const PriBtn=({current,level,onSet})=>{ const color=PD[level],active=current===level; return <button onClick={()=>onSet(level)} style={{fontFamily:MO,fontSize:10,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:'1px solid '+(active?color:C.bo),background:active?color+'22':C.ca,color:active?color:C.mu,fontWeight:active?'bold':'normal',transition:'all .12s',whiteSpace:'nowrap'}}>{level}</button>; };
-  return (
-    <div style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:'1px solid '+(editId===item.id?C.or:C.bo),borderRadius:6,padding:'7px 12px',marginBottom:5,flexWrap:'wrap'}}>
-      <Dot p={item.priority} size={8}/>
-      {editId===item.id
-        ? <input autoFocus value={editVal} onChange={e=>setEditVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitEdit(item.id);if(e.key==='Escape'){setEditId(null);setEditVal('');}}} onBlur={()=>commitEdit(item.id)} style={{fontFamily:MO,fontSize:13,color:C.tx,background:'transparent',border:'none',outline:'none',flex:1,padding:'3px 0',minWidth:100}}/>
-        : <span onClick={()=>startEdit(item)} title="Click to edit" style={{fontFamily:MO,fontSize:13,color:C.tx,flex:1,cursor:'text',padding:'3px 0',borderBottom:'1px dashed '+C.bo,minWidth:100}}>{item.text}</span>
-      }
-      <SrcBadge source={item.source}/>
-      {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
-      <div style={{display:'flex',gap:4,flexShrink:0}}>
-        <PriBtn current={item.priority} level="High"   onSet={p=>setPri(item.id,p)}/>
-        <PriBtn current={item.priority} level="Medium" onSet={p=>setPri(item.id,p)}/>
-        <PriBtn current={item.priority} level="Low"    onSet={p=>setPri(item.id,p)}/>
-      </div>
-      <DeferPicker taskId={item.id} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred}/>
-      <button onClick={e=>{flash(e);del(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
-    </div>
-  );
-}
-
-function CaptureTab({ tasks, deferred, onUpdateTasks, onUpdateDeferred }) {
-  const [inp,setInp]           = useState('');
-  const [editId,setEditId]     = useState(null);
-  const [editVal,setEditVal]   = useState('');
-  const [deferDates,setDeferDates] = useState({});
-
-  const capture      = tasks.filter(i=>i.source==='capture'&&!(i.id in deferred));
-  const deferredItems= tasks.filter(i=>i.source==='capture'&&i.id in deferred);
-
-  const add        = () => { if(!inp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:inp.trim(),priority:null,source:'capture'}]); setInp(''); };
-  const del        = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
-  const setPri     = (id,priority) => onUpdateTasks(tasks.map(i=>i.id===id?{...i,priority}:i));
-  const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
-  const commitEdit = id => { if(editVal.trim()) onUpdateTasks(tasks.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
-
-  return (
-    <div>
-      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>⚡ Live Capture</h2>
-      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 20px'}}>New tasks that come up during the day. Add, edit, and prioritize on the fly.</p>
-      <div style={{display:'flex',gap:8,marginBottom:16}}>
-        <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="New task that just came up… press Enter" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'10px 14px',flex:1,outline:'none',minWidth:0}}/>
-        <OBtn onClick={add} style={{padding:'10px 16px',fontSize:18,flexShrink:0}}>+</OBtn>
-      </div>
-      {capture.length===0&&deferredItems.length===0
-        ? <div style={{background:C.ca,border:`1px dashed ${C.bo}`,borderRadius:8,padding:'50px 20px',textAlign:'center'}}>
-            <div style={{fontSize:32,marginBottom:10}}>⚡</div>
-            <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>Nothing captured yet today.</div>
-          </div>
-        : capture.map(item=><CaptureTaskRow key={item.id} item={item} editId={editId} editVal={editVal} setEditVal={setEditVal} commitEdit={commitEdit} setEditId={setEditId} startEdit={startEdit} setPri={setPri} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred} del={del}/>)
-      }
-      {deferredItems.length>0&&(
-        <>
-          <div style={{fontFamily:MO,fontSize:10,color:C.bl,letterSpacing:2,margin:'14px 0 6px',paddingTop:8,borderTop:'1px solid '+C.bo}}>DEFERRED</div>
-          {deferredItems.map(item=>(
-            <div key={item.id} style={{display:'flex',gap:8,alignItems:'center',background:'#0d1520',border:'1px solid '+C.bl+'33',borderRadius:6,padding:'7px 12px',marginBottom:5,opacity:0.75,flexWrap:'wrap'}}>
-              <Dot p={item.priority} size={8}/>
-              <span style={{fontFamily:MO,fontSize:13,color:C.mu,flex:1,minWidth:100}}>{item.text}</span>
-              <span style={{fontFamily:MO,fontSize:9,color:C.bl,border:'1px solid '+C.bl+'44',padding:'1px 6px',borderRadius:3}}>→ {deferred[item.id]?inputFmt(deferred[item.id]):'deferred'}</span>
-              <button onClick={()=>{ const nd={...deferred}; delete nd[item.id]; onUpdateDeferred(nd); }} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11,padding:'0 2px'}} title="Un-defer">✕</button>
-            </div>
-          ))}
-        </>
-      )}
-    </div>
-  );
-}
-
 function ProgressTaskRow({ item, toggle, deferred, onUpdateDeferred, deferDates, setDeferDates }) {
   return (
     <div style={{display:'flex',gap:8,alignItems:'center',background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'8px 10px',marginBottom:4,flexWrap:'wrap'}}>
@@ -1243,7 +1080,6 @@ function ProgressTaskRow({ item, toggle, deferred, onUpdateDeferred, deferDates,
       <Dot p={item.priority} size={6}/>
       <span onClick={()=>toggle(item.id)} style={{fontFamily:MO,fontSize:12,color:C.tx,flex:1,lineHeight:1.3,cursor:'pointer',minWidth:100}}>{item.text}</span>
       <SrcBadge source={item.source}/>
-      {item.inboxStatus&&<InboxStatusBadge status={item.inboxStatus}/>}
       <PriBadge p={item.priority}/>
       <DeferPicker taskId={item.id} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred}/>
     </div>
@@ -1516,6 +1352,136 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
         </button>
       </div>
       <div style={{marginTop:4}}><Btn onClick={onBack}>← Back</Btn></div>
+    </div>
+  );
+}
+
+function NotesTab({ notes=[], onUpdateNotes, fontSize }) {
+  const PRESET_TAGS = ['Idea','Observation','FYI'];
+  const [body,setBody]         = useState('');
+  const [tag,setTag]           = useState('');
+  const [customTag,setCustomTag] = useState('');
+  const [editId,setEditId]     = useState(null);
+  const [editBody,setEditBody] = useState('');
+  const [editTag,setEditTag]   = useState('');
+  const [editCustom,setEditCustom] = useState('');
+  const [filterTag,setFilterTag]   = useState('');
+  const [search,setSearch]         = useState('');
+
+  const activeTag = tag==='custom' ? customTag.trim() : tag;
+  const editActiveTag = editTag==='custom' ? editCustom.trim() : editTag;
+
+  const addNote = () => {
+    if (!body.trim()) return;
+    const note = { id: nid(), body: body.trim(), tag: activeTag||'', createdAt: new Date().toISOString() };
+    onUpdateNotes([note, ...notes]);
+    setBody(''); setTag(''); setCustomTag('');
+  };
+
+  const deleteNote = id => onUpdateNotes(notes.filter(n=>n.id!==id));
+
+  const startEdit = note => {
+    setEditId(note.id);
+    setEditBody(note.body);
+    const isPreset = PRESET_TAGS.includes(note.tag);
+    setEditTag(isPreset ? note.tag : note.tag ? 'custom' : '');
+    setEditCustom(isPreset ? '' : note.tag||'');
+  };
+
+  const commitEdit = id => {
+    if (!editBody.trim()) return;
+    onUpdateNotes(notes.map(n=>n.id===id?{...n,body:editBody.trim(),tag:editActiveTag||''}:n));
+    setEditId(null);
+  };
+
+  const allTags = [...new Set(notes.map(n=>n.tag).filter(Boolean))].sort();
+  const filtered = notes
+    .filter(n=> filterTag ? n.tag===filterTag : true)
+    .filter(n=> search ? n.body.toLowerCase().includes(search.toLowerCase())||n.tag.toLowerCase().includes(search.toLowerCase()) : true)
+    .sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+  const fmtDate = iso => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' +
+           d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  };
+
+  const tagColor = t => t==='Idea'?C.yl : t==='Observation'?C.bl : t==='FYI'?C.gr : C.pu;
+
+  const TagBadge = ({t}) => !t ? null : (
+    <span style={{fontFamily:MO,fontSize:9,padding:'1px 6px',borderRadius:3,border:`1px solid ${tagColor(t)}55`,color:tagColor(t),background:tagColor(t)+'11',whiteSpace:'nowrap'}}>{t}</span>
+  );
+
+  const TagPicker = ({value, onSet, customVal, onCustom}) => (
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+      {PRESET_TAGS.map(t=>(
+        <button key={t} onClick={()=>onSet(value===t?'':t)} style={{fontFamily:MO,fontSize:11,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${value===t?tagColor(t):C.bo}`,background:value===t?tagColor(t)+'22':C.ca,color:value===t?tagColor(t):C.mu,transition:'all .12s'}}>{t}</button>
+      ))}
+      <button onClick={()=>onSet(value==='custom'?'':'custom')} style={{fontFamily:MO,fontSize:11,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${value==='custom'?C.pu:C.bo}`,background:value==='custom'?C.pu+'22':C.ca,color:value==='custom'?C.pu:C.mu,transition:'all .12s'}}>+ Custom</button>
+      {value==='custom'&&<input autoFocus value={customVal} onChange={e=>onCustom(e.target.value)} placeholder="Tag name…" style={{fontFamily:MO,fontSize:11,background:C.ca,border:'1px solid '+C.pu,borderRadius:4,padding:'3px 8px',color:C.tx,outline:'none',width:100}}/>}
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>📝 Notes</h2>
+      <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 16px'}}>Day-agnostic observations, ideas, and FYIs. Sorted by newest first.</p>
+
+      {/* ── ADD NOTE ── */}
+      <div style={{background:C.su,border:`1px solid ${C.bo}`,borderRadius:8,padding:14,marginBottom:16}}>
+        <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:10}}>NEW NOTE</div>
+        <TagPicker value={tag} onSet={setTag} customVal={customTag} onCustom={setCustomTag}/>
+        <textarea value={body} onChange={e=>setBody(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))addNote();}} placeholder="Type your note… Ctrl+Enter to save" rows={3} style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'10px 12px',width:'100%',resize:'vertical',outline:'none',marginTop:10,boxSizing:'border-box',lineHeight:1.5}}/>
+        <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
+          <OBtn onClick={addNote} disabled={!body.trim()}>+ Add Note</OBtn>
+        </div>
+      </div>
+
+      {/* ── FILTER / SEARCH ── */}
+      {notes.length>0&&(
+        <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search notes…" style={{fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none',flex:'1 1 160px',minWidth:0}}/>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <button onClick={()=>setFilterTag('')} style={{fontFamily:MO,fontSize:11,padding:'4px 9px',borderRadius:4,cursor:'pointer',border:'1px solid '+(filterTag===''?C.or:C.bo),background:filterTag===''?C.or+'22':C.ca,color:filterTag===''?C.or:C.mu}}>All</button>
+            {allTags.map(t=>(
+              <button key={t} onClick={()=>setFilterTag(filterTag===t?'':t)} style={{fontFamily:MO,fontSize:11,padding:'4px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${filterTag===t?tagColor(t):C.bo}`,background:filterTag===t?tagColor(t)+'22':C.ca,color:filterTag===t?tagColor(t):C.mu}}>{t}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── NOTES LIST ── */}
+      {filtered.length===0
+        ? <div style={{background:C.ca,border:`1px dashed ${C.bo}`,borderRadius:8,padding:'50px 20px',textAlign:'center'}}>
+            <div style={{fontSize:32,marginBottom:10}}>📝</div>
+            <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>{notes.length===0?'No notes yet. Add one above.':'No notes match your filter.'}</div>
+          </div>
+        : filtered.map(note=>(
+          <div key={note.id} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:14,marginBottom:10}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:6,flexWrap:'wrap'}}>
+              <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>{fmtDate(note.createdAt)}</span>
+                {note.tag&&<TagBadge t={note.tag}/>}
+              </div>
+              <div style={{display:'flex',gap:6,flexShrink:0}}>
+                {editId!==note.id&&<button onClick={()=>startEdit(note)} style={{fontFamily:MO,fontSize:11,padding:'2px 8px',background:'none',border:'1px solid '+C.bo,borderRadius:4,color:C.mu,cursor:'pointer'}}>✎ Edit</button>}
+                <button onClick={()=>deleteNote(note.id)} style={{fontFamily:MO,fontSize:11,padding:'2px 8px',background:'none',border:'1px solid '+C.rd+'44',borderRadius:4,color:C.rd,cursor:'pointer'}}>✕</button>
+              </div>
+            </div>
+            {editId===note.id
+              ? <>
+                  <TagPicker value={editTag} onSet={setEditTag} customVal={editCustom} onCustom={setEditCustom}/>
+                  <textarea autoFocus value={editBody} onChange={e=>setEditBody(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))commitEdit(note.id);if(e.key==='Escape')setEditId(null);}} rows={3} style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.su,border:'1px solid '+C.or,borderRadius:6,padding:'8px 10px',width:'100%',resize:'vertical',outline:'none',marginTop:8,boxSizing:'border-box',lineHeight:1.5}}/>
+                  <div style={{display:'flex',gap:6,justifyContent:'flex-end',marginTop:6}}>
+                    <Btn onClick={()=>setEditId(null)}>Cancel</Btn>
+                    <OBtn onClick={()=>commitEdit(note.id)}>Save</OBtn>
+                  </div>
+                </>
+              : <div style={{fontFamily:MO,fontSize:13,color:C.tx,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{note.body}</div>
+            }
+          </div>
+        ))
+      }
     </div>
   );
 }
@@ -2112,10 +2078,10 @@ function DailyPlanner() {
   const [ds,setDs]     = useState(TODAY);
   const [tab,setTab]   = useState('collect');
   const [sd,setSd]     = useState(()=>initDay(TODAY));
-  const [sums,setSums] = useState({});
-  const [idx,setIdx]   = useState([]);
-  const [inboxInp,setInboxInp] = useState(()=>window._dpsInboxDraft||'');
-  const setInboxInpSafe = v => { window._dpsInboxDraft=v; setInboxInp(v); };
+  const [sums,setSums]       = useState({});
+  const [idx,setIdx]         = useState([]);
+  const [fontScale,setFontScale] = useState(()=>{ try{return parseFloat(localStorage.getItem('dps-fontscale')||'1');}catch(e){return 1;} });
+  const adjFont = delta => setFontScale(p=>{ const n=Math.min(1.6,Math.max(0.8,parseFloat((p+delta).toFixed(1)))); try{localStorage.setItem('dps-fontscale',String(n));}catch(e){} return n; });
   const [showHist,setShowHist] = useState(false);
 
   const [showTL,setShowTL]     = useState(false);
@@ -2132,7 +2098,6 @@ function DailyPlanner() {
   const gd  = k => sd[dk(k)];
   const upd = useCallback((k,v)=>setSd(p=>({...p,[`${k}-${ds}`]:v})),[ds]);
 
-  const scanItems  = gd('scanItems')  || [];
   const tasks = (() => {
     const saved=gd('tasks'); if(saved) return saved;
     return [...(sd[dk('brain')]||[]).map(i=>({...i,source:'brain'})),...(sd[dk('capture')]||[]).map(i=>({...i,source:'capture'}))];
@@ -2141,6 +2106,7 @@ function DailyPlanner() {
   const timeBlocks = Object.fromEntries(Object.entries(gd('time')||{}).filter(([,v])=>v!=null));
   const done       = gd('done')       || [];
   const deferred   = gd('deferred')   || {};
+  const notes      = gd('notes')      || [];
   const timerLogs  = gd('timerLogs')  || [];
   const awayMs     = gd('awayMs')     || 0;
   const awayRun    = gd('awayRun')    || false;
@@ -2447,7 +2413,7 @@ function DailyPlanner() {
   };
 
   const TABS=['collect','schedule','progress','wrapup'];
-  const ALL_TABS=[...TABS,'stats','capture'];
+  const ALL_TABS=[...TABS,'stats','notes'];
   const goNext=()=>{ const i=TABS.indexOf(tab); if(i<TABS.length-1)setTab(TABS[i+1]); };
   const goBack=()=>{ const i=TABS.indexOf(tab); if(i>0)setTab(TABS[i-1]); };
 
@@ -2462,7 +2428,7 @@ function DailyPlanner() {
       const n=parseInt(e.key);
       if(n>=1&&n<=TABS.length)setTab(TABS[n-1]);
       if(n===5)setTab('stats');
-      if(n===6)setTab('capture');
+      if(n===6)setTab('notes');
     };
     window.addEventListener('keydown',handler);
     return ()=>window.removeEventListener('keydown',handler);
@@ -2474,7 +2440,7 @@ function DailyPlanner() {
     progress:{label:'Progress',icon:'☑',  step:3},
     wrapup:  {label:'Wrap Up', icon:'🎁', step:4},
     stats:   {label:'Stats',   icon:'📊', step:null},
-    capture: {label:'Capture', icon:'⚡', step:null},
+    notes:   {label:'Notes',   icon:'📝', step:null},
   };
 
   const logAwayMs  =timerLogs.filter(r=>r.type==='Away')    .reduce((s,r)=>s+(parseInt(r.duration)||0),0)*60000;
@@ -2502,7 +2468,7 @@ function DailyPlanner() {
   const cdValSize = isMobile ? 18 : 22;
 
   return (
-    <div style={{minHeight:'100vh',background:C.bg,fontFamily:MO,color:C.tx}}>
+    <div style={{minHeight:'100vh',background:C.bg,fontFamily:MO,color:C.tx,fontSize:`${fontScale}em`}}>
       <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'10px 14px'}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:6,flexWrap:'wrap'}}>
           <div style={{flex:'1 1 180px',minWidth:0}}>
@@ -2538,12 +2504,16 @@ function DailyPlanner() {
             </div>
           </div>
         </div>
-        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>← → navigate steps &nbsp;·&nbsp; 1–4 jump to step &nbsp;·&nbsp; 5 = stats &nbsp;·&nbsp; 6 = capture &nbsp;·&nbsp; Esc close modals</div>}
+        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>← → navigate steps &nbsp;·&nbsp; 1–4 jump to step &nbsp;·&nbsp; 5 = stats &nbsp;·&nbsp; 6 = notes &nbsp;·&nbsp; Esc close modals</div>}
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
           <TimerCtrl type="away"     ms={awayMs+logAwayMs}   running={awayRun}  color={C.rd}/>
           <TimerCtrl type="training" ms={trainMs+logTrainMs} running={trainRun} color={C.pu}/>
           <TimerCtrl type="watching" ms={watchMs+logWatchMs} running={watchRun} color={C.bl}/>
           <div style={{display:'flex',gap:4,marginLeft:'auto',flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:0,alignItems:'center'}}>
+              <button onClick={()=>adjFont(-0.1)} title="Smaller text" style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 7px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:'6px 0 0 6px',color:C.mu,cursor:'pointer',whiteSpace:'nowrap'}}>A−</button>
+              <button onClick={()=>adjFont(0.1)}  title="Larger text"  style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 7px',background:C.ca,border:`1px solid ${C.bo}`,borderLeft:'none',borderRadius:'0 6px 6px 0',color:C.tx,cursor:'pointer',whiteSpace:'nowrap',fontWeight:'bold'}}>A+</button>
+            </div>
             <button onClick={()=>setShowRest(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#1a1000',border:`1px solid ${C.or}`,borderRadius:6,color:C.or,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'':' '}RESTORE</button>
             <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:storOk?'#0d2010':C.ca,border:`1px solid ${storOk?C.gr:C.bo}`,borderRadius:6,color:storOk?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>{storOk?'💾 SAVED':'💾 SAVE'}</button>
             <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
@@ -2560,7 +2530,7 @@ function DailyPlanner() {
       <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'6px 12px',display:'flex',gap:4,flexWrap:'wrap'}}>
         {ALL_TABS.map(t=>{
           const info=tabInfo[t], active=tab===t;
-          const isUtil = t==='capture';
+          const isUtil = t==='notes';
           const isStats = t==='stats';
           return (
             <button key={t} onClick={e=>{flash(e);setTab(t);}} style={{
@@ -2581,9 +2551,9 @@ function DailyPlanner() {
       </div>
 
       <div style={{padding:isMobile?'16px 12px':'24px 20px'}}>
-        {tab==='collect'  && <CollectTab  inp={inboxInp} setInp={setInboxInpSafe} scanItems={scanItems} onUpdateScanItems={v=>upd('scanItems',v)} tasks={tasks} dismissed={dismissed} lastSum={lastSum} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
+        {tab==='collect'  && <CollectTab  tasks={tasks} dismissed={dismissed} lastSum={lastSum} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
         {tab==='schedule' && <ScheduleTab timeBlocks={timeBlocks} tasks={tasks} done={done} timerLogs={timerLogs} deferred={deferred} onUpdateTime={v=>upd('time',v)} onBack={goBack} onNext={goNext} isCompact={isCompact}/>}
-        {tab==='capture'  && <CaptureTab  tasks={tasks} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDeferred={v=>upd('deferred',v)}/>}
+        {tab==='notes'    && <NotesTab    notes={notes} onUpdateNotes={v=>upd('notes',v)}/>}
         {tab==='progress' && <ProgressTab tasks={tasks} done={done} deferred={deferred} timeBlocks={timeBlocks} onUpdateDone={v=>upd('done',v)} onUpdateDeferred={v=>upd('deferred',v)} onBack={goBack} onNext={goNext} isMobile={isMobile}/>}
         {tab==='wrapup'   && <WrapUpTab   tasks={tasks} done={done} timeBlocks={timeBlocks} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} timerLogs={timerLogs} ds={ds} sums={sums} onSaveSummary={saveSummary} onBack={goBack} isMobile={isMobile} deferred={deferred}/>}
         {tab==='stats'    && <StatsTab    sums={sums} idx={idx} isMobile={isMobile}/>}
