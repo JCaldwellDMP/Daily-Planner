@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Y05SC4xyqXTJ0xO5HOfOS4M7VP', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Js91CJ6925s8roO3sVfxSyAU04', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-nruC5yzrYS0j179iOhRSk0XvD`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Gi9TCKrV24IqEkKzsvhjS5aE_P`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/_LV-C68AvZIoOJvmImiqS5-Rkf`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/0w9aCL9V24HPj2qyCPiqSy9q9M`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/be63C73Bw4UmpYKNINsnSo8a-v → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/_yLxCM8V24I5OYPMFWsnS85BKm → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2763,6 +2763,7 @@ function DailyPlanner() {
   const [showSync,setShowSync] = useState(false);
   const [dateInp,setDateInp]   = useState(inputFmt(TODAY));
   const [storOk,setStorOk]             = useState(false);
+  const [savedFlash,setSavedFlash]     = useState(false);
   const [storageReady,setStorageReady] = useState(false);
   const [endTime,setEndTime]   = useState('17:00');
   const [nowMin,setNowMin]     = useState(()=>{ const n=new Date(); return n.getHours()*60+n.getMinutes(); });
@@ -2978,6 +2979,7 @@ function DailyPlanner() {
       const savedAt = new Date().toISOString();
       store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt}));
       setStorOk(true);
+      setSavedFlash(true); setTimeout(()=>setSavedFlash(false),1500);
       gistSyncer.gistPush(sd);
     }catch(e){}
   };
@@ -3147,7 +3149,7 @@ function DailyPlanner() {
   const cdValSize = isMobile ? 18 : 22;
 
   return (
-    <div style={{minHeight:'100vh',background:C.bg,fontFamily:MO,color:C.tx,fontSize:`${fontScale}em`}}>
+    <div style={{minHeight:'100vh',background:C.bg,fontFamily:MO,color:C.tx,zoom:fontScale}}>
       <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'10px 14px'}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:6,flexWrap:'wrap'}}>
           <div style={{flex:'1 1 180px',minWidth:0}}>
@@ -3198,7 +3200,7 @@ function DailyPlanner() {
               <button onClick={()=>adjFont(0.1)}  title="Larger text"  style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 7px',background:C.ca,border:`1px solid ${C.bo}`,borderLeft:'none',borderRadius:'0 6px 6px 0',color:C.tx,cursor:'pointer',whiteSpace:'nowrap',fontWeight:'bold'}}>A+</button>
             </div>
             <button onClick={()=>setShowRest(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#1a1000',border:`1px solid ${C.or}`,borderRadius:6,color:C.or,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'':' '}RESTORE</button>
-            <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:storOk?'#0d2010':C.ca,border:`1px solid ${storOk?C.gr:C.bo}`,borderRadius:6,color:storOk?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>{storOk?'💾 SAVED':'💾 SAVE'}</button>
+            <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:savedFlash?'#0d2010':C.ca,border:`1px solid ${savedFlash?C.gr:C.bo}`,borderRadius:6,color:savedFlash?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap',transition:'all .3s'}}>{savedFlash?'✓ SAVED':'💾 SAVE'}</button>
             <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
             <button onClick={()=>setShowHist(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>■ {isCompact?'HIST':'HISTORY'}</button>
             <button onClick={()=>setShowSync(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#001a1a',border:`1px solid ${gistSyncer.gistStatus==='ok'?C.gr:C.gr}`,borderRadius:6,color:C.gr,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
