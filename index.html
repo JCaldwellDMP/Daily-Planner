@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/8VZ6CVOVk6clwZmQFGfpSE5Bed', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/PgObC68AvZIoOJL6TpfqS5hopx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/rYPwCW69l4sj94ZouxhNSoBG9G`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/xOjNC73Bw4UmpYGXsWhnSowgD0`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/ERSvCXD904hn59jrsDiYSWQ_ui`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/IFteC82Dx4TjvgN5c2iVSyiC8l`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/FcCeCYE9ngU319mBTVsvSxMFmv → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/lrz2C9rEy4Im3j4WsOsRSq0Yui → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2090,9 +2090,14 @@ const TRAINING_DAYS = [
 ];
 
 const initHire = (name, startDate) => ({
-  id: nid(), name, startDate, status:'active',
-  days: Object.fromEntries([...Array(15)].map((_,i)=>[i+1,{completed:false,completedDate:null,hwComplete:false,hwFile:null,hwDate:null}])),
-  quizzes: [], mockCalls: [],
+  id: nid(), name, startDate, discProfile:'', status:'active',
+  days: Object.fromEntries([...Array(15)].map((_,i)=>[i+1,{
+    completed:false, completedDate:null,
+    hwComplete:false, hwFile:null, hwDate:null,
+    quizComplete:false, quizCorrect:null, quizTotal:null,
+  }])),
+  quizzes: [], mockCalls: [], mockCallsGoal:15,
+  buddyCalls: [], buddyCallsGoal:25,
   buddyChecks:{etiquette:false,patience:false,troubleshooting:false,fielding:false,clearedDate:null},
   notes: [], finalQuizScore: null,
 });
@@ -2105,24 +2110,32 @@ const phaseLabel = hire => {
   if (comp >= 15) {
     const allBuddy=['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k]);
     if (allBuddy) return 'Ready for Sign-Off';
-    if (hire.mockCalls.length >= 15) return 'Buddy Calls (Day 20–25)';
-    return `Mock Calls (${hire.mockCalls.length}/15)`;
+    const bLen=(hire.buddyCalls||[]).length, bGoal=hire.buddyCallsGoal||25;
+    const mGoal=hire.mockCallsGoal||15;
+    if (bLen>0 || hire.mockCalls.length>=mGoal) return `Buddy Calls (${bLen}/${bGoal})`;
+    return `Mock Calls (${hire.mockCalls.length}/${mGoal})`;
   }
   return `Training Day ${comp+1} of 15`;
 };
 
 function HireCard({ hire, selected, onSelect }) {
-  const comp = Object.values(hire.days).filter(d=>d.completed).length;
-  const pct  = Math.round((comp/15)*100);
-  const hwDone  = TRAINING_DAYS.filter(td=>!td.review).filter(td=>hire.days[td.day]?.hwComplete).length;
-  const hwTotal = TRAINING_DAYS.filter(td=>!td.review).length;
+  const comp     = Object.values(hire.days).filter(d=>d.completed).length;
+  const pct      = Math.round((comp/15)*100);
+  const hwDone   = TRAINING_DAYS.filter(td=>!td.review).filter(td=>hire.days[td.day]?.hwComplete).length;
+  const hwTotal  = TRAINING_DAYS.filter(td=>!td.review).length;
+  const mockGoal = hire.mockCallsGoal||15;
+  const mockPct  = hire.mockCalls.length>0?Math.min(100,Math.round((hire.mockCalls.length/mockGoal)*100)):null;
+  const bLen     = (hire.buddyCalls||[]).length;
+  const bGoal    = hire.buddyCallsGoal||25;
+  const bPct     = bLen>0?Math.min(100,Math.round((bLen/bGoal)*100)):null;
   const lastQuiz = hire.quizzes.slice(-1)[0];
   return (
     <div onClick={()=>onSelect(hire.id)} style={{background:selected?'#1c1f2b':C.ca,border:`2px solid ${selected?C.or:C.bo}`,borderRadius:10,padding:14,cursor:'pointer',transition:'all .15s',flex:'1 1 190px',maxWidth:280}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8,gap:6}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,gap:6}}>
         <div>
           <div style={{fontFamily:MO,fontSize:14,fontWeight:'bold',color:C.tx,marginBottom:2}}>{hire.name}</div>
           <div style={{fontFamily:MO,fontSize:9,color:C.mu}}>Started {fmtShortDate(hire.startDate)}</div>
+          {hire.discProfile&&<div style={{fontFamily:MO,fontSize:9,color:C.pu,marginTop:2}}>DISC: {hire.discProfile}</div>}
         </div>
         <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}44`,color:hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl,flexShrink:0}}>{hire.status}</span>
       </div>
@@ -2130,151 +2143,190 @@ function HireCard({ hire, selected, onSelect }) {
       <div style={{height:4,background:C.bo,borderRadius:2,marginBottom:8}}>
         <div style={{height:'100%',width:`${pct}%`,background:pct>=100?C.gr:C.or,borderRadius:2,transition:'width .4s'}}/>
       </div>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Days <span style={{color:C.tx}}>{comp}/15</span></span>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Days <span style={{color:pct>=100?C.gr:C.tx}}>{comp}/15</span><span style={{color:pct>=100?C.gr:C.or}}> {pct}%</span></span>
         <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>HW <span style={{color:C.tx}}>{hwDone}/{hwTotal}</span></span>
         {lastQuiz&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Quiz <span style={{color:lastQuiz.score>=90?C.gr:lastQuiz.score>=75?C.yl:C.rd}}>{lastQuiz.score}%</span></span>}
-        {hire.mockCalls.length>0&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Calls <span style={{color:C.tx}}>{hire.mockCalls.length}/15</span></span>}
+        {mockPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Calls <span style={{color:C.tx}}>{hire.mockCalls.length}/{mockGoal}</span><span style={{color:mockPct>=100?C.gr:C.or}}> {mockPct}%</span></span>}
+        {bPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Buddy <span style={{color:C.tx}}>{bLen}/{bGoal}</span><span style={{color:bPct>=100?C.gr:C.bl}}> {bPct}%</span></span>}
       </div>
     </div>
   );
 }
 
 function HireDetail({ hire, onUpdate, onClose }) {
-  const [section,setSection]       = useState('days');
-  const [hwPrompt,setHwPrompt]     = useState(null);
-  const [hwFile,setHwFile]         = useState('');
-  const [quizLabel,setQuizLabel]   = useState('');
-  const [quizScore,setQuizScore]   = useState('');
-  const [newCallOpen,setNewCallOpen] = useState(false);
-  const [callDraft,setCallDraft]   = useState({});
-  const [noteTag,setNoteTag]       = useState('positive');
-  const [noteBody,setNoteBody]     = useState('');
-  const [expandedCall,setExpandedCall] = useState(null);
-  const [copied,setCopied]         = useState(false);
-  const [fqScore,setFqScore]       = useState(hire.finalQuizScore!=null?String(hire.finalQuizScore):'');
+  const [section,setSection]             = useState('days');
+  const [hwPrompt,setHwPrompt]           = useState(null);
+  const [hwDraft,setHwDraft]             = useState({file:'',date:''});
+  const [quizLabel,setQuizLabel]         = useState('');
+  const [quizScore,setQuizScore]         = useState('');
+  const [newCallOpen,setNewCallOpen]     = useState(false);
+  const [callDraft,setCallDraft]         = useState({});
+  const [expandedCall,setExpandedCall]   = useState(null);
+  const [noteTag,setNoteTag]             = useState('positive');
+  const [noteBody,setNoteBody]           = useState('');
+  const [copied,setCopied]               = useState(false);
+  const [fqScore,setFqScore]             = useState(hire.finalQuizScore!=null?String(hire.finalQuizScore):'');
+  const [goalDraft,setGoalDraft]         = useState(String(hire.mockCallsGoal||15));
+  const [editGoal,setEditGoal]           = useState(false);
+  const [buddyGoalDraft,setBuddyGoalDraft] = useState(String(hire.buddyCallsGoal||25));
+  const [editBuddyGoal,setEditBuddyGoal] = useState(false);
+  const [newBuddyOpen,setNewBuddyOpen]   = useState(false);
+  const [buddyDraft,setBuddyDraft]       = useState({});
+  const [expandedBuddy,setExpandedBuddy] = useState(null);
+  const [editProfile,setEditProfile]     = useState(false);
+  const [nameDraft,setNameDraft]         = useState(hire.name);
+  const [discDraft,setDiscDraft]         = useState(hire.discProfile||'');
+  const [startDraft,setStartDraft]       = useState(hire.startDate);
 
   const TODAY_T = new Date().toISOString().split('T')[0];
-  const nowTime = ()=>{ const n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); };
-  const inpS    = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none',boxSizing:'border-box'};
-  const QUAL    = [['needs-work','⚠️ Needs Work',C.rd],['good','👍 Good Work',C.gr],['great','⭐ Great Work',C.yl]];
-  const qualLabel = v => ({good:'👍 Good Work',great:'⭐ Great Work','needs-work':'⚠️ Needs Work'}[v]||v);
+  const nowTime = () => { const n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); };
+  const inpS = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none',boxSizing:'border-box'};
+  const QUAL = [['needs-work','⚠️ Needs Work',C.rd],['good','👍 Good Work',C.gr],['great','⭐ Great Work',C.yl]];
+  const qualLabel = v => ({good:'👍 Good Work',great:'⭐ Great Work','needs-work':'⚠️ Needs Work'}[v]||'');
   const qualColor = v => ({'good':C.gr,'great':C.yl,'needs-work':C.rd}[v]||C.mu);
   const tagCol  = t => ({positive:C.gr,improvement:C.yl,milestone:C.bl}[t]||C.mu);
   const tagIcon = t => ({positive:'👍',improvement:'⚠️',milestone:'📌'}[t]||'📌');
 
-  const toggleDay = dayNum => {
-    const cur=hire.days[dayNum], nv=!cur.completed;
-    onUpdate({...hire,days:{...hire.days,[dayNum]:{...cur,completed:nv,completedDate:nv?TODAY_T:null}}});
+  const daysComp  = Object.values(hire.days).filter(d=>d.completed).length;
+  const daysPct   = Math.round((daysComp/15)*100);
+  const mockGoal  = hire.mockCallsGoal||15;
+  const mockPct   = Math.min(100,Math.round((hire.mockCalls.length/mockGoal)*100));
+  const buddyCalls = hire.buddyCalls||[];
+  const buddyGoal = hire.buddyCallsGoal||25;
+  const buddyPct  = Math.min(100,Math.round((buddyCalls.length/buddyGoal)*100));
+
+  const dayQuizPct = d => {
+    if(!d?.quizCorrect||!d?.quizTotal||d.quizTotal===0) return null;
+    return Math.round((d.quizCorrect/d.quizTotal)*100);
   };
-  const toggleHw = dayNum => {
-    const cur=hire.days[dayNum];
-    if(!cur.hwComplete){ setHwPrompt(dayNum); setHwFile(''); }
-    else onUpdate({...hire,days:{...hire.days,[dayNum]:{...cur,hwComplete:false,hwFile:null,hwDate:null}}});
-  };
-  const commitHw = () => {
-    const cur=hire.days[hwPrompt];
-    onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...cur,hwComplete:true,hwFile:hwFile.trim()||null,hwDate:TODAY_T}}});
-    setHwPrompt(null); setHwFile('');
-  };
-  const addQuiz = () => {
-    if(!quizLabel.trim()||quizScore==='') return;
-    const s=Math.max(0,Math.min(100,parseInt(quizScore)));
-    if(isNaN(s)) return;
-    onUpdate({...hire,quizzes:[...hire.quizzes,{id:nid(),label:quizLabel.trim(),score:s,date:TODAY_T}]});
-    setQuizLabel(''); setQuizScore('');
-  };
+
+  const toggleDay   = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
+  const setDayDate  = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,completedDate:v}}}); };
+  const toggleHw    = n => { const c=hire.days[n]; if(!c.hwComplete){setHwPrompt(n);setHwDraft({file:'',date:TODAY_T});}else onUpdate({...hire,days:{...hire.days,[n]:{...c,hwComplete:false,hwFile:null,hwDate:null}}}); };
+  const commitHw    = () => { const c=hire.days[hwPrompt]; onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...c,hwComplete:true,hwFile:hwDraft.file.trim()||null,hwDate:hwDraft.date||TODAY_T}}}); setHwPrompt(null); };
+  const setHwDate   = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
+  const toggleDayQuiz = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,quizComplete:!(c.quizComplete||false)}}}); };
+  const setQuizField  = (n,f,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,[f]:v===''?null:parseInt(v)||null}}}); };
+
+  const addQuiz = () => { if(!quizLabel.trim()||quizScore==='')return; const s=Math.max(0,Math.min(100,parseInt(quizScore))); if(isNaN(s))return; onUpdate({...hire,quizzes:[...hire.quizzes,{id:nid(),label:quizLabel.trim(),score:s,date:TODAY_T}]}); setQuizLabel('');setQuizScore(''); };
+
+  const saveGoal = () => { const n=parseInt(goalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,mockCallsGoal:n}); setEditGoal(false); };
   const openCall = () => { setCallDraft({date:TODAY_T,time:nowTime(),details:'',duration:'5-10',resolved:true,wintouchQuality:'good',overallPerformance:'good'}); setNewCallOpen(true); };
-  const saveCall = () => {
-    const num=hire.mockCalls.length+1;
-    onUpdate({...hire,mockCalls:[...hire.mockCalls,{id:nid(),callNum:num,...callDraft}]});
-    setNewCallOpen(false);
-  };
-  const toggleBuddy = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
-  const signOff = () => {
-    if(!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])) return;
-    onUpdate({...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T},status:'complete'});
-  };
-  const addNote = () => {
-    if(!noteBody.trim()) return;
-    onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]});
-    setNoteBody('');
-  };
-  const saveFinalQuiz = () => {
-    const s=parseInt(fqScore); if(isNaN(s)||s<0||s>100) return;
-    onUpdate({...hire,finalQuizScore:s});
-  };
+  const saveCall = () => { onUpdate({...hire,mockCalls:[...hire.mockCalls,{id:nid(),callNum:hire.mockCalls.length+1,...callDraft}]}); setNewCallOpen(false); };
+
+  const saveBuddyGoal = () => { const n=parseInt(buddyGoalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,buddyCallsGoal:n}); setEditBuddyGoal(false); };
+  const openBuddy  = () => { setBuddyDraft({date:TODAY_T,agentNotes:'',traineeNotes:''}); setNewBuddyOpen(true); };
+  const saveBuddy  = () => { onUpdate({...hire,buddyCalls:[...buddyCalls,{id:nid(),...buddyDraft}]}); setNewBuddyOpen(false); };
+  const deleteBuddy = id => onUpdate({...hire,buddyCalls:buddyCalls.filter(c=>c.id!==id)});
+  const toggleBuddyCheck = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
+  const signOff = () => { if(!["etiquette","patience","troubleshooting","fielding"].every(k=>hire.buddyChecks[k]))return; onUpdate({...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T},status:'complete'}); };
+
+  const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
+  const commitProfile = () => { onUpdate({...hire,name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),startDate:startDraft}); setEditProfile(false); };
+  const saveFinalQuiz = () => { const s=parseInt(fqScore); if(!isNaN(s)&&s>=0&&s<=100) onUpdate({...hire,finalQuizScore:s}); };
 
   const generateReport = () => {
     const L=[];
     L.push('NEW HIRE PROGRESS REPORT\n========================');
-    L.push(`Name: ${hire.name}\nStart Date: ${fmtShortDate(hire.startDate)}\nCurrent Phase: ${phaseLabel(hire)}\nGenerated: ${new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}`);
-    const compDays=Object.values(hire.days).filter(d=>d.completed).length;
-    L.push(`\nTRAINING DAYS COMPLETED (${compDays}/15)`);
-    TRAINING_DAYS.forEach(td=>{const d=hire.days[td.day];L.push(`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' (completed '+fmtShortDate(d.completedDate)+')':''}`);});
-    const hwDays=TRAINING_DAYS.filter(td=>!td.review);
-    const hwDone=hwDays.filter(td=>hire.days[td.day]?.hwComplete).length;
+    L.push(`Name: ${hire.name}${hire.discProfile?'\nDISC Profile: '+hire.discProfile:''}\nStart Date: ${fmtShortDate(hire.startDate)}\nCurrent Phase: ${phaseLabel(hire)}\nGenerated: ${new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}`);
+    L.push(`\nTRAINING DAYS COMPLETED (${daysComp}/15 — ${daysPct}%)`);
+    TRAINING_DAYS.forEach(td=>{
+      const d=hire.days[td.day]; const qpct=dayQuizPct(d);
+      L.push(`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`+(d.quizComplete?\` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}\`:''));
+    });
+    const hwDays=TRAINING_DAYS.filter(td=>!td.review), hwDone=hwDays.filter(td=>hire.days[td.day]?.hwComplete).length;
     L.push(`\nHOMEWORK (${hwDone}/${hwDays.length} complete)`);
-    hwDays.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} Homework — ${d.hwFile||'(no filename)'} (${d.hwDate?fmtShortDate(d.hwDate):'?'})`:`  ☐ Day ${td.day} Homework — not submitted`);});
+    hwDays.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — ${d.hwFile||'(no filename)'} (${d.hwDate?fmtShortDate(d.hwDate):'?'})`:'  ☐ Day '+td.day+' HW — not submitted');});
     if(hire.quizzes.length>0||hire.finalQuizScore!=null){L.push('\nQUIZ SCORES');hire.quizzes.forEach(q=>L.push(`  ${q.label} — ${q.score}% (${fmtShortDate(q.date)})`));if(hire.finalQuizScore!=null)L.push(`  Day 15 Final Quiz — ${hire.finalQuizScore}%`);}
-    if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/15)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved?'✅':'❌'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
+    if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/${mockGoal} — ${mockPct}%)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved!==false?'✅':'❌'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
+    if(buddyCalls.length>0){L.push(`\nBUDDY CALLS (${buddyCalls.length}/${buddyGoal} — ${buddyPct}%)`);buddyCalls.forEach((c,i)=>{L.push(`  Call ${i+1} — ${fmtShortDate(c.date)}`);if(c.agentNotes)L.push('    Agent: '+c.agentNotes);if(c.traineeNotes)L.push('    Trainee: '+c.traineeNotes);});}
     if(hire.notes.length>0){L.push('\nSUPERVISOR NOTES');hire.notes.forEach(n=>L.push(`  ${fmtShortDate(n.date)} — ${tagIcon(n.tag)} ${n.tag.charAt(0).toUpperCase()+n.tag.slice(1)}: ${n.body}`));}
     return L.join('\n');
   };
-  const copyReport = () => {
-    const t=generateReport();
-    navigator.clipboard.writeText(t).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);});
-  };
+  const copyReport = () => { const t=generateReport(); navigator.clipboard.writeText(t).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);}); };
 
   return (
     <div style={{background:C.su,border:`1px solid ${C.bo}`,borderRadius:10,marginTop:16,overflow:'hidden'}}>
-      {/* Detail header */}
-      <div style={{background:C.ca,padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid '+C.bo,flexWrap:'wrap',gap:8}}>
-        <div>
-          <div style={{fontFamily:MO,fontSize:15,fontWeight:'bold',color:C.tx}}>{hire.name}</div>
-          <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>Started {fmtShortDate(hire.startDate)} · {phaseLabel(hire)}</div>
-        </div>
-        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          <button onClick={e=>{flash(e);copyReport();}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',background:copied?C.gr+'22':C.ca,border:`1px solid ${copied?C.gr:C.bo}`,borderRadius:6,color:copied?C.gr:C.tx,cursor:'pointer',transition:'all .3s'}}>{copied?'✓ COPIED':'📤 Copy Report'}</button>
-          <Btn onClick={onClose} style={{padding:'5px 10px',fontSize:11}}>✕ Close</Btn>
-        </div>
+
+      <div style={{background:C.ca,padding:'12px 16px',borderBottom:'1px solid '+C.bo}}>
+        {editProfile ? (
+          <div>
+            <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>EDIT PROFILE</div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+              <input value={nameDraft} onChange={e=>setNameDraft(e.target.value)} placeholder="Full name" style={{...inpS,flex:'2 1 120px'}}/>
+              <input type="date" value={startDraft} onChange={e=>setStartDraft(e.target.value)} style={{...inpS,flex:'1 1 110px',colorScheme:'dark'}}/>
+            </div>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
+              <span style={{fontFamily:MO,fontSize:11,color:C.mu,flexShrink:0}}>DISC:</span>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {['D','I','S','C','DI','IS','SC','CD'].map(v=>(
+                  <button key={v} onClick={()=>setDiscDraft(discDraft===v?'':v)} style={{fontFamily:MO,fontSize:11,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${discDraft===v?C.pu:C.bo}`,background:discDraft===v?C.pu+'22':C.ca,color:discDraft===v?C.pu:C.mu}}>{v}</button>
+                ))}
+                <input value={discDraft} onChange={e=>setDiscDraft(e.target.value)} placeholder="Custom…" style={{...inpS,width:80,padding:'3px 8px',fontSize:11}}/>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8}}><OBtn onClick={commitProfile} style={{fontSize:11,padding:'5px 14px'}}>Save</OBtn><Btn onClick={()=>setEditProfile(false)} style={{fontSize:11}}>Cancel</Btn></div>
+          </div>
+        ) : (
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:8}}>
+            <div>
+              <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:3}}>
+                <div style={{fontFamily:MO,fontSize:15,fontWeight:'bold',color:C.tx}}>{hire.name}</div>
+                {hire.discProfile&&<span style={{fontFamily:MO,fontSize:10,padding:'1px 7px',borderRadius:3,border:'1px solid '+C.pu+'55',color:C.pu,background:C.pu+'11'}}>DISC: {hire.discProfile}</span>}
+                <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}44`,color:hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}}>{hire.status}</span>
+              </div>
+              <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>Started {fmtShortDate(hire.startDate)} · {phaseLabel(hire)}</div>
+            </div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <Btn onClick={()=>setEditProfile(true)} style={{fontSize:11,padding:'5px 10px'}}>✎ Profile</Btn>
+              <button onClick={e=>{flash(e);copyReport();}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',background:copied?C.gr+'22':C.ca,border:`1px solid ${copied?C.gr:C.bo}`,borderRadius:6,color:copied?C.gr:C.tx,cursor:'pointer',transition:'all .3s'}}>{copied?'✓ COPIED':'📤 Copy Report'}</button>
+              <Btn onClick={onClose} style={{padding:'5px 10px',fontSize:11}}>✕ Close</Btn>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Section nav */}
-      <div style={{display:'flex',gap:4,padding:'8px 16px',borderBottom:'1px solid '+C.bo,flexWrap:'wrap'}}>
-        {[['days','📋 Training Days'],['mocks','📞 Mock Calls'],['buddy','🤝 Buddy Calls'],['notes','📌 Notes']].map(([k,l])=>(
-          <button key={k} onClick={()=>setSection(k)} style={{fontFamily:MO,fontSize:11,padding:'4px 14px',borderRadius:20,cursor:'pointer',border:'none',background:section===k?C.or:'transparent',color:section===k?'#fff':C.mu,transition:'all .15s'}}>{l}</button>
+      <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,overflowX:'auto'}}>
+        {[
+          ['days',  `📋 Days ${daysComp}/15 · ${daysPct}%`],
+          ['mocks', `📞 Calls ${hire.mockCalls.length}/${mockGoal} · ${mockPct}%`],
+          ['buddy', `🤝 Buddy ${buddyCalls.length}/${buddyGoal} · ${buddyPct}%`],
+          ['notes', '📌 Notes'],
+        ].map(([k,l])=>(
+          <button key={k} onClick={()=>setSection(k)} style={{fontFamily:MO,fontSize:11,padding:'9px 16px',cursor:'pointer',border:'none',borderBottom:`2px solid ${section===k?C.or:'transparent'}`,background:'transparent',color:section===k?C.or:C.mu,transition:'all .15s',flex:1,whiteSpace:'nowrap'}}>{l}</button>
         ))}
       </div>
 
       <div style={{padding:16}}>
 
-        {/* ── TRAINING DAYS ── */}
         {section==='days'&&<div>
-          {/* Quiz log */}
-          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
-            <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>QUIZ LOG</div>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-              <input value={quizLabel} onChange={e=>setQuizLabel(e.target.value)} placeholder="Quiz label…" style={{...inpS,flex:'2 1 140px',minWidth:0}}/>
-              <input value={quizScore} onChange={e=>setQuizScore(e.target.value)} type="number" min={0} max={100} placeholder="Score 0–100" style={{...inpS,flex:'1 1 80px',minWidth:60,width:80}}/>
-              <OBtn onClick={addQuiz} disabled={!quizLabel.trim()||quizScore===''} style={{fontSize:11,padding:'6px 12px',flexShrink:0}}>+ Add</OBtn>
-            </div>
-            {hire.quizzes.length>0
-              ? hire.quizzes.map(q=>(
-                  <div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 8px',background:C.su,borderRadius:5,marginBottom:4}}>
-                    <span style={{fontFamily:MO,fontSize:11,color:C.tx,flex:1}}>{q.label}</span>
-                    <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:q.score>=90?C.gr:q.score>=75?C.yl:C.rd,marginRight:10}}>{q.score}%</span>
-                    <span style={{fontFamily:MO,fontSize:9,color:C.mu,marginRight:8}}>{fmtShortDate(q.date)}</span>
-                    <button onClick={()=>onUpdate({...hire,quizzes:hire.quizzes.filter(x=>x.id!==q.id)})} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11}}>✕</button>
-                  </div>
-                ))
-              : <div style={{fontFamily:MO,fontSize:11,color:C.mu}}>No quizzes logged yet.</div>
-            }
+          <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14}}>
+            <span style={{fontFamily:MO,fontSize:11,color:C.tx,flexShrink:0}}>{daysComp}/15 days complete</span>
+            <div style={{flex:1,height:5,background:C.bo,borderRadius:3}}><div style={{height:'100%',width:`${daysPct}%`,background:daysPct>=100?C.gr:C.or,borderRadius:3,transition:'width .4s'}}/></div>
+            <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:daysPct>=100?C.gr:C.or,flexShrink:0}}>{daysPct}%</span>
           </div>
 
-          {/* Day rows */}
+          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>📊 MANUAL QUIZ LOG</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:hire.quizzes.length>0?8:0}}>
+              <input value={quizLabel} onChange={e=>setQuizLabel(e.target.value)} placeholder="Quiz label…" style={{...inpS,flex:'2 1 140px',minWidth:0}}/>
+              <input value={quizScore} onChange={e=>setQuizScore(e.target.value)} type="number" min={0} max={100} placeholder="Score %" style={{...inpS,width:80,flex:'none'}}/>
+              <OBtn onClick={addQuiz} disabled={!quizLabel.trim()||quizScore===''} style={{fontSize:11,padding:'6px 12px',flexShrink:0}}>+ Add</OBtn>
+            </div>
+            {hire.quizzes.map(q=>(
+              <div key={q.id} style={{display:'flex',alignItems:'center',padding:'4px 8px',background:C.su,borderRadius:5,marginBottom:4,gap:8}}>
+                <span style={{fontFamily:MO,fontSize:11,color:C.tx,flex:1}}>{q.label}</span>
+                <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:q.score>=90?C.gr:q.score>=75?C.yl:C.rd}}>{q.score}%</span>
+                <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>{fmtShortDate(q.date)}</span>
+                <button onClick={()=>onUpdate({...hire,quizzes:hire.quizzes.filter(x=>x.id!==q.id)})} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11}}>✕</button>
+              </div>
+            ))}
+            {hire.quizzes.length===0&&<div style={{fontFamily:MO,fontSize:11,color:C.mu,marginTop:4}}>No manual quizzes logged.</div>}
+          </div>
+
           {TRAINING_DAYS.map(td=>{
-            const d=hire.days[td.day], isRev=td.review;
+            const d=hire.days[td.day]||{}, isRev=td.review, qpct=dayQuizPct(d);
             return (
               <div key={td.day} style={{background:isRev?'#1a1500':C.ca,border:`1px solid ${isRev?C.yl+'44':C.bo}`,borderRadius:7,padding:'10px 12px',marginBottom:6}}>
                 <div style={{display:'flex',gap:8,alignItems:'flex-start',flexWrap:'wrap'}}>
@@ -2285,56 +2337,72 @@ function HireDetail({ hire, onUpdate, onClose }) {
                     <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
                       <span style={{fontFamily:MO,fontSize:11,fontWeight:'bold',color:isRev?C.yl:C.tx}}>Day {td.day}</span>
                       {isRev&&<span style={{fontFamily:MO,fontSize:8,color:C.yl,border:'1px solid '+C.yl+'44',padding:'1px 5px',borderRadius:3}}>REVIEW ★</span>}
-                      {d.completed&&d.completedDate&&<span style={{fontFamily:MO,fontSize:9,color:C.mu}}>✓ {fmtShortDate(d.completedDate)}</span>}
                     </div>
                     <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:3,lineHeight:1.4}}>{td.topics}</div>
                   </div>
+                  {d.completed&&<input type="date" value={d.completedDate||''} onChange={e=>setDayDate(td.day,e.target.value)} title="Completion date" style={{...inpS,fontSize:11,padding:'2px 6px',width:120,colorScheme:'dark',flexShrink:0}}/>}
                 </div>
-                {/* Final quiz */}
-                {td.finalQuiz&&(
-                  <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid '+C.bo,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                    <span style={{fontFamily:MO,fontSize:10,color:C.or}}>🏁 Final Quiz Score:</span>
+                <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid '+C.bo+'55',display:'flex',flexDirection:'column',gap:7}}>
+                  {!isRev&&(hwPrompt===td.day
+                    ? <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+                        <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>📎</span>
+                        <input autoFocus value={hwDraft.file} onChange={e=>setHwDraft(p=>({...p,file:e.target.value}))} onKeyDown={e=>{if(e.key==='Enter')commitHw();if(e.key==='Escape')setHwPrompt(null);}} placeholder="filename.pdf" style={{...inpS,flex:1,padding:'3px 8px',fontSize:11,minWidth:80}}/>
+                        <input type="date" value={hwDraft.date} onChange={e=>setHwDraft(p=>({...p,date:e.target.value}))} style={{...inpS,padding:'3px 6px',fontSize:11,width:120,colorScheme:'dark',flexShrink:0}}/>
+                        <OBtn onClick={commitHw} style={{fontSize:10,padding:'3px 10px',flexShrink:0}}>✓</OBtn>
+                        <Btn onClick={()=>setHwPrompt(null)} style={{fontSize:10,padding:'3px 8px',flexShrink:0}}>✕</Btn>
+                      </div>
+                    : <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+                        <button onClick={()=>toggleHw(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.hwComplete?C.gr:C.bo}`,background:d.hwComplete?C.gr+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          {d.hwComplete&&<span style={{fontSize:8,color:C.gr,lineHeight:1}}>✓</span>}
+                        </button>
+                        {d.hwComplete
+                          ? <><span style={{fontFamily:MO,fontSize:10,color:C.gr,flex:1,minWidth:0}}>📎 {d.hwFile||'(no filename)'}</span><input type="date" value={d.hwDate||''} onChange={e=>setHwDate(td.day,e.target.value)} title="HW date" style={{...inpS,padding:'2px 6px',fontSize:10,width:110,colorScheme:'dark',flexShrink:0}}/></>
+                          : <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Day {td.day} Homework</span>
+                        }
+                      </div>
+                  )}
+                  <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+                    <button onClick={()=>toggleDayQuiz(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.quizComplete?C.bl:C.bo}`,background:d.quizComplete?C.bl+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      {d.quizComplete&&<span style={{fontSize:8,color:C.bl,lineHeight:1}}>✓</span>}
+                    </button>
+                    <span style={{fontFamily:MO,fontSize:10,color:d.quizComplete?C.bl:C.mu,flexShrink:0}}>Day {td.day} Quiz</span>
+                    <input type="number" min={0} value={d.quizCorrect??''} onChange={e=>setQuizField(td.day,'quizCorrect',e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:48,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
+                    <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>/</span>
+                    <input type="number" min={1} value={d.quizTotal??''} onChange={e=>setQuizField(td.day,'quizTotal',e.target.value)} placeholder="?" title="Total" style={{...inpS,width:48,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
+                    {qpct!=null&&<span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:qpct>=90?C.gr:qpct>=70?C.yl:C.rd,flexShrink:0}}>= {qpct}%</span>}
+                  </div>
+                  {td.finalQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4,paddingTop:4,borderTop:'1px solid '+C.bo}}>
+                    <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>🏁 Final Quiz Score:</span>
                     <input type="number" min={0} max={100} value={fqScore} onChange={e=>setFqScore(e.target.value)} style={{...inpS,width:70,padding:'3px 8px',fontSize:11}}/>
                     <OBtn onClick={saveFinalQuiz} style={{fontSize:10,padding:'3px 10px'}}>Save</OBtn>
-                    {hire.finalQuizScore!=null&&<span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:hire.finalQuizScore>=90?C.gr:hire.finalQuizScore>=75?C.yl:C.rd}}>{hire.finalQuizScore}%</span>}
-                  </div>
-                )}
-                {/* Homework */}
-                {!isRev&&(
-                  <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid '+C.bo+'55'}}>
-                    {hwPrompt===td.day
-                      ? <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
-                          <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>Filename:</span>
-                          <input autoFocus value={hwFile} onChange={e=>setHwFile(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')commitHw();if(e.key==='Escape')setHwPrompt(null);}} placeholder="e.g. jesse_day1_hw.pdf" style={{...inpS,flex:1,padding:'3px 8px',fontSize:11}}/>
-                          <OBtn onClick={commitHw} style={{fontSize:10,padding:'3px 10px'}}>✓</OBtn>
-                          <Btn onClick={()=>setHwPrompt(null)} style={{fontSize:10,padding:'3px 8px'}}>✕</Btn>
-                        </div>
-                      : <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                          <button onClick={()=>toggleHw(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.hwComplete?C.gr:C.bo}`,background:d.hwComplete?C.gr+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                            {d.hwComplete&&<span style={{fontSize:8,color:C.gr,lineHeight:1}}>✓</span>}
-                          </button>
-                          <span style={{fontFamily:MO,fontSize:10,color:d.hwComplete?C.gr:C.mu}}>
-                            {d.hwComplete?`✅ Day ${td.day} HW — ${d.hwFile||'(no filename)'} · ${d.hwDate?fmtShortDate(d.hwDate):'?'}`:`☐ Day ${td.day} Homework`}
-                          </span>
-                        </div>
-                    }
-                  </div>
-                )}
+                    {hire.finalQuizScore!=null&&<span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hire.finalQuizScore>=90?C.gr:hire.finalQuizScore>=75?C.yl:C.rd}}>{hire.finalQuizScore}%</span>}
+                  </div>}
+                </div>
               </div>
             );
           })}
         </div>}
 
-        {/* ── MOCK CALLS ── */}
         {section==='mocks'&&<div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,flexWrap:'wrap',gap:8}}>
-            <div>
-              <div style={{fontFamily:MO,fontSize:13,color:C.tx,fontWeight:'bold'}}>Mock Calls <span style={{fontFamily:MO,fontSize:10,color:C.mu,fontWeight:'normal'}}>(Days 16–20)</span></div>
-              <div style={{fontFamily:MO,fontSize:11,color:hire.mockCalls.length>=15?C.gr:C.or}}>{hire.mockCalls.length} / 15 calls logged</div>
+          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
+              <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:C.tx}}>Mock Calls</span>
+              <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>(Days 16–20)</span>
+              <div style={{display:'flex',gap:4,alignItems:'center',marginLeft:'auto'}}>
+                <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Goal:</span>
+                {editGoal
+                  ? <><input autoFocus type="number" min={1} value={goalDraft} onChange={e=>setGoalDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveGoal();if(e.key==='Escape')setEditGoal(false);}} style={{...inpS,width:60,padding:'2px 6px',fontSize:11}}/><OBtn onClick={saveGoal} style={{fontSize:10,padding:'2px 8px'}}>✓</OBtn></>
+                  : <button onClick={()=>{setGoalDraft(String(mockGoal));setEditGoal(true);}} style={{fontFamily:MO,fontSize:11,padding:'2px 10px',background:C.su,border:'1px solid '+C.bo,borderRadius:4,color:C.or,cursor:'pointer'}}>{mockGoal} ✎</button>
+                }
+              </div>
+              <OBtn onClick={openCall} style={{fontSize:11,padding:'5px 12px',flexShrink:0}}>+ Log Call</OBtn>
             </div>
-            <OBtn onClick={openCall} style={{fontSize:11,padding:'6px 14px'}}>+ Log Call</OBtn>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <span style={{fontFamily:MO,fontSize:11,color:mockPct>=100?C.gr:C.or,flexShrink:0}}>{hire.mockCalls.length}/{mockGoal}</span>
+              <div style={{flex:1,height:5,background:C.bo,borderRadius:3}}><div style={{height:'100%',width:`${mockPct}%`,background:mockPct>=100?C.gr:C.or,borderRadius:3,transition:'width .4s'}}/></div>
+              <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:mockPct>=100?C.gr:C.or,flexShrink:0}}>{mockPct}%</span>
+            </div>
           </div>
-
           {newCallOpen&&(
             <div style={{background:C.ca,border:'1px solid '+C.or,borderRadius:8,padding:14,marginBottom:14}}>
               <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:10}}>NEW CALL LOG</div>
@@ -2342,51 +2410,26 @@ function HireDetail({ hire, onUpdate, onClose }) {
                 <div><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>DATE</div><input type="date" value={callDraft.date||''} onChange={e=>setCallDraft(p=>({...p,date:e.target.value}))} style={{...inpS,width:'100%',colorScheme:'dark'}}/></div>
                 <div><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>TIME</div><input type="time" value={callDraft.time||''} onChange={e=>setCallDraft(p=>({...p,time:e.target.value}))} style={{...inpS,width:'100%',colorScheme:'dark'}}/></div>
               </div>
-              <div style={{marginBottom:8}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>CALL DETAILS / WINTOUCH NOTES</div>
-                <textarea value={callDraft.details||''} onChange={e=>setCallDraft(p=>({...p,details:e.target.value}))} rows={4} placeholder="Paste Wintouch notes or call details…" style={{...inpS,width:'100%',resize:'vertical',lineHeight:1.5}}/>
+              <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>CALL DETAILS / WINTOUCH NOTES</div><textarea value={callDraft.details||''} onChange={e=>setCallDraft(p=>({...p,details:e.target.value}))} rows={3} placeholder="Paste Wintouch notes or call details…" style={{...inpS,width:'100%',resize:'vertical',lineHeight:1.5}}/></div>
+              <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>CALL DURATION</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{['0-5','5-10','10-15','15-20','20-25','25-30','30+'].map(v=>(<button key={v} onClick={()=>setCallDraft(p=>({...p,duration:v}))} style={{fontFamily:MO,fontSize:10,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${(callDraft.duration||'5-10')===v?C.bl:C.bo}`,background:(callDraft.duration||'5-10')===v?C.bl+'22':C.ca,color:(callDraft.duration||'5-10')===v?C.bl:C.mu}}>{v} min</button>))}</div>
               </div>
-              <div style={{marginBottom:8}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>CALL DURATION</div>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                  {['0-5','5-10','10-15','15-20','20-25','25-30','30+'].map(v=>(
-                    <button key={v} onClick={()=>setCallDraft(p=>({...p,duration:v}))} style={{fontFamily:MO,fontSize:10,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${(callDraft.duration||'5-10')===v?C.bl:C.bo}`,background:(callDraft.duration||'5-10')===v?C.bl+'22':C.ca,color:(callDraft.duration||'5-10')===v?C.bl:C.mu}}>{v} min</button>
-                  ))}
-                </div>
-              </div>
-              <div style={{marginBottom:8}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>DID THEY RESOLVE THE CALL?</div>
+              <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>DID THEY RESOLVE?</div>
                 <div style={{display:'flex',gap:6}}>
                   <button onClick={()=>setCallDraft(p=>({...p,resolved:true}))} style={{fontFamily:MO,fontSize:11,padding:'4px 12px',borderRadius:4,cursor:'pointer',border:`1px solid ${callDraft.resolved!==false?C.gr:C.bo}`,background:callDraft.resolved!==false?C.gr+'22':C.ca,color:callDraft.resolved!==false?C.gr:C.mu}}>✅ Yes</button>
                   <button onClick={()=>setCallDraft(p=>({...p,resolved:false}))} style={{fontFamily:MO,fontSize:11,padding:'4px 12px',borderRadius:4,cursor:'pointer',border:`1px solid ${callDraft.resolved===false?C.rd:C.bo}`,background:callDraft.resolved===false?C.rd+'22':C.ca,color:callDraft.resolved===false?C.rd:C.mu}}>❌ No</button>
                 </div>
               </div>
-              <div style={{marginBottom:8}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>WINTOUCH NOTES QUALITY</div>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                  {QUAL.map(([v,l,col])=>(
-                    <button key={v} onClick={()=>setCallDraft(p=>({...p,wintouchQuality:v}))} style={{fontFamily:MO,fontSize:10,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${(callDraft.wintouchQuality||'good')===v?col:C.bo}`,background:(callDraft.wintouchQuality||'good')===v?col+'22':C.ca,color:(callDraft.wintouchQuality||'good')===v?col:C.mu}}>{l}</button>
-                  ))}
-                </div>
+              <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>WINTOUCH NOTES QUALITY</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{QUAL.map(([v,l,col])=>(<button key={v} onClick={()=>setCallDraft(p=>({...p,wintouchQuality:v}))} style={{fontFamily:MO,fontSize:10,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${(callDraft.wintouchQuality||'good')===v?col:C.bo}`,background:(callDraft.wintouchQuality||'good')===v?col+'22':C.ca,color:(callDraft.wintouchQuality||'good')===v?col:C.mu}}>{l}</button>))}</div>
               </div>
-              <div style={{marginBottom:12}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>OVERALL PERFORMANCE</div>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                  {QUAL.map(([v,l,col])=>(
-                    <button key={v} onClick={()=>setCallDraft(p=>({...p,overallPerformance:v}))} style={{fontFamily:MO,fontSize:10,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${(callDraft.overallPerformance||'good')===v?col:C.bo}`,background:(callDraft.overallPerformance||'good')===v?col+'22':C.ca,color:(callDraft.overallPerformance||'good')===v?col:C.mu}}>{l}</button>
-                  ))}
-                </div>
+              <div style={{marginBottom:12}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>OVERALL PERFORMANCE</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{QUAL.map(([v,l,col])=>(<button key={v} onClick={()=>setCallDraft(p=>({...p,overallPerformance:v}))} style={{fontFamily:MO,fontSize:10,padding:'3px 9px',borderRadius:4,cursor:'pointer',border:`1px solid ${(callDraft.overallPerformance||'good')===v?col:C.bo}`,background:(callDraft.overallPerformance||'good')===v?col+'22':C.ca,color:(callDraft.overallPerformance||'good')===v?col:C.mu}}>{l}</button>))}</div>
               </div>
-              <div style={{display:'flex',gap:8}}>
-                <OBtn onClick={saveCall} style={{flex:1}}>💾 Save Call</OBtn>
-                <Btn onClick={()=>setNewCallOpen(false)}>Cancel</Btn>
-              </div>
+              <div style={{display:'flex',gap:8}}><OBtn onClick={saveCall} style={{flex:1}}>💾 Save Call</OBtn><Btn onClick={()=>setNewCallOpen(false)}>Cancel</Btn></div>
             </div>
           )}
-
-          {hire.mockCalls.length===0&&!newCallOpen&&(
-            <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:8,padding:'30px 16px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No calls logged yet. Click + Log Call to start.</div>
-          )}
+          {hire.mockCalls.length===0&&!newCallOpen&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:8,padding:'30px 16px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No calls logged yet.</div>}
           {[...hire.mockCalls].sort((a,b)=>a.callNum-b.callNum).map(call=>{
             const isExp=expandedCall===call.id;
             return (
@@ -2399,39 +2442,83 @@ function HireDetail({ hire, onUpdate, onClose }) {
                   <span style={{fontFamily:MO,fontSize:10,color:qualColor(call.overallPerformance),flex:1,textAlign:'right',whiteSpace:'nowrap'}}>{qualLabel(call.overallPerformance)}</span>
                   <button onClick={e=>{e.stopPropagation();onUpdate({...hire,mockCalls:hire.mockCalls.filter(c=>c.id!==call.id)});}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11,flexShrink:0}}>✕</button>
                 </div>
-                {isExp&&(
-                  <div style={{padding:'8px 12px 12px',borderTop:'1px solid '+C.bo,fontFamily:MO,fontSize:11,color:C.tx}}>
-                    {call.details&&<div style={{marginBottom:8,whiteSpace:'pre-wrap',color:C.mu,lineHeight:1.5,fontSize:10}}>{call.details}</div>}
-                    <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-                      <span>Wintouch: <span style={{color:qualColor(call.wintouchQuality)}}>{qualLabel(call.wintouchQuality)}</span></span>
-                      <span>Overall: <span style={{color:qualColor(call.overallPerformance)}}>{qualLabel(call.overallPerformance)}</span></span>
-                    </div>
+                {isExp&&<div style={{padding:'8px 12px 12px',borderTop:'1px solid '+C.bo}}>
+                  {call.details&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,lineHeight:1.5,whiteSpace:'pre-wrap',marginBottom:8}}>{call.details}</div>}
+                  <div style={{display:'flex',gap:12,flexWrap:'wrap',fontFamily:MO,fontSize:11,color:C.tx}}>
+                    <span>Wintouch: <span style={{color:qualColor(call.wintouchQuality)}}>{qualLabel(call.wintouchQuality)}</span></span>
+                    <span>Overall: <span style={{color:qualColor(call.overallPerformance)}}>{qualLabel(call.overallPerformance)}</span></span>
                   </div>
-                )}
+                </div>}
               </div>
             );
           })}
         </div>}
 
-        {/* ── BUDDY CALLS ── */}
         {section==='buddy'&&<div>
-          <div style={{fontFamily:MO,fontSize:13,color:C.tx,fontWeight:'bold',marginBottom:4}}>Buddy Calls Phase <span style={{fontFamily:MO,fontSize:10,color:C.mu,fontWeight:'normal'}}>(Days 20–25)</span></div>
-          <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:16}}>All items must be checked before sign-off.</div>
-          {[['etiquette','Good call etiquette'],['patience','Patient with customers'],['troubleshooting','Follows troubleshooting steps'],['fielding','Able to field varied call types']].map(([k,label])=>(
-            <div key={k} onClick={()=>!hire.buddyChecks.clearedDate&&toggleBuddy(k)} style={{display:'flex',gap:10,alignItems:'center',background:hire.buddyChecks[k]?C.gr+'0d':C.ca,border:`1px solid ${hire.buddyChecks[k]?C.gr+'44':C.bo}`,borderRadius:7,padding:'10px 14px',marginBottom:8,cursor:hire.buddyChecks.clearedDate?'default':'pointer',transition:'all .15s'}}>
-              <div style={{width:18,height:18,borderRadius:3,border:`2px solid ${hire.buddyChecks[k]?C.gr:C.bo}`,background:hire.buddyChecks[k]?C.gr+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                {hire.buddyChecks[k]&&<span style={{fontSize:11,color:C.gr,lineHeight:1}}>✓</span>}
+          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
+            <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
+              <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:C.tx}}>Buddy Calls</span>
+              <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>(Days 20–25)</span>
+              <div style={{display:'flex',gap:4,alignItems:'center',marginLeft:'auto'}}>
+                <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Goal:</span>
+                {editBuddyGoal
+                  ? <><input autoFocus type="number" min={1} value={buddyGoalDraft} onChange={e=>setBuddyGoalDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')saveBuddyGoal();if(e.key==='Escape')setEditBuddyGoal(false);}} style={{...inpS,width:60,padding:'2px 6px',fontSize:11}}/><OBtn onClick={saveBuddyGoal} style={{fontSize:10,padding:'2px 8px'}}>✓</OBtn></>
+                  : <button onClick={()=>{setBuddyGoalDraft(String(buddyGoal));setEditBuddyGoal(true);}} style={{fontFamily:MO,fontSize:11,padding:'2px 10px',background:C.su,border:'1px solid '+C.bo,borderRadius:4,color:C.bl,cursor:'pointer'}}>{buddyGoal} ✎</button>
+                }
               </div>
-              <span style={{fontFamily:MO,fontSize:12,color:hire.buddyChecks[k]?C.gr:C.tx}}>{label}</span>
+              <OBtn onClick={openBuddy} style={{fontSize:11,padding:'5px 12px',flexShrink:0}}>+ Log Call</OBtn>
             </div>
-          ))}
-          {hire.buddyChecks.clearedDate
-            ? <div style={{fontFamily:MO,fontSize:13,color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:8,padding:'14px 16px',marginTop:16,textAlign:'center'}}>✅ CLEARED FOR SOLO — Signed off {fmtShortDate(hire.buddyChecks.clearedDate)}</div>
-            : <button onClick={signOff} disabled={!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])} style={{width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',marginTop:12,border:'none',borderRadius:8,cursor:'pointer',background:C.gr,color:'#fff',opacity:['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])?1:0.35,transition:'all .3s'}}>✅ CLEAR FOR SOLO — Sign Off</button>
-          }
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <span style={{fontFamily:MO,fontSize:11,color:buddyPct>=100?C.gr:C.bl,flexShrink:0}}>{buddyCalls.length}/{buddyGoal}</span>
+              <div style={{flex:1,height:5,background:C.bo,borderRadius:3}}><div style={{height:'100%',width:`${buddyPct}%`,background:buddyPct>=100?C.gr:C.bl,borderRadius:3,transition:'width .4s'}}/></div>
+              <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:buddyPct>=100?C.gr:C.bl,flexShrink:0}}>{buddyPct}%</span>
+            </div>
+          </div>
+          {newBuddyOpen&&<div style={{background:C.ca,border:'1px solid '+C.bl,borderRadius:8,padding:14,marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:10,color:C.bl,letterSpacing:2,marginBottom:10}}>LOG BUDDY CALL</div>
+            <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>DATE</div><input type="date" value={buddyDraft.date||''} onChange={e=>setBuddyDraft(p=>({...p,date:e.target.value}))} style={{...inpS,colorScheme:'dark'}}/></div>
+            <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:3}}>AGENT NOTES (your observations)</div><textarea value={buddyDraft.agentNotes||''} onChange={e=>setBuddyDraft(p=>({...p,agentNotes:e.target.value}))} rows={3} placeholder="Your notes from sitting with them…" style={{...inpS,width:'100%',resize:'vertical',lineHeight:1.5}}/></div>
+            <div style={{marginBottom:12}}><div style={{fontFamily:MO,fontSize:9,color:C.pu,letterSpacing:1,marginBottom:3}}>TRAINEE NOTES (their self-reflection)</div><textarea value={buddyDraft.traineeNotes||''} onChange={e=>setBuddyDraft(p=>({...p,traineeNotes:e.target.value}))} rows={3} placeholder="Trainee's own notes or reflections…" style={{...inpS,width:'100%',resize:'vertical',lineHeight:1.5}}/></div>
+            <div style={{display:'flex',gap:8}}><OBtn onClick={saveBuddy} style={{flex:1}}>💾 Save</OBtn><Btn onClick={()=>setNewBuddyOpen(false)}>Cancel</Btn></div>
+          </div>}
+          {buddyCalls.length===0&&!newBuddyOpen&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:8,padding:'20px 16px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu,marginBottom:14}}>No buddy calls logged yet.</div>}
+          {buddyCalls.map((call,i)=>{
+            const isExp=expandedBuddy===call.id;
+            return (
+              <div key={call.id} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:7,marginBottom:6,overflow:'hidden'}}>
+                <div onClick={()=>setExpandedBuddy(isExp?null:call.id)} style={{display:'flex',gap:8,alignItems:'center',padding:'8px 12px',cursor:'pointer',flexWrap:'wrap'}}>
+                  <span style={{fontFamily:MO,fontSize:11,fontWeight:'bold',color:C.bl,flexShrink:0}}>#{i+1}</span>
+                  <span style={{fontFamily:MO,fontSize:10,color:C.mu,flex:1}}>{fmtShortDate(call.date)}</span>
+                  {call.agentNotes&&<span style={{fontFamily:MO,fontSize:9,color:C.gr,border:'1px solid '+C.gr+'44',padding:'1px 5px',borderRadius:3,flexShrink:0}}>agent ✓</span>}
+                  {call.traineeNotes&&<span style={{fontFamily:MO,fontSize:9,color:C.pu,border:'1px solid '+C.pu+'44',padding:'1px 5px',borderRadius:3,flexShrink:0}}>trainee ✓</span>}
+                  <button onClick={e=>{e.stopPropagation();deleteBuddy(call.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11,flexShrink:0}}>✕</button>
+                </div>
+                {isExp&&<div style={{padding:'10px 12px 12px',borderTop:'1px solid '+C.bo}}>
+                  {call.agentNotes&&<div style={{marginBottom:call.traineeNotes?10:0}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>AGENT NOTES</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.agentNotes}</div></div>}
+                  {call.traineeNotes&&<div><div style={{fontFamily:MO,fontSize:9,color:C.pu,letterSpacing:1,marginBottom:4}}>TRAINEE NOTES</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.traineeNotes}</div></div>}
+                  {!call.agentNotes&&!call.traineeNotes&&<div style={{fontFamily:MO,fontSize:11,color:C.mu}}>No notes recorded.</div>}
+                </div>}
+              </div>
+            );
+          })}
+          <div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginTop:6}}>
+            <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>PROFICIENCY SIGN-OFF</div>
+            <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:10}}>All items must be checked before sign-off.</div>
+            {[['etiquette','Good call etiquette'],['patience','Patient with customers'],['troubleshooting','Follows troubleshooting steps'],['fielding','Able to field varied call types']].map(([k,label])=>(
+              <div key={k} onClick={()=>!hire.buddyChecks.clearedDate&&toggleBuddyCheck(k)} style={{display:'flex',gap:10,alignItems:'center',background:hire.buddyChecks[k]?C.gr+'0d':C.ca,border:`1px solid ${hire.buddyChecks[k]?C.gr+'44':C.bo}`,borderRadius:7,padding:'10px 14px',marginBottom:8,cursor:hire.buddyChecks.clearedDate?'default':'pointer',transition:'all .15s'}}>
+                <div style={{width:18,height:18,borderRadius:3,border:`2px solid ${hire.buddyChecks[k]?C.gr:C.bo}`,background:hire.buddyChecks[k]?C.gr+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  {hire.buddyChecks[k]&&<span style={{fontSize:11,color:C.gr,lineHeight:1}}>✓</span>}
+                </div>
+                <span style={{fontFamily:MO,fontSize:12,color:hire.buddyChecks[k]?C.gr:C.tx}}>{label}</span>
+              </div>
+            ))}
+            {hire.buddyChecks.clearedDate
+              ? <div style={{fontFamily:MO,fontSize:13,color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:8,padding:'14px 16px',textAlign:'center'}}>✅ CLEARED FOR SOLO — Signed off {fmtShortDate(hire.buddyChecks.clearedDate)}</div>
+              : <button onClick={signOff} disabled={!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])} style={{width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',marginTop:4,border:'none',borderRadius:8,cursor:'pointer',background:C.gr,color:'#fff',opacity:['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])?1:0.35,transition:'all .3s'}}>✅ CLEAR FOR SOLO — Sign Off</button>
+            }
+          </div>
         </div>}
 
-        {/* ── NOTES ── */}
         {section==='notes'&&<div>
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>ADD SUPERVISOR NOTE</div>
@@ -2462,6 +2549,8 @@ function HireDetail({ hire, onUpdate, onClose }) {
     </div>
   );
 }
+
+
 
 function TrainingMode({ hires, onUpdateHires }) {
   const [selectedId,setSelectedId] = useState(null);
@@ -2976,9 +3065,9 @@ function DailyPlanner() {
           <TimerCtrl type="away"     ms={awayMs+logAwayMs}   running={awayRun}  color={C.rd}/>
           <TimerCtrl type="training" ms={trainMs+logTrainMs} running={trainRun} color={C.pu}/>
           <TimerCtrl type="watching" ms={watchMs+logWatchMs} running={watchRun} color={C.bl}/>
-          <div style={{display:'flex',gap:0,borderRadius:6,overflow:'hidden',border:'1px solid '+C.bo,flexShrink:0}}>
-            <button onClick={()=>setAppMode('schedule')} style={{fontFamily:MO,fontSize:isCompact?9:11,padding:isCompact?'3px 8px':'4px 14px',background:appMode==='schedule'?C.or+'22':C.ca,borderRight:'1px solid '+C.bo,border:'none',color:appMode==='schedule'?C.or:C.mu,cursor:'pointer',fontWeight:appMode==='schedule'?'bold':'normal',borderRight:'1px solid '+C.bo,whiteSpace:'nowrap'}}>📅 {isCompact?'SCH':'SCHEDULE'}</button>
-            <button onClick={()=>setAppMode('training')} style={{fontFamily:MO,fontSize:isCompact?9:11,padding:isCompact?'3px 8px':'4px 14px',background:appMode==='training'?C.pu+'22':C.ca,border:'none',color:appMode==='training'?C.pu:C.mu,cursor:'pointer',fontWeight:appMode==='training'?'bold':'normal',whiteSpace:'nowrap'}}>👥 {isCompact?'TRN':'TRAINING'}</button>
+          <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:`2px solid ${appMode==='training'?C.pu:C.or}`,flexShrink:0,boxShadow:appMode==='training'?`0 0 10px ${C.pu}44`:`0 0 10px ${C.or}44`,transition:'border-color .2s, box-shadow .2s'}}>
+            <button onClick={()=>setAppMode('schedule')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='schedule'?C.or:C.ca,borderRight:'1px solid '+C.bo,border:'none',borderRight:'1px solid '+(appMode==='training'?C.pu+'66':C.or+'66'),color:appMode==='schedule'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>📅 {isCompact?'SCH':'SCHEDULE'}</button>
+            <button onClick={()=>setAppMode('training')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='training'?C.pu:C.ca,border:'none',color:appMode==='training'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>👥 {isCompact?'TRN':'TRAINING'}</button>
           </div>
           <div style={{display:'flex',gap:4,marginLeft:'auto',flexWrap:'wrap'}}>
             <div style={{display:'flex',gap:0,alignItems:'center'}}>
