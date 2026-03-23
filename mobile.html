@@ -1372,7 +1372,7 @@ function MobileApp() {
       const newLog  = (durMin>0&&startTs) ? {id:nid(),type:logType,startTime:fmt(startTs),endTime:fmt(now),duration:durMin} : null;
       setSd(p => ({
         ...p,
-        [`${k}Ms-${TODAY}`]: 0,
+        [`${k}Ms-${TODAY}`]: (p[`${k}Ms-${TODAY}`]||0),
         [`${k}Run-${TODAY}`]: false,
         [`${k}Start-${TODAY}`]: null,
         [`timerLogs-${TODAY}`]: newLog ? [...(p[`timerLogs-${TODAY}`]||[]),newLog] : (p[`timerLogs-${TODAY}`]||[]),
