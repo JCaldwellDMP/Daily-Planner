@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/CUEsCERV24FW9jL9uNf0S7p_PV', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Y05SC4xyqXTJ0xO5HOfOS4M7VP', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/a84MCG6V24sJY9kYT7hYSBdmeV`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-nruC5yzrYS0j179iOhRSk0XvD`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Isr4CJ6925s8roZrTzixSyIpuR`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/_LV-C68AvZIoOJvmImiqS5-Rkf`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/9IBqCKrV24IqEkOETAsjS5sCuc → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/be63C73Bw4UmpYKNINsnSo8a-v → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2614,6 +2614,27 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   );
 }
 
+const AddForm = ({isAlumni, onSave, onCancel, name, setName, start, setStart, sup, setSup, disc, setDisc}) => {
+  const inpS = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none'};
+  return (
+    <div style={{background:C.su,border:'1px solid '+(isAlumni?C.bl:C.pu),borderRadius:8,padding:14,marginBottom:16}}>
+      <div style={{fontFamily:MO,fontSize:10,color:isAlumni?C.bl:C.pu,letterSpacing:2,marginBottom:10}}>{isAlumni?'ADD PAST TRAINEE':'ADD CURRENT TRAINEE'}</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+        <input autoFocus value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&onSave()} placeholder="Full name…" style={{...inpS,flex:'2 1 140px'}}/>
+        <input type="date" value={start} onChange={e=>setStart(e.target.value)} style={{...inpS,flex:'1 1 120px',colorScheme:'dark'}}/>
+      </div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+        <input value={sup} onChange={e=>setSup(e.target.value)} placeholder="Supervisor name…" style={{...inpS,flex:'2 1 140px'}}/>
+        <input value={disc} onChange={e=>setDisc(e.target.value)} placeholder="DISC profile…" style={{...inpS,flex:'1 1 80px'}}/>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <OBtn onClick={onSave} disabled={!name.trim()} style={{background:isAlumni?C.bl:undefined}}>{isAlumni?'Add to Alumni':'Add Trainee'}</OBtn>
+        <Btn onClick={onCancel}>Cancel</Btn>
+      </div>
+    </div>
+  );
+};
+
 function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
   const [selectedId,setSelectedId]   = useState(null);
   const [roster,setRoster]           = useState('active'); // 'active' | 'alumni'
@@ -2664,23 +2685,7 @@ function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
     if(selectedId===id) setSelectedId(null);
   };
 
-  const AddForm = ({isAlumni, onSave, onCancel}) => (
-    <div style={{background:C.su,border:'1px solid '+(isAlumni?C.bl:C.pu),borderRadius:8,padding:14,marginBottom:16}}>
-      <div style={{fontFamily:MO,fontSize:10,color:isAlumni?C.bl:C.pu,letterSpacing:2,marginBottom:10}}>{isAlumni?'ADD PAST TRAINEE':'ADD NEW HIRE'}</div>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
-        <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&onSave()} placeholder="Full name…" style={{...inpS,flex:'2 1 140px'}}/>
-        <input type="date" value={newStart} onChange={e=>setNewStart(e.target.value)} style={{...inpS,flex:'1 1 120px',colorScheme:'dark'}}/>
-      </div>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
-        <input value={newSup} onChange={e=>setNewSup(e.target.value)} placeholder="Supervisor name…" style={{...inpS,flex:'2 1 140px'}}/>
-        <input value={newDisc} onChange={e=>setNewDisc(e.target.value)} placeholder="DISC profile…" style={{...inpS,flex:'1 1 80px'}}/>
-      </div>
-      <div style={{display:'flex',gap:8}}>
-        <OBtn onClick={onSave} disabled={!newName.trim()} style={{background:isAlumni?C.bl:undefined}}>{isAlumni?'Add to Alumni':'Add Hire'}</OBtn>
-        <Btn onClick={onCancel}>Cancel</Btn>
-      </div>
-    </div>
-  );
+
 
   return (
     <div style={{padding:'24px 20px'}}>
@@ -2689,21 +2694,21 @@ function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
       {/* Roster toggle + action buttons */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:8}}>
         <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo}}>
-          <button onClick={()=>{setRoster('active');setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',background:roster==='active'?C.pu:C.ca,color:roster==='active'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
+          <button onClick={()=>{setRoster('active');setSelectedId(null);setShowAdd(false);setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',background:roster==='active'?C.pu:C.ca,color:roster==='active'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
             👥 Active ({activeList.length})
           </button>
-          <button onClick={()=>{setRoster('alumni');setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',borderLeft:'1px solid '+C.bo,background:roster==='alumni'?C.bl:C.ca,color:roster==='alumni'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
+          <button onClick={()=>{setRoster('alumni');setSelectedId(null);setShowAdd(false);setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',borderLeft:'1px solid '+C.bo,background:roster==='alumni'?C.bl:C.ca,color:roster==='alumni'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
             🏆 Alumni ({alumniList.length})
           </button>
         </div>
         <div style={{display:'flex',gap:6}}>
-          {roster==='active'&&activeList.length<3&&!showAdd&&!showAddAlumni&&<OBtn onClick={()=>setShowAdd(true)}>+ New Hire</OBtn>}
+          {roster==='active'&&activeList.length<3&&!showAdd&&!showAddAlumni&&<OBtn onClick={()=>setShowAdd(true)}>+ Add Trainee</OBtn>}
           {roster==='alumni'&&!showAddAlumni&&!showAdd&&<button onClick={()=>setShowAddAlumni(true)} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 16px',border:'none',borderRadius:6,background:C.bl,color:'#fff',cursor:'pointer'}}>+ Add Past Trainee</button>}
         </div>
       </div>
 
-      {showAdd&&<AddForm isAlumni={false} onSave={addHire} onCancel={()=>{setShowAdd(false);setNewName('');setNewSup('');setNewDisc('');}}/>}
-      {showAddAlumni&&<AddForm isAlumni={true} onSave={addAlumni} onCancel={()=>{setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}}/>}
+      {showAdd&&<AddForm isAlumni={false} onSave={addHire} onCancel={()=>{setShowAdd(false);setNewName('');setNewSup('');setNewDisc('');}} name={newName} setName={setNewName} start={newStart} setStart={setNewStart} sup={newSup} setSup={setNewSup} disc={newDisc} setDisc={setNewDisc}/>}
+      {showAddAlumni&&<AddForm isAlumni={true} onSave={addAlumni} onCancel={()=>{setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}} name={newName} setName={setNewName} start={newStart} setStart={setNewStart} sup={newSup} setSup={setNewSup} disc={newDisc} setDisc={setNewDisc}/>}
 
       {displayList.length===0&&!showAdd&&!showAddAlumni&&(
         <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'50px 20px',textAlign:'center'}}>
