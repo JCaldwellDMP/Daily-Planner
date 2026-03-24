@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/hTCHCL9V24HPjDlysqhqSyjmDn', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/tU14CpYjqMUzMmk3SPf5SGe9Kb', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/XE_ICM8V24I5OyvMsJinS8T-2e`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/BxpnCqxkrNTO0ZBjUXh7SEL48-`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Mdd7CKrV24IqEyZzIMfjS5tgpp`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/mPxUCrklvOTAVEMli4iNS48BC6`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/FqQZCNk624TNlqwDuRs5SyEEFm → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/u2TCCv2pzVTWNx1ztAsQSQ_jhX → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2099,8 +2099,10 @@ const sanitizeHire = h => ({
   mockCalls:      h.mockCalls      || [],
   mockCallsGoal:  h.mockCallsGoal  || 15,
   notes:          h.notes          || [],
-  quizzes:        h.quizzes        || [],
-  finalQuizScore: h.finalQuizScore != null ? h.finalQuizScore : null,
+  doingWell:        h.doingWell        || '',
+  areasOfImprovement: h.areasOfImprovement || '',
+  finalQuizCorrect: h.finalQuizCorrect != null ? h.finalQuizCorrect : null,
+  finalQuizTotal:   h.finalQuizTotal   != null ? h.finalQuizTotal   : null,
   buddyChecks: {
     etiquette:false, patience:false, troubleshooting:false, fielding:false, clearedDate:null,
     ...(h.buddyChecks||{}),
@@ -2134,7 +2136,7 @@ const initHire = (name, startDate) => ({
   quizzes: [], mockCalls: [], mockCallsGoal:15,
   buddyCalls: [], buddyCallsGoal:25,
   buddyChecks:{etiquette:false,patience:false,troubleshooting:false,fielding:false,clearedDate:null},
-  notes: [], finalQuizScore: null,
+  notes: [], doingWell: '', areasOfImprovement: '', finalQuizCorrect: null, finalQuizTotal: null,
 });
 
 const fmtShortDate = ds => { const d=new Date(ds+'T12:00:00'); return d.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}); };
@@ -2163,7 +2165,8 @@ function HireCard({ hire, selected, onSelect }) {
   const bLen     = (hire.buddyCalls||[]).length;
   const bGoal    = hire.buddyCallsGoal||25;
   const bPct     = bLen>0?Math.min(100,Math.round((bLen/bGoal)*100)):null;
-  const lastQuiz = hire.quizzes.slice(-1)[0];
+  const dayQuizPcts = TRAINING_DAYS.map(td=>{ const d=hire.days[td.day]; const c=parseFloat(d?.quizCorrect),t=parseFloat(d?.quizTotal); return (!c&&c!==0)||!t||t===0?null:Math.round((c/t)*100); }).filter(s=>s!=null);
+  const avgQuiz = dayQuizPcts.length>0?Math.round(dayQuizPcts.reduce((a,b)=>a+b,0)/dayQuizPcts.length):null;
   return (
     <div onClick={()=>onSelect(hire.id)} style={{background:selected?'#1c1f2b':C.ca,border:`2px solid ${selected?C.or:C.bo}`,borderRadius:10,padding:14,cursor:'pointer',transition:'all .15s',flex:'1 1 190px',maxWidth:280}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,gap:6}}>
@@ -2181,7 +2184,7 @@ function HireCard({ hire, selected, onSelect }) {
       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
         <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Days <span style={{color:pct>=100?C.gr:C.tx}}>{comp}/15</span><span style={{color:pct>=100?C.gr:C.or}}> {pct}%</span></span>
         <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>HW <span style={{color:C.tx}}>{hwDone}/{hwTotal}</span></span>
-        {lastQuiz&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Quiz <span style={{color:lastQuiz.score>=90?C.gr:lastQuiz.score>=75?C.yl:C.rd}}>{lastQuiz.score}%</span></span>}
+        {avgQuiz!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Avg Quiz <span style={{color:avgQuiz>=90?C.gr:avgQuiz>=75?C.yl:C.rd}}>{avgQuiz}%</span></span>}
         {mockPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Calls <span style={{color:C.tx}}>{hire.mockCalls.length}/{mockGoal}</span><span style={{color:mockPct>=100?C.gr:C.or}}> {mockPct}%</span></span>}
         {bPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Buddy <span style={{color:C.tx}}>{bLen}/{bGoal}</span><span style={{color:bPct>=100?C.gr:C.bl}}> {bPct}%</span></span>}
       </div>
@@ -2249,19 +2252,18 @@ function parseMockCallEmail(txt) {
   return out;
 }
 
-function HireDetail({ hire, onUpdate, onArchive }) {
+function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
   const [section,setSection]             = useState('days');
   const [hwPrompt,setHwPrompt]           = useState(null);
   const [hwDateDraft,setHwDateDraft]     = useState('');
-  const [quizLabel,setQuizLabel]         = useState('');
-  const [quizScore,setQuizScore]         = useState('');
   const [newCallOpen,setNewCallOpen]     = useState(false);
   const [callDraft,setCallDraft]         = useState({});
   const [expandedCall,setExpandedCall]   = useState(null);
   const [noteTag,setNoteTag]             = useState('positive');
   const [noteBody,setNoteBody]           = useState('');
   const [copied,setCopied]               = useState(false);
-  const [fqScore,setFqScore]             = useState(hire.finalQuizScore!=null?String(hire.finalQuizScore):'');
+  const [fqCorrect,setFqCorrect]         = useState(hire.finalQuizCorrect!=null?String(hire.finalQuizCorrect):'');
+  const [fqTotal,setFqTotal]             = useState(hire.finalQuizTotal!=null?String(hire.finalQuizTotal):'');
   const [goalDraft,setGoalDraft]         = useState(String(hire.mockCallsGoal||15));
   const [editGoal,setEditGoal]           = useState(false);
   const [buddyGoalDraft,setBuddyGoalDraft] = useState(String(hire.buddyCallsGoal||25));
@@ -2278,6 +2280,8 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const [discDraft,setDiscDraft]         = useState(hire.discProfile||'');
   const [supDraft,setSupDraft]           = useState(hire.supervisor||'');
   const [startDraft,setStartDraft]       = useState(hire.startDate);
+  const [wellDraft,setWellDraft]         = useState(hire.doingWell||'');
+  const [improveDraft,setImproveDraft]   = useState(hire.areasOfImprovement||'');
 
   const TODAY_T = new Date().toISOString().split('T')[0];
   const nowTime = () => { const n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); };
@@ -2296,6 +2300,15 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const buddyGoal = hire.buddyCallsGoal||25;
   const buddyPct  = Math.min(100,Math.round((buddyCalls.length/buddyGoal)*100));
   const dayQuizPct = d => { const c=parseFloat(d?.quizCorrect), t=parseFloat(d?.quizTotal); return (!c&&c!==0)||!t||t===0?null:Math.round((c/t)*100); };
+  const avgDayQuizPct = n => { const scores=peerHires.map(h=>dayQuizPct((h.days||{})[n])).filter(s=>s!=null); return scores.length===0?null:Math.round(scores.reduce((a,b)=>a+b,0)/scores.length); };
+  const quizBadge = (pct,n) => { const avg=avgDayQuizPct(n); if(avg==null||pct==null)return null; const diff=pct-avg; if(diff>3)return {label:'▲ Above Avg',color:C.gr}; if(diff<-3)return {label:'▼ Below Avg',color:C.rd}; return {label:'= Avg',color:C.yl}; };
+  const allDayPcts = Object.values(hire.days).map(d=>dayQuizPct(d)).filter(s=>s!=null);
+  const quizAvg  = allDayPcts.length>0 ? Math.round(allDayPcts.reduce((a,b)=>a+b,0)/allDayPcts.length) : null;
+  const quizHigh = allDayPcts.length>0 ? Math.max(...allDayPcts) : null;
+  const quizLow  = allDayPcts.length>0 ? Math.min(...allDayPcts) : null;
+  const hwEnabledDays = TRAINING_DAYS.filter(td=>!td.review && hire.days[td.day]?.hasHw!==false);
+  const hwDoneCount   = hwEnabledDays.filter(td=>hire.days[td.day]?.hwComplete).length;
+  const finalQuizPct  = hire.finalQuizCorrect!=null&&hire.finalQuizTotal!=null ? Math.round((hire.finalQuizCorrect/hire.finalQuizTotal)*100) : null;
 
   // Day handlers
   const toggleDay     = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
@@ -2308,9 +2321,6 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const setHwDate     = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
   const toggleDayQuiz = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,quizComplete:!(c.quizComplete||false)}}}); };
   const setQuizField  = (n,f,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,[f]:v===''?null:parseFloat(v)||null}}}); };
-
-  // Quiz log
-  const addQuiz = () => { if(!quizLabel.trim()||quizScore==='')return; const s=Math.max(0,Math.min(100,parseInt(quizScore))); if(isNaN(s))return; onUpdate({...hire,quizzes:[...hire.quizzes,{id:nid(),label:quizLabel.trim(),score:s,date:TODAY_T}]}); setQuizLabel('');setQuizScore(''); };
 
   // Mock calls
   const saveGoal = () => { const n=parseInt(goalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,mockCallsGoal:n}); setEditGoal(false); };
@@ -2349,8 +2359,8 @@ function HireDetail({ hire, onUpdate, onArchive }) {
 
   // Notes
   const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
-  const commitProfile = () => { onUpdate({...hire,name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),supervisor:supDraft.trim(),startDate:startDraft}); setEditProfile(false); };
-  const saveFinalQuiz = () => { const s=parseInt(fqScore); if(!isNaN(s)&&s>=0&&s<=100) onUpdate({...hire,finalQuizScore:s}); };
+  const commitProfile = () => { onUpdate({...hire,name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),supervisor:supDraft.trim(),startDate:startDraft,doingWell:wellDraft.trim(),areasOfImprovement:improveDraft.trim()}); setEditProfile(false); };
+  const saveFinalQuiz = () => { const c=parseFloat(fqCorrect),t=parseFloat(fqTotal); if(!isNaN(c)&&!isNaN(t)&&t>0&&c>=0) onUpdate({...hire,finalQuizCorrect:c,finalQuizTotal:t}); };
 
   const generateReport = () => {
     const L=[];
@@ -2364,10 +2374,14 @@ function HireDetail({ hire, onUpdate, onArchive }) {
       if(d.hasQuiz&&d.quizComplete) line+=` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}`;
       L.push(line);
     });
-    const hwDays=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);
-    const hwDone=hwDays.filter(td=>hire.days[td.day]?.hwComplete).length;
-    if(hwDays.length>0){L.push(`\nHOMEWORK (${hwDone}/${hwDays.length} complete)`);hwDays.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — completed ${d.hwDate?fmtShortDate(d.hwDate):'(no date)'}`:`  ☐ Day ${td.day} HW — not submitted`);});}
-    if(hire.quizzes.length>0||hire.finalQuizScore!=null){L.push('\nQUIZ SCORES');hire.quizzes.forEach(q=>L.push(`  ${q.label} — ${q.score}% (${fmtShortDate(q.date)})`));if(hire.finalQuizScore!=null)L.push(`  Day 15 Final Quiz — ${hire.finalQuizScore}%`);}
+    if(hire.finalQuizCorrect!=null&&hire.finalQuizTotal!=null){const fp=Math.round((hire.finalQuizCorrect/hire.finalQuizTotal)*100);L.push(`\nFINAL QUIZ: ${fp}% (${hire.finalQuizCorrect}/${hire.finalQuizTotal})`);}
+    const allPcts=Object.values(hire.days).map(d=>dayQuizPct(d)).filter(s=>s!=null);
+    if(allPcts.length>0){const avg=Math.round(allPcts.reduce((a,b)=>a+b,0)/allPcts.length);L.push(`\nQUIZ PERFORMANCE (per-day)\n  Average: ${avg}%  |  High: ${Math.max(...allPcts)}%  |  Low: ${Math.min(...allPcts)}%`);}
+    const hwEn=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);const hwDn=hwEn.filter(td=>hire.days[td.day]?.hwComplete).length;
+    if(hwEn.length>0){L.push(`\nHOMEWORK (${hwDn}/${hwEn.length} complete)`);hwEn.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — completed ${d.hwDate?fmtShortDate(d.hwDate):'(no date)'}`:`  ☐ Day ${td.day} HW — not submitted`);});}
+    if(hire.doingWell){L.push(`\n✅ DOING WELL\n  ${hire.doingWell}`);}
+    if(hire.areasOfImprovement){L.push(`\n⚠️ AREAS OF IMPROVEMENT\n  ${hire.areasOfImprovement}`);}
+
     if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/${mockGoal} — ${mockPct}%)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved!==false?'✅':'❌'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
     if(buddyCalls.length>0){L.push(`\nBUDDY CALLS (${buddyCalls.length}/${buddyGoal} — ${buddyPct}%)`);buddyCalls.forEach((c,i)=>{L.push(`  Call ${i+1} — ${fmtShortDate(c.date)}`);if(c.agentNotes)L.push('    Agent: '+c.agentNotes);if(c.traineeNotes)L.push('    Trainee: '+c.traineeNotes);});}
     if(hire.notes.length>0){L.push('\nSUPERVISOR NOTES');hire.notes.forEach(n=>L.push(`  ${fmtShortDate(n.date)} — ${tagIcon(n.tag)} ${n.tag.charAt(0).toUpperCase()+n.tag.slice(1)}: ${n.body}`));}
@@ -2400,6 +2414,10 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                 <input value={discDraft} onChange={e=>setDiscDraft(e.target.value)} placeholder="Custom…" style={{...inpS,width:80,padding:'3px 8px',fontSize:11}}/>
               </div>
             </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+              <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div><textarea value={wellDraft} onChange={e=>setWellDraft(e.target.value)} placeholder="What are they doing well…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
+              <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div><textarea value={improveDraft} onChange={e=>setImproveDraft(e.target.value)} placeholder="Areas that need improvement…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
+            </div>
             <div style={{display:'flex',gap:8}}><OBtn onClick={commitProfile} style={{fontSize:11,padding:'5px 14px'}}>Save</OBtn><Btn onClick={()=>setEditProfile(false)} style={{fontSize:11}}>Cancel</Btn></div>
           </div>
         ) : (
@@ -2418,6 +2436,50 @@ function HireDetail({ hire, onUpdate, onArchive }) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* PROGRESS SNAPSHOT */}
+      <div style={{background:C.su,borderBottom:'1px solid '+C.bo,padding:'12px 16px'}}>
+        <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:10}}>📊 PROGRESS SNAPSHOT</div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+          {[
+            [`📋 Days`,`${daysComp}/15`,daysPct>=100?C.gr:C.or,`${daysPct}%`],
+            [`📞 Calls`,`${hire.mockCalls.length}/${mockGoal}`,mockPct>=100?C.gr:C.or,`${mockPct}%`],
+            [`🤝 Buddy`,`${buddyCalls.length}/${buddyGoal}`,buddyPct>=100?C.gr:C.bl,`${buddyPct}%`],
+            [`📌 Notes`,`${hire.notes.length}`,'',''],
+          ].map(([label,val,col,pct])=>(
+            <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
+              <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:col||C.tx}}>{val}{pct&&<span style={{fontSize:10,color:col,marginLeft:4}}>{pct}</span>}</div>
+            </div>
+          ))}
+          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>📝 Homework</div>
+            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hwDoneCount===hwEnabledDays.length&&hwEnabledDays.length>0?C.gr:C.tx}}>{hwDoneCount}/{hwEnabledDays.length}</div>
+          </div>
+        </div>
+        {(quizAvg!=null||finalQuizPct!=null)&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:(hire.doingWell||hire.areasOfImprovement)?10:0}}>
+          {quizAvg!=null&&[['Avg Quiz',quizAvg],[' High',quizHigh],['Low',quizLow]].map(([label,val])=>(
+            <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 60px',minWidth:60}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
+              <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:val>=90?C.gr:val>=70?C.yl:C.rd}}>{val}%</div>
+            </div>
+          ))}
+          {finalQuizPct!=null&&<div style={{background:C.ca,border:'1px solid '+C.or+'44',borderRadius:6,padding:'6px 10px',flex:'1 1 80px',minWidth:80}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.or,marginBottom:2}}>🏁 Final Quiz</div>
+            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd}}>{finalQuizPct}% <span style={{fontSize:10,color:C.mu}}>({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span></div>
+          </div>}
+        </div>}
+        {(hire.doingWell||hire.areasOfImprovement)&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {hire.doingWell&&<div style={{flex:'1 1 200px',background:C.gr+'0d',border:'1px solid '+C.gr+'33',borderRadius:6,padding:'8px 10px'}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div>
+            <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.doingWell}</div>
+          </div>}
+          {hire.areasOfImprovement&&<div style={{flex:'1 1 200px',background:C.yl+'0d',border:'1px solid '+C.yl+'33',borderRadius:6,padding:'8px 10px'}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div>
+            <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.areasOfImprovement}</div>
+          </div>}
+        </div>}
       </div>
 
       {/* DISC INTERACTION GUIDE */}
@@ -2491,24 +2553,6 @@ function HireDetail({ hire, onUpdate, onArchive }) {
             <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:daysPct>=100?C.gr:C.or,flexShrink:0}}>{daysPct}%</span>
           </div>
 
-          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
-            <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>📊 MANUAL QUIZ LOG</div>
-            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:hire.quizzes.length>0?8:0}}>
-              <input value={quizLabel} onChange={e=>setQuizLabel(e.target.value)} placeholder="Quiz label…" style={{...inpS,flex:'2 1 140px',minWidth:0}}/>
-              <input value={quizScore} onChange={e=>setQuizScore(e.target.value)} type="number" min={0} max={100} placeholder="Score %" style={{...inpS,width:80,flex:'none'}}/>
-              <OBtn onClick={addQuiz} disabled={!quizLabel.trim()||quizScore===''} style={{fontSize:11,padding:'6px 12px',flexShrink:0}}>+ Add</OBtn>
-            </div>
-            {hire.quizzes.map(q=>(
-              <div key={q.id} style={{display:'flex',alignItems:'center',padding:'4px 8px',background:C.su,borderRadius:5,marginBottom:4,gap:8}}>
-                <span style={{fontFamily:MO,fontSize:11,color:C.tx,flex:1}}>{q.label}</span>
-                <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:q.score>=90?C.gr:q.score>=75?C.yl:C.rd}}>{q.score}%</span>
-                <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>{fmtShortDate(q.date)}</span>
-                <button onClick={()=>onUpdate({...hire,quizzes:hire.quizzes.filter(x=>x.id!==q.id)})} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11}}>✕</button>
-              </div>
-            ))}
-            {hire.quizzes.length===0&&<div style={{fontFamily:MO,fontSize:11,color:C.mu,marginTop:4}}>No manual quizzes logged.</div>}
-          </div>
-
           {TRAINING_DAYS.map(td=>{
             const d=hire.days[td.day]||{}, isRev=td.review, qpct=dayQuizPct(d);
             const hasHw=d.hasHw!==false, hasQuiz=d.hasQuiz!==false;
@@ -2561,7 +2605,7 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                     <span style={{fontFamily:MO,fontSize:10,color:d.quizSent?C.yl:C.mu}}>Day {td.day} Quiz Sent</span>
                   </div>}
 
-                  {hasQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+                  {hasQuiz&&!td.finalQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
                     <button onClick={()=>toggleDayQuiz(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.quizComplete?C.bl:C.bo}`,background:d.quizComplete?C.bl+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                       {d.quizComplete&&<span style={{fontSize:8,color:C.bl,lineHeight:1}}>✓</span>}
                     </button>
@@ -2570,13 +2614,16 @@ function HireDetail({ hire, onUpdate, onArchive }) {
                     <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>/</span>
                     <input type="number" min={1} step={0.5} value={d.quizTotal??''} onChange={e=>setQuizField(td.day,'quizTotal',e.target.value)} placeholder="?" title="Total" style={{...inpS,width:52,padding:'2px 6px',fontSize:11,flexShrink:0}}/>
                     {qpct!=null&&<span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:qpct>=90?C.gr:qpct>=70?C.yl:C.rd,flexShrink:0}}>= {qpct}%</span>}
+                    {qpct!=null&&(()=>{const b=quizBadge(qpct,td.day);return b?<span style={{fontFamily:MO,fontSize:9,fontWeight:'bold',color:b.color,background:b.color+'22',border:'1px solid '+b.color+'55',borderRadius:4,padding:'1px 5px',flexShrink:0}}>{b.label}</span>:null;})()}
                   </div>}
 
                   {td.finalQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4,paddingTop:4,borderTop:'1px solid '+C.bo}}>
                     <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>🏁 Final Quiz:</span>
-                    <input type="number" min={0} max={100} value={fqScore} onChange={e=>setFqScore(e.target.value)} style={{...inpS,width:70,padding:'3px 8px',fontSize:11}}/>
+                    <input type="number" min={0} step={0.5} value={fqCorrect} onChange={e=>setFqCorrect(e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:52,padding:'3px 8px',fontSize:11}}/>
+                    <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>/</span>
+                    <input type="number" min={1} step={0.5} value={fqTotal} onChange={e=>setFqTotal(e.target.value)} placeholder="?" title="Total" style={{...inpS,width:52,padding:'3px 8px',fontSize:11}}/>
                     <OBtn onClick={saveFinalQuiz} style={{fontSize:10,padding:'3px 10px'}}>Save</OBtn>
-                    {hire.finalQuizScore!=null&&<span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hire.finalQuizScore>=90?C.gr:hire.finalQuizScore>=75?C.yl:C.rd}}>{hire.finalQuizScore}%</span>}
+                    {hire.finalQuizCorrect!=null&&hire.finalQuizTotal!=null&&(()=>{const fp=Math.round((hire.finalQuizCorrect/hire.finalQuizTotal)*100);const b=quizBadge(fp,15);return(<><span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:fp>=90?C.gr:fp>=75?C.yl:C.rd}}>{fp}% ({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span>{b&&<span style={{fontFamily:MO,fontSize:9,fontWeight:'bold',color:b.color,background:b.color+'22',border:'1px solid '+b.color+'55',borderRadius:4,padding:'1px 5px',flexShrink:0}}>{b.label}</span>}</>);})()}
                   </div>}
                 </div>}
               </div>
@@ -2907,6 +2954,7 @@ function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
         hire={selectedHire}
         onUpdate={updateHire}
         onArchive={roster==='active'?archiveHire:null}
+        peerHires={[...activeList,...alumniList].filter(h=>h.id!==selectedHire.id)}
       />}
     </div>
   );
@@ -3448,4 +3496,5 @@ root.render(<DailyPlanner />);
 </script>
 </body>
 </html>
+
 
