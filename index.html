@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/l0CoCyPvDYhNXVlkCZf4Sxo-7q', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/SsbyCXD904hn5rRES6fYSW2tLL', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/frfUCzpwEZIRgV09SXhnS9PLgk`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/Bj7yCYE9ngU31BqViGhvSxx04e`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/3jSjCADY24h96qv2U9irSGpsVh`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/RkBwCZ69ojsM4BLKfKi5SBmLv0`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/1ARmCBBY24uV62gBcjsAS22XhD → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/1VVAC1wvnRipzWoJHXswSVeU1g → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3107,134 +3107,327 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
 }
 
 // ── SeatingChart ──────────────────────────────────────────────────────────────
+const supervisorColor = sup => {
+  if(sup==='Dolan Parnell')  return 'blue';
+  if(sup==='Ryan Kay')       return 'dark-green';
+  if(sup==='Stephen Bowen')  return 'light-green';
+  return 'none';
+};
+
 function SeatingChart({ agents, onUpdateAgent }) {
-  const [dragId,setDragId] = useState(null);
+  const [dragId,setDragId]         = useState(null);
+  const [dragSource,setDragSource] = useState(null); // 'panel' | 'floor'
+  const [dropHover,setDropHover]   = useState(null);
+  const [editSeat,setEditSeat]     = useState(null);
+  const [editName,setEditName]     = useState('');
 
-  const seatMap = {}; // seatId → agent
-  agents.filter(a=>a.seatId).forEach(a=>{ seatMap[a.seatId]=a; });
+  const activeAgents = agents.filter(a => a.status !== 'inactive');
 
-  const tileColor = a => {
-    if(!a) return C.mu+'44';
+  const seatMap = {};
+  activeAgents.filter(a=>a.seatId).forEach(a=>{ seatMap[a.seatId]=a; });
+
+  const unseated = activeAgents.filter(a=>!a.seatId && !SPECIALTY_GOLD.includes(a.name));
+
+  const agentColor = a => {
+    if(!a) return null;
     if(SPECIALTY_GOLD.includes(a.name)) return '#eab308';
     if(SPECIALTY_RED.includes(a.name))  return C.rd;
-    return TEAM_COLORS[a.team||'none']||C.mu;
+    const tc = supervisorColor(a.supervisor);
+    return TEAM_COLORS[tc] || C.mu;
   };
 
-  const handleDrop = (toSeatId) => {
-    if(!dragId||!toSeatId) return;
-    const fromAgent = agents.find(a=>a.id===dragId);
+  const assignSeat = (agentId, toSeatId) => {
+    const fromAgent = activeAgents.find(a=>a.id===agentId);
     if(!fromAgent) return;
-    if(SPECIALTY_GOLD.includes(seatMap[toSeatId]?.name)) return; // can't drop on gold
+    if(SPECIALTY_GOLD.includes(seatMap[toSeatId]?.name)) return;
     const toAgent = seatMap[toSeatId];
-    if(toAgent) {
-      // swap
-      onUpdateAgent({...toAgent, seatId: fromAgent.seatId});
-    }
+    if(toAgent) onUpdateAgent({...toAgent, seatId: fromAgent.seatId||null});
     onUpdateAgent({...fromAgent, seatId: toSeatId});
-    setDragId(null);
   };
 
-  const SeatTile = ({seatId, label, fixed=false}) => {
-    const agent = seatMap[seatId];
-    const col = tileColor(agent);
-    const isFixed = fixed || (agent && SPECIALTY_GOLD.includes(agent.name));
-    const tileTitle = agent ? agent.name : (label || seatId);
+  const unassignSeat = agentId => {
+    const ag = activeAgents.find(a=>a.id===agentId);
+    if(ag && !SPECIALTY_GOLD.includes(ag.name)) onUpdateAgent({...ag, seatId:null});
+  };
+
+  const saveEdit = () => {
+    if(!editSeat) return;
+    const ag = seatMap[editSeat];
+    if(ag && editName.trim()) onUpdateAgent({...ag, name:editName.trim()});
+    setEditSeat(null);
+  };
+
+  // ── Panel tile (unassigned list) ───────────────────────────────────────────
+  const PanelTile = ({agent}) => {
+    const col = agentColor(agent);
+    const parts = agent.name.split(' ');
+    const initials = parts.map(w=>w[0]).join('');
+    const last = parts.length>1 ? parts[parts.length-1].slice(0,8) : agent.name.slice(0,8);
     return (
       <div
-        draggable={!isFixed && !!agent}
-        onDragStart={()=>!isFixed&&agent&&setDragId(agent.id)}
-        onDragOver={e=>{if(!isFixed)e.preventDefault();}}
-        onDrop={()=>!isFixed&&handleDrop(seatId)}
-        title={tileTitle}
+        draggable
+        onDragStart={()=>{ setDragId(agent.id); setDragSource('panel'); }}
+        onDragEnd={()=>{ setDragId(null); setDragSource(null); }}
+        title={agent.name}
         style={{
-          width:52, minHeight:36, borderRadius:5, border:`1px solid ${col}`,
-          background:agent?col+'22':C.ca, display:'flex', flexDirection:'column',
-          alignItems:'center', justifyContent:'center', padding:'3px 2px',
-          cursor:isFixed?'default':agent?'grab':'default',
-          fontSize:9, fontFamily:MO, color:col, textAlign:'center', lineHeight:1.2,
-          boxSizing:'border-box', userSelect:'none', transition:'all .15s',
-          opacity:dragId&&dragId===agent?.id?0.4:1,
+          width:52,height:44,borderRadius:4,border:'2px solid '+col,
+          background:col+'2a',display:'flex',flexDirection:'column',
+          alignItems:'center',justifyContent:'center',cursor:'grab',
+          fontFamily:MO,textAlign:'center',lineHeight:1.2,userSelect:'none',
+          opacity:dragId===agent.id?0.4:1,transition:'opacity .15s',flexShrink:0,
         }}>
-        {agent
-          ? <span style={{wordBreak:'break-word',fontSize:8}}>{agent.name.split(' ').map(w=>w[0]).join('')} <br/>{agent.name.split(' ').slice(-1)[0].slice(0,7)}</span>
-          : <span style={{color:C.mu,fontSize:8}}>{label||seatId.split('-').pop()}</span>
-        }
+        <span style={{fontSize:9,fontWeight:'bold',color:col}}>{initials}</span>
+        <span style={{fontSize:7,color:col}}>{last}</span>
       </div>
     );
   };
 
-  const Zone = ({title, children, style={}}) => (
-    <div style={{border:'1px solid '+C.bo, borderRadius:8, padding:'8px 10px', background:C.su, ...style}}>
-      <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:6}}>{title}</div>
-      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{children}</div>
-    </div>
-  );
+  // ── Floor seat tile ────────────────────────────────────────────────────────
+  const SeatTile = ({seatId, fixed, x, y}) => {
+    const agent  = seatMap[seatId];
+    const col    = agentColor(agent) || '#ccc';
+    const isFixed = fixed||(agent&&SPECIALTY_GOLD.includes(agent.name));
+    const isHover = dropHover===seatId;
+    const parts   = agent ? agent.name.split(' ') : [];
+    const initials = parts.map(w=>w[0]).join('');
+    const last    = parts.length>1 ? parts[parts.length-1].slice(0,8) : (agent?agent.name.slice(0,8):'');
+    const tileTitle = agent ? agent.name : seatId;
+    const emptyBg = isHover ? '#e8ffe8' : '#f5f5f5';
+    const emptyBd = isHover ? '#4ade80' : '#ddd';
+    return (
+      <div
+        draggable={!isFixed&&!!agent}
+        onDragStart={()=>{ if(!isFixed&&agent){ setDragId(agent.id); setDragSource('floor'); } }}
+        onDragEnd={()=>{ setDragId(null); setDragSource(null); setDropHover(null); }}
+        onDragOver={e=>{ if(!isFixed){ e.preventDefault(); setDropHover(seatId); } }}
+        onDragLeave={()=>setDropHover(null)}
+        onDrop={e=>{ e.preventDefault(); setDropHover(null); if(dragId&&!isFixed) assignSeat(dragId,seatId); setDragId(null); }}
+        onDoubleClick={()=>{ if(agent){ setEditSeat(seatId); setEditName(agent.name); } }}
+        title={tileTitle}
+        style={{
+          position:'absolute',left:x,top:y,width:52,height:44,
+          borderRadius:4,
+          border:'2px solid '+(agent ? col : emptyBd),
+          background:agent ? col+'2a' : emptyBg,
+          display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+          cursor:isFixed?'default':agent?'grab':'default',
+          fontFamily:MO,textAlign:'center',lineHeight:1.2,
+          userSelect:'none',transition:'all .12s',
+          opacity:dragId===agent?.id?0.35:1,
+          boxSizing:'border-box',zIndex:2,
+        }}>
+        {agent
+          ? <><span style={{fontSize:9,fontWeight:'bold',color:col}}>{initials}</span>
+               <span style={{fontSize:7,color:col}}>{last}</span></>
+          : <span style={{fontSize:7,color:isHover?'#22c55e':'#bbb'}}>+</span>}
+      </div>
+    );
+  };
 
-  // main row seats 1-19
-  const mainSeats = Array.from({length:19},(_,i)=>`main-${String(i+1).padStart(2,'0')}`);
+  // [seatId, x, y, fixed?]
+  const SEATS = [
+    ['adv-1',  14,316], ['adv-2',  70,316],
+    ['adv-3',  14,368], ['adv-4',  70,368],
+    ['net-1', 258,288], ['net-2', 316,288], ['net-3', 374,288], ['net-4', 432,288],
+    ['inv-1', 432,196],
+    ['conf-1',546,238], ['conf-2',604,238], ['conf-3',662,238],
+    ['conf-4',546,290], ['conf-5',604,290], ['conf-6',662,290],
+    ['conf-7',718,300],
+    ['gold-brad', 728,198,true], ['gold-brent',1034,24,true],
+    ['quad-1',942,276], ['quad-2',998,276],
+    ['quad-3',942,328], ['quad-4',998,328],
+    ['main-01', 14,420], ['main-02', 71,420], ['main-03',128,420], ['main-04',185,420],
+    ['main-05',247,420], ['main-06',304,420], ['main-07',361,420],
+    ['main-08',423,420], ['main-09',480,420], ['main-10',537,420],
+    ['main-11',597,420], ['main-12',654,420],
+    ['main-13',716,420], ['main-14',773,420],
+    ['main-15',835,420], ['main-16',892,420], ['main-17',949,420],
+    ['main-18',1006,420],['main-19',1063,420],
+  ];
+
+  const FW=1120, FH=480;
+
+  const supColors = [
+    ['Dolan Parnell', TEAM_COLORS['blue']],
+    ['Ryan Kay',      TEAM_COLORS['dark-green']],
+    ['Stephen Bowen', TEAM_COLORS['light-green']],
+  ];
 
   return (
-    <div style={{padding:'16px',overflowX:'auto'}}>
-      <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:12}}>Drag agent tiles to swap seats. Gold seats are fixed.</div>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
-        <Zone title="ADV TECH" style={{flex:'0 0 auto'}}>
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="adv-1"/><SeatTile seatId="adv-2"/></div>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="adv-3"/><SeatTile seatId="adv-4"/></div>
-          </div>
-        </Zone>
-        <Zone title="IT NETWORKING" style={{flex:'0 0 auto'}}>
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="net-1"/><SeatTile seatId="net-2"/></div>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="net-3"/><SeatTile seatId="net-4"/></div>
-          </div>
-        </Zone>
-        <Zone title="TS INVENTORY" style={{flex:'0 0 auto'}}>
-          <SeatTile seatId="inv-1"/>
-        </Zone>
-        <Zone title="CONF ROOM" style={{flex:'0 0 auto'}}>
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="conf-1"/><SeatTile seatId="conf-2"/><SeatTile seatId="conf-3"/></div>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="conf-4"/><SeatTile seatId="conf-5"/><SeatTile seatId="conf-6"/></div>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="conf-7"/></div>
-          </div>
-        </Zone>
-        <Zone title="QUAD" style={{flex:'0 0 auto'}}>
-          <div style={{display:'flex',flexDirection:'column',gap:4}}>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="quad-1"/><SeatTile seatId="quad-2"/></div>
-            <div style={{display:'flex',gap:4}}><SeatTile seatId="quad-3"/><SeatTile seatId="quad-4"/></div>
-          </div>
-        </Zone>
-        <Zone title="GOLD (FIXED)" style={{flex:'0 0 auto'}}>
-          <SeatTile seatId="gold-brad" fixed/><SeatTile seatId="gold-brent" fixed/>
-        </Zone>
-      </div>
-      <Zone title="MAIN ROW (01 – 19)" style={{marginTop:4}}>
-        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-          {mainSeats.map(id=><SeatTile key={id} seatId={id}/>)}
+    <div style={{padding:'12px',display:'flex',gap:10,alignItems:'flex-start',overflowX:'auto'}}>
+
+      {/* ── Unassigned agents panel ────────────────────────── */}
+      <div
+        onDragOver={e=>e.preventDefault()}
+        onDrop={e=>{e.preventDefault(); if(dragId&&dragSource==='floor') unassignSeat(dragId); setDragId(null);}}
+        style={{
+          flexShrink:0,width:128,minHeight:FH,background:C.su,
+          border:'1px solid '+C.bo,borderRadius:6,padding:'8px 6px',
+          display:'flex',flexDirection:'column',gap:6,boxSizing:'border-box',
+        }}>
+        <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:4,textAlign:'center'}}>UNASSIGNED</div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:4,justifyContent:'center'}}>
+          {unseated.length===0
+            ? <div style={{fontFamily:MO,fontSize:8,color:C.mu,textAlign:'center',padding:'12px 4px',width:'100%'}}>All agents seated</div>
+            : unseated.map(a=><PanelTile key={a.id} agent={a}/>)
+          }
         </div>
-      </Zone>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
-        {[['blue','Blue Team'],['dark-green','Dark Green'],['light-green','Light Green'],['none','Unassigned']].map(([k,l])=>(
-          <span key={k} style={{fontFamily:MO,fontSize:9,color:TEAM_COLORS[k],display:'flex',alignItems:'center',gap:4}}>
-            <span style={{width:10,height:10,borderRadius:2,background:TEAM_COLORS[k],display:'inline-block'}}/>
-            {l}
-          </span>
+        <div style={{marginTop:'auto',paddingTop:8,borderTop:'1px solid '+C.bo}}>
+          <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginBottom:4}}>SUPERVISOR KEY</div>
+          {supColors.map(([name,col])=>(
+            <div key={name} style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+              <span style={{width:8,height:8,borderRadius:2,background:col,flexShrink:0,display:'inline-block'}}/>
+              <span style={{fontFamily:MO,fontSize:7,color:C.tx,lineHeight:1.2}}>{name.split(' ')[1]}</span>
+            </div>
+          ))}
+          <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+            <span style={{width:8,height:8,borderRadius:2,background:C.rd,flexShrink:0,display:'inline-block'}}/>
+            <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Supervisor</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:8,height:8,borderRadius:2,background:'#eab308',flexShrink:0,display:'inline-block'}}/>
+            <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Fixed</span>
+          </div>
+        </div>
+        <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginTop:6,lineHeight:1.4,textAlign:'center'}}>
+          Drag to seat<br/>Drag back to unassign<br/>Double-click to rename
+        </div>
+      </div>
+
+      {/* ── Floor plan ────────────────────────────────────── */}
+      <div style={{flexShrink:0,position:'relative',width:FW,height:FH,background:'#fff',border:'1px solid #ccc',borderRadius:4}}>
+
+        <svg width={FW} height={FH} style={{position:'absolute',top:0,left:0,pointerEvents:'none'}}>
+          <defs>
+            <pattern id="floorGrid" width="58" height="46" patternUnits="userSpaceOnUse">
+              <path d="M 58 0 L 0 0 0 46" fill="none" stroke="#ebebeb" strokeWidth="0.5"/>
+            </pattern>
+          </defs>
+          {/* Floor fill + subtle grid */}
+          <rect x="3" y="90" width="1114" height="386" fill="#fafafa"/>
+          <rect x="3" y="90" width="1114" height="386" fill="url(#floorGrid)"/>
+          {/* Outer floor outline */}
+          <rect x="3" y="90" width="1114" height="386" fill="none" stroke="black" strokeWidth="3"/>
+
+          {/* Restrooms (dashed) */}
+          <rect x="3" y="98" width="147" height="282" fill="#f0f0f0" stroke="black" strokeWidth="2" strokeDasharray="7,4"/>
+          <line x1="76" y1="98" x2="76" y2="380" stroke="black" strokeWidth="2"/>
+          <rect x="30" y="87" width="30" height="9" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
+          <rect x="95" y="87" width="30" height="9" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
+
+          {/* Facilities box */}
+          <rect x="226" y="90" width="210" height="52" fill="white" stroke="black" strokeWidth="2"/>
+          {/* IT Networking Room */}
+          <rect x="226" y="142" width="210" height="234" fill="white" stroke="black" strokeWidth="3"/>
+          {/* TS Inventory gray squares */}
+          <rect x="416" y="104" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
+          <rect x="448" y="104" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
+          {/* Customer Care Conference Room */}
+          <rect x="530" y="90" width="238" height="256" fill="white" stroke="black" strokeWidth="3"/>
+          {/* Curved corner top-right */}
+          <path d="M 770 90 C 900 90 1020 155 1040 205 L 1117 205 L 1117 90 Z" fill="white" stroke="black" strokeWidth="2"/>
+          {/* Quad enclosure */}
+          <rect x="922" y="256" width="140" height="100" fill="white" stroke="black" strokeWidth="2"/>
+
+          {/* ── Main row desk bays (19) ── */}
+          {Array.from({length:19},(_,i)=>{
+            const bx=3+i*58;
+            return <g key={'mb'+i}>
+              <rect x={bx} y={408} width={54} height={66} fill="white" stroke="black" strokeWidth="1.5"/>
+              <rect x={bx+6} y={414} width={42} height={18} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+            </g>;
+          })}
+
+          {/* ── ADV-TECH desk bays (2×2 left) ── */}
+          {[[3,300],[59,300],[3,352],[59,352]].map(([bx,by],i)=>(
+            <g key={'ab'+i}>
+              <rect x={bx} y={by} width={52} height={58} fill="white" stroke="black" strokeWidth="1.5"/>
+              <rect x={bx+5} y={by+5} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+            </g>
+          ))}
+
+          {/* ── IT Networking desk bays (1×4 row) ── */}
+          {[244,302,360,418].map((bx,i)=>(
+            <g key={'nb'+i}>
+              <rect x={bx} y={270} width={52} height={60} fill="white" stroke="black" strokeWidth="1.5"/>
+              <rect x={bx+5} y={276} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+            </g>
+          ))}
+
+          {/* ── Conference room desk bays (3×2) ── */}
+          {[[533,222],[591,222],[649,222],[533,274],[591,274],[649,274]].map(([bx,by],i)=>(
+            <g key={'cb'+i}>
+              <rect x={bx} y={by} width={52} height={52} fill="white" stroke="black" strokeWidth="1.5"/>
+              <rect x={bx+5} y={by+5} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+            </g>
+          ))}
+          {/* conf-7 offset seat */}
+          <rect x={707} y={284} width={52} height={52} fill="white" stroke="black" strokeWidth="1.5"/>
+          <rect x={712} y={289} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+
+          {/* ── Quad desk bays (2×2) ── */}
+          {[[928,260],[984,260],[928,312],[984,312]].map(([bx,by],i)=>(
+            <g key={'qb'+i}>
+              <rect x={bx} y={by} width={52} height={52} fill="white" stroke="black" strokeWidth="1.5"/>
+              <rect x={bx+5} y={by+5} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+            </g>
+          ))}
+
+          {/* ── Gold fixed seat bays ── */}
+          <rect x={714} y={182} width={52} height={52} fill="white" stroke="#ca8a04" strokeWidth="2"/>
+          <rect x={719} y={187} width={42} height={16} fill="#fef3c7" stroke="#ca8a04" strokeWidth="1"/>
+          <rect x={1020} y={8} width={52} height={52} fill="white" stroke="#ca8a04" strokeWidth="2"/>
+          <rect x={1025} y={13} width={42} height={16} fill="#fef3c7" stroke="#ca8a04" strokeWidth="1"/>
+
+          {/* Room labels */}
+          <text x="291" y="122" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black">Facilities</text>
+          <text x="271" y="222" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black">IT Networking</text>
+          <text x="289" y="240" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black">Room</text>
+          <text x="456" y="120" fontFamily="Arial" fontSize="8" fill="#444">TS</text>
+          <text x="452" y="130" fontFamily="Arial" fontSize="8" fill="#444">Inv.</text>
+          <text x="580" y="148" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="black">Customer Care</text>
+          <text x="558" y="164" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="black">Conference Room</text>
+          <text x="40" y="240" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,40,240)">{"Women's Restroom"}</text>
+          <text x="112" y="240" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,112,240)">{"Men's Restroom"}</text>
+        </svg>
+
+        {/* Rename modal */}
+        {editSeat&&(
+          <div style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',background:'rgba(0,0,0,0.45)',zIndex:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:8,padding:18,minWidth:230}}>
+              <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginBottom:8,letterSpacing:1}}>RENAME — {editSeat}</div>
+              <input autoFocus value={editName} onChange={e=>setEditName(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')setEditSeat(null);}}
+                style={{fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'6px 10px',color:C.tx,outline:'none',width:'100%',boxSizing:'border-box',marginBottom:10}}/>
+              <div style={{display:'flex',gap:8}}>
+                <OBtn onClick={saveEdit}>Save</OBtn>
+                <Btn onClick={()=>setEditSeat(null)}>Cancel</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {SEATS.map(([sid,sx,sy,fx])=>(
+          <SeatTile key={sid} seatId={sid} x={sx} y={sy} fixed={!!fx}/>
         ))}
-        <span style={{fontFamily:MO,fontSize:9,color:C.rd,display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.rd,display:'inline-block'}}/>Specialty</span>
-        <span style={{fontFamily:MO,fontSize:9,color:'#eab308',display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'#eab308',display:'inline-block'}}/>Fixed</span>
+
       </div>
     </div>
   );
 }
 
 // ── DepartmentMode ────────────────────────────────────────────────────────────
-function DepartmentMode({ agents, onUpdateAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent }) {
-  const [deptTab,setDeptTab]     = useState('roster'); // 'roster' | 'seating' | 'inactive'
+function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent }) {
+  const [deptTab,setDeptTab]     = useState('roster');
   const [selectedId,setSelectedId] = useState(null);
   const [filterSup,setFilterSup]   = useState('');
   const [filterTeam,setFilterTeam] = useState('');
   const [filterQueue,setFilterQueue] = useState('');
+  const [showAddAgent,setShowAddAgent] = useState(false);
+  const [newName,setNewName]   = useState('');
+  const [newSup,setNewSup]     = useState('');
+  const [newShift,setNewShift] = useState('');
+  const [newDisc,setNewDisc]   = useState('');
 
   const activeAgents   = agents.filter(a=>a.status==='active');
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
@@ -3251,6 +3444,21 @@ function DepartmentMode({ agents, onUpdateAgent, onDeactivateAgent, onReactivate
   const selectedAgent = [...activeAgents,...inactiveAgents].find(a=>a.id===selectedId);
 
   const inpS={fontFamily:MO,fontSize:11,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'4px 8px',color:C.tx,outline:'none'};
+
+  const saveNewAgent = () => {
+    if(!newName.trim()) return;
+    const a = sanitizeAgent({
+      ...initAgent(newName.trim(), new Date().toISOString().split('T')[0]),
+      status:'active',
+      supervisor: newSup.trim(),
+      shift: newShift||null,
+      discProfile: newDisc.trim(),
+    });
+    onAddAgent(a);
+    setShowAddAgent(false);
+    setNewName(''); setNewSup(''); setNewShift(''); setNewDisc('');
+    setSelectedId(a.id);
+  };
 
   const AgentRosterCard = ({agent}) => {
     const teamColor = TEAM_COLORS[agent.team||'none']||C.mu;
@@ -3292,7 +3500,34 @@ function DepartmentMode({ agents, onUpdateAgent, onDeactivateAgent, onReactivate
 
       {/* ROSTER TAB */}
       {deptTab==='roster'&&<div>
-        {/* Filters */}
+
+        {/* Add Agent form */}
+        {showAddAgent&&(
+          <div style={{background:C.su,border:'1px solid '+C.gr,borderRadius:8,padding:14,marginBottom:14}}>
+            <div style={{fontFamily:MO,fontSize:10,color:C.gr,letterSpacing:2,marginBottom:10}}>ADD NEW AGENT</div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+              <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&saveNewAgent()}
+                placeholder="Full name…" style={{...inpS,flex:'2 1 160px'}}/>
+              <input value={newSup} onChange={e=>setNewSup(e.target.value)}
+                placeholder="Supervisor…" style={{...inpS,flex:'2 1 160px'}}/>
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+              <select value={newShift} onChange={e=>setNewShift(e.target.value)} style={{...inpS,flex:'2 1 160px'}}>
+                <option value="">No shift assigned</option>
+                {SHIFTS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+              <input value={newDisc} onChange={e=>setNewDisc(e.target.value)}
+                placeholder="DISC profile…" style={{...inpS,flex:'1 1 100px'}}/>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <OBtn onClick={saveNewAgent} disabled={!newName.trim()}>+ Add Agent</OBtn>
+              <Btn onClick={()=>{setShowAddAgent(false);setNewName('');setNewSup('');setNewShift('');setNewDisc('');}}>Cancel</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Filters + Add button row */}
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
           <select value={filterSup} onChange={e=>setFilterSup(e.target.value)} style={{...inpS}}>
             <option value="">All Supervisors</option>
@@ -3307,7 +3542,10 @@ function DepartmentMode({ agents, onUpdateAgent, onDeactivateAgent, onReactivate
             {QUEUES.map(q=><option key={q.id} value={q.id}>{q.label}</option>)}
           </select>
           {(filterSup||filterTeam||filterQueue)&&<button onClick={()=>{setFilterSup('');setFilterTeam('');setFilterQueue('');}} style={{fontFamily:MO,fontSize:10,padding:'4px 8px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Clear</button>}
-          <span style={{fontFamily:MO,fontSize:10,color:C.mu,marginLeft:'auto'}}>{filtered.length} of {activeAgents.length}</span>
+          <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>{filtered.length} of {activeAgents.length}</span>
+          <OBtn onClick={()=>{setShowAddAgent(v=>!v);setSelectedId(null);}} style={{marginLeft:'auto',fontSize:10,padding:'3px 10px'}}>
+            {showAddAgent?'✕ Cancel':'+ Add Agent'}
+          </OBtn>
         </div>
 
         {filtered.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No active agents match the current filters.</div>}
@@ -3863,7 +4101,7 @@ function DailyPlanner() {
       {appMode==='training'
         ? <TrainingMode trainees={trainees} agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onGraduateAgent={graduateAgent} onDeleteAgent={deleteAgent}/>
         : appMode==='department'
-        ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent}/>
+        ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent}/>
         : <>
           <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'6px 12px',display:'flex',gap:4,flexWrap:'wrap'}}>
             {ALL_TABS.map(t=>{
