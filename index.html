@@ -1773,7 +1773,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/HAk1CNk624TNlynxImf5SyjBCa', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/sQpzCmZ9nJT5J4JnSGfzSRLtw6', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1781,7 +1781,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/UmqLCOY024UARQPXSvhLSG2y_-`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/i_RbCn59oKHGOBOofJh5SJwuoM`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1797,7 +1797,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/4HzMCPNV94T4GVDmC1iESxbFfi`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/dXcpCo2g0LTXqWqzhVizSp1FZf`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2043,7 +2043,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/S8zjCQW824t6AZDqFksgSGUMCl → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/ck9XCpYjqMUzM6M8TGs5SGJLdV → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3132,7 +3132,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
         onDragStart={()=>!isFixed&&agent&&setDragId(agent.id)}
         onDragOver={e=>{if(!isFixed)e.preventDefault();}}
         onDrop={()=>!isFixed&&handleDrop(seatId)}
-        title={agent?https://url.us.m.mimecastprotect.com/s/rma2CR6V09srmZKlfqt1S17qHu(label||seatId)}
+        title={agent?https://url.us.m.mimecastprotect.com/s/2W0nCqxkrNTO0w05fNt7SE4Imx(label||seatId)}
         style={{
           width:52, minHeight:36, borderRadius:5, border:`1px solid ${col}`,
           background:agent?col+'22':C.ca, display:'flex', flexDirection:'column',
@@ -3895,9 +3895,26 @@ function DailyPlanner() {
   );
 }
 
+// ── Error Boundary ────────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{minHeight:'100vh',background:'#111318',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:'#1c1f2b',border:'1px solid #ef4444',borderRadius:10,padding:24,maxWidth:700,width:'100%'}}>
+          <div style={{fontFamily:"'Courier New',monospace",fontSize:13,color:'#ef4444',marginBottom:8,letterSpacing:2}}>⚠ RENDER ERROR</div>
+          <pre style={{fontFamily:"'Courier New',monospace",fontSize:11,color:'#dde1ee',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{this.state.error.toString()}{'\n\n'}{this.state.error.stack}</pre>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 // ── Mount ─────────────────────────────────────────────────────────────────────
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<DailyPlanner />);
+root.render(<ErrorBoundary><DailyPlanner /></ErrorBoundary>);
 </script>
 </body>
 </html>
