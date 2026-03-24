@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/pGnGCo2g0LTXqW4Ou1fzSp2pEp', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/l0CoCyPvDYhNXVlkCZf4Sxo-7q', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/3bcRCpYjqMUzM6DYhDh5SGKx6y`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/frfUCzpwEZIRgV09SXhnS9PLgk`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/QE9RCqxkrNTO0wWqtQi7SEKHIS`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/3jSjCADY24h96qv2U9irSGpsVh`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/jrdwCrklvOTAVJ9gCysNS47Vda → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/1ARmCBBY24uV62gBcjsAS22XhD → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3138,13 +3138,14 @@ function SeatingChart({ agents, onUpdateAgent }) {
     const agent = seatMap[seatId];
     const col = tileColor(agent);
     const isFixed = fixed || (agent && SPECIALTY_GOLD.includes(agent.name));
+    const tileTitle = agent ? agent.name : (label || seatId);
     return (
       <div
         draggable={!isFixed && !!agent}
         onDragStart={()=>!isFixed&&agent&&setDragId(agent.id)}
         onDragOver={e=>{if(!isFixed)e.preventDefault();}}
         onDrop={()=>!isFixed&&handleDrop(seatId)}
-        title={agent?https://url.us.m.mimecastprotect.com/s/KoMVCv2pzVTWNVXQfotQSQ9x6J(label||seatId)}
+        title={tileTitle}
         style={{
           width:52, minHeight:36, borderRadius:5, border:`1px solid ${col}`,
           background:agent?col+'22':C.ca, display:'flex', flexDirection:'column',
