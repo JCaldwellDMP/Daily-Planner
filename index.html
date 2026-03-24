@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/BWziCzpwEZIRgoxEU4fnS9cpZX', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/fKCuClY9mGUonNkDHGfrSzbRk8', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/jsAhCADY24h96AnBC8hrSGg-Jm`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/ibTOCmZ9nJT5JN6GfOhzSRInbN`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/RJUSCBBY24uV65M0FNiAS2GvxU`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/T3XMCn59oKHGONxQfNi5SJWM4Z`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/mUgUCDkV24TBvlnwsZsNSjwwCV → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/q5iYCo2g0LTXq38Ji6szSprn8v → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3401,7 +3401,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
 }
 
 // ── DepartmentMode ────────────────────────────────────────────────────────────
-function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent }) {
+function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent, onLoadSeed }) {
   const [deptTab,setDeptTab]     = useState('roster');
   const [selectedId,setSelectedId] = useState(null);
   const [filterSup,setFilterSup]   = useState('');
@@ -3530,6 +3530,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
           <OBtn onClick={()=>{setShowAddAgent(v=>!v);setSelectedId(null);}} style={{marginLeft:'auto',fontSize:10,padding:'3px 10px'}}>
             {showAddAgent?'✕ Cancel':'+ Add Agent'}
           </OBtn>
+          <button onClick={onLoadSeed} style={{fontFamily:MO,fontSize:10,padding:'3px 10px',borderRadius:5,border:'1px solid '+C.gr,background:C.gr+'11',color:C.gr,cursor:'pointer',whiteSpace:'nowrap'}}>📋 Import Roster</button>
         </div>
 
         {filtered.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No active agents match the current filters.</div>}
@@ -3588,16 +3589,68 @@ function DailyPlanner() {
   const adjFont = delta => setFontScale(p=>{ const n=Math.min(1.6,Math.max(0.8,parseFloat((p+delta).toFixed(1)))); try{localStorage.setItem('dps-fontscale',String(n));}catch(e){} return n; });
   const [appMode,setAppMode] = useState(()=>{ try{return store.getItem('dps-mode')||'schedule';}catch(e){return 'schedule';} });
 
+  const mkQ = (prog,ac,da,ent,comm,vid) => {
+    const d = '2024-01-01';
+    return {
+      programming:   {active:!!prog, date:prog?d:null},
+      accessControl: {active:!!ac,   date:ac?d:null},
+      dealerAdmin:   {active:!!da,   date:da?d:null},
+      entre:         {active:!!ent,  date:ent?d:null},
+      communicators: {active:!!comm, date:comm?d:null},
+      video:         {active:!!vid,  date:vid?d:null},
+    };
+  };
+  const SEED_AGENTS = [
+    // name, disc, sup, shift, queues: prog/ac/da/ent/comm/vid
+    ['Ash Jordan',        'S',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,0,1,0,1,0)],
+    ['Bryant Selleck',    'D',  'Ryan Kay',         '7:00-3:30',   mkQ(1,1,0,1,1,1)],
+    ['Chris Schofield',   'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,0,0,1,1)],
+    ['Clinton Smith',     'C',  'Dolan Parnell',   '8:00-4:30',   mkQ(1,0,1,0,0,0)],
+    ['Cody Wilkinson',    'S',  'Stephen Bowen',    '9:30-6:00',   mkQ(1,1,1,0,0,0)],
+    ['Connor Thompson',   'C',  'Ryan Kay',         '10:30-7:00',  mkQ(1,0,1,0,0,0)],
+    ['Cooper Purvis',     'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(0,0,0,0,0,0)],
+    ['Dennis George',     'C',  'Stephen Bowen',    '8:30-5:00',   mkQ(1,1,1,0,1,0)],
+    ['Dustin Stevens',    'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,1,1,1)],
+    ['Eryne Wilson',      'S',  'Stephen Bowen',    '10:30-7:00',  mkQ(1,0,1,0,1,1)],
+    ['Frank Vargas',      'C',  'Stephen Bowen',    '10:30-7:00',  mkQ(1,0,0,0,1,0)],
+    ['Grant Gregory',     'C',  'Ryan Kay',         '9:30-6:00',   mkQ(1,1,1,0,1,0)],
+    ['Helena Carrico',    '',   'Stephen Bowen',    '8:30-5:00',   mkQ(0,0,0,0,0,0)],
+    ['Jacob Middleton',   'C',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,0,0,0)],
+    ['Justin George',     'C',  'Stephen Bowen',    '8:30-5:00',   mkQ(1,1,1,0,1,1)],
+    ['Londin Walton',     '',   'Ryan Kay',         '8:30-5:00',   mkQ(0,0,0,0,0,0)],
+    ['Madi Stout',        'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,1,1,0,0,0)],
+    ['Matt Ozborn',       'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,0,1,1)],
+    ['Meaghen Schofield', 'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,0,0,0)],
+    ['Nolan Longstaff',   'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(1,0,1,0,0,0)],
+    ['Reid Moose',        'C',  'Dolan Parnell',   '7:00-3:30',   mkQ(1,1,1,1,1,1)],
+    ['Shawn Thieleman',   'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,0,1,0,0,0)],
+    ['Shirley Swanson',   'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(1,0,0,0,0,0)],
+    ['Tyler Moose',       'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,0,0,0,0,0)],
+    ['Will Floyd',        '',   'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,0,1,1)],
+    ['Yoseph Almetnawy',  'C',  'Ryan Kay',         '10:30-7:00',  mkQ(1,1,1,1,1,1)],
+    ['Zach Cosby',        'S',  'Dolan Parnell',   '7:00-3:30',   mkQ(1,1,1,1,1,1)],
+    ['Zach Depew',        'C',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,1,1,1)],
+  ];
+
   const migrateAgents = () => {
     try {
       const existing = store.getItem('dps-agents');
       if(existing) return JSON.parse(existing).map(sanitizeAgent);
       const hires  = JSON.parse(store.getItem('dps-hires')  || '[]');
       const alumni = JSON.parse(store.getItem('dps-alumni') || '[]');
-      const merged = [
+      const legacyMerged = [
         ...hires.map(h  => sanitizeAgent({...h, status:'trainee'})),
         ...alumni.map(a => sanitizeAgent({...a, status:'active'})),
       ];
+      const seeded = SEED_AGENTS.map(([name,disc,sup,shift,queues])=>
+        sanitizeAgent({
+          ...initAgent(name,'2024-01-01'),
+          status:'active', discProfile:disc, supervisor:sup,
+          shift, queues,
+          team: supervisorColor(sup),
+        })
+      );
+      const merged = [...legacyMerged, ...seeded];
       store.setItem('dps-agents', JSON.stringify(merged));
       store.removeItem('dps-hires');
       store.removeItem('dps-alumni');
@@ -3609,6 +3662,13 @@ function DailyPlanner() {
   const trainees       = agents.filter(a=>a.status==='trainee');
   const activeAgents   = agents.filter(a=>a.status==='active');
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
+  const loadSeedAgents = () => {
+    if(!window.confirm('This will add all 28 agents from the spreadsheet to your roster. Existing agents will be kept. Continue?')) return;
+    const seeded = SEED_AGENTS.map(([name,disc,sup,shift,queues])=>
+      sanitizeAgent({...initAgent(name,'2024-01-01'),status:'active',discProfile:disc,supervisor:sup,shift,queues,team:supervisorColor(sup)})
+    );
+    setAgents(prev=>[...prev,...seeded]);
+  };
   const updateAgent    = (updated) => setAgents(prev=>prev.map(a=>a.id===updated.id?updated:a));
   const addAgent       = (a) => setAgents(prev=>[...prev,a]);
   const deleteAgent    = (id) => setAgents(prev=>prev.filter(a=>a.id!==id));
@@ -4085,7 +4145,7 @@ function DailyPlanner() {
       {appMode==='training'
         ? <TrainingMode trainees={trainees} agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onGraduateAgent={graduateAgent} onDeleteAgent={deleteAgent}/>
         : appMode==='department'
-        ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent}/>
+        ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent} onLoadSeed={loadSeedAgents}/>
         : <>
           <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'6px 12px',display:'flex',gap:4,flexWrap:'wrap'}}>
             {ALL_TABS.map(t=>{
