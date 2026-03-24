@@ -2457,27 +2457,49 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[] }) {
 
   const generateReport = () => {
     const L=[];
-    L.push('NEW HIRE PROGRESS REPORT\n========================');
-    L.push(`Name: ${hire.name}${hire.supervisor?'\nSupervisor: '+hire.supervisor:''}${hire.discProfile?'\nDISC Profile: '+hire.discProfile:''}\nStart Date: ${fmtShortDate(hire.startDate)}\nCurrent Phase: ${phaseLabel(hire)}\nGenerated: ${new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}`);
-    L.push(`\nTRAINING DAYS COMPLETED (${daysComp}/15 — ${daysPct}%)`);
-    TRAINING_DAYS.forEach(td=>{
-      const d=hire.days[td.day]; const qpct=dayQuizPct(d);
-      let line=`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`;
-      if(d.hasQuiz&&d.quizSent) line+=` | Quiz Sent: ✅`;
-      if(d.hasQuiz&&d.quizComplete) line+=` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}`;
-      L.push(line);
-    });
-    if(hire.finalQuizCorrect!=null&&hire.finalQuizTotal!=null){const fp=Math.round((hire.finalQuizCorrect/hire.finalQuizTotal)*100);L.push(`\nFINAL QUIZ: ${fp}% (${hire.finalQuizCorrect}/${hire.finalQuizTotal})`);}
-    const allPcts=Object.values(hire.days).map(d=>dayQuizPct(d)).filter(s=>s!=null);
-    if(allPcts.length>0){const avg=Math.round(allPcts.reduce((a,b)=>a+b,0)/allPcts.length);L.push(`\nQUIZ PERFORMANCE (per-day)\n  Average: ${avg}%  |  High: ${Math.max(...allPcts)}%  |  Low: ${Math.min(...allPcts)}%`);}
-    const hwEn=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);const hwDn=hwEn.filter(td=>hire.days[td.day]?.hwComplete).length;
-    if(hwEn.length>0){L.push(`\nHOMEWORK (${hwDn}/${hwEn.length} complete)`);hwEn.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — completed ${d.hwDate?fmtShortDate(d.hwDate):'(no date)'}`:`  ☐ Day ${td.day} HW — not submitted`);});}
-    if(hire.doingWell){L.push(`\n✅ DOING WELL\n  ${hire.doingWell}`);}
-    if(hire.areasOfImprovement){L.push(`\n⚠️ AREAS OF IMPROVEMENT\n  ${hire.areasOfImprovement}`);}
+    const today=new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
 
-    if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/${mockGoal} — ${mockPct}%)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved!==false?'✅':'❌'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
-    if(buddyCalls.length>0){L.push(`\nBUDDY CALLS (${buddyCalls.length}/${buddyGoal} — ${buddyPct}%)`);buddyCalls.forEach((c,i)=>{L.push(`  Call ${i+1} — ${fmtShortDate(c.date)}`);if(c.agentNotes)L.push('    Agent: '+c.agentNotes);if(c.traineeNotes)L.push('    Trainee: '+c.traineeNotes);});}
-    if(hire.notes.length>0){L.push('\nSUPERVISOR NOTES');hire.notes.forEach(n=>L.push(`  ${fmtShortDate(n.date)} — ${tagIcon(n.tag)} ${n.tag.charAt(0).toUpperCase()+n.tag.slice(1)}: ${n.body}`));}
+    // HEADER
+    L.push('NEW HIRE PROGRESS REPORT\n========================');
+    L.push(`Name: ${hire.name}${hire.supervisor?'\nSupervisor: '+hire.supervisor:''}${hire.discProfile?'\nDISC Profile: '+hire.discProfile:''}\nStart Date: ${fmtShortDate(hire.startDate)}\nCurrent Phase: ${phaseLabel(hire)}\nGenerated: ${today}`);
+
+    // QUIZ PERFORMANCE
+    const allPcts=Object.values(hire.days).map(d=>dayQuizPct(d)).filter(s=>s!=null);
+    if(allPcts.length>0){
+      const avg=Math.round(allPcts.reduce((a,b)=>a+b,0)/allPcts.length);
+      const hiPct=Math.max(...allPcts); const loPct=Math.min(...allPcts);
+      const hiDay=TRAINING_DAYS.find(td=>dayQuizPct(hire.days[td.day])===hiPct);
+      const loDay=TRAINING_DAYS.find(td=>dayQuizPct(hire.days[td.day])===loPct);
+      L.push(`\nQUIZ PERFORMANCE (per-day)\nAgent's Average Quiz Score: ${avg}%\nAgent's Highest Quiz Score: ${hiPct}%${hiDay?' (Day '+hiDay.day+' — '+hiDay.topics+')':''}\nAgent's Lowest Quiz Score:  ${loPct}%${loDay?' (Day '+loDay.day+' — '+loDay.topics+')':''}`);
+    }
+
+    // DOING WELL / AREAS OF IMPROVEMENT
+    if(hire.doingWell)           L.push(`\nWhat the Agent is Doing Well\n${hire.doingWell}`);
+    if(hire.areasOfImprovement)  L.push(`\nAreas of Improvement\n${hire.areasOfImprovement}`);
+
+    // TRAINING DAYS COMPLETED (completed only)
+    const completedDays=TRAINING_DAYS.filter(td=>hire.days[td.day]?.completed);
+    L.push(`\nTraining Days Completed (${daysComp}/15 = ${daysPct}%)`);
+    if(completedDays.length===0){ L.push('  No days completed yet.'); }
+    else { completedDays.forEach(td=>{
+      const d=hire.days[td.day]; const qpct=dayQuizPct(d);
+      const badge=quizBadge(qpct,td.day);
+      const badgeText=badge?` — ${badge.label.replace('\u25b2 ','').replace('\u25bc ','').replace('= ','')} Score (Compared to other New Hires)`:'';
+      const quizStr=qpct!=null?` | Quiz: ${qpct}% (${d.quizCorrect}/${d.quizTotal})${badgeText}`:'';
+      L.push(`Day ${td.day}${quizStr}\n~ ${td.topics}`);
+    }); }
+
+    // HOMEWORK (completed only)
+    const hwEn=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);
+    const hwDone=hwEn.filter(td=>hire.days[td.day]?.hwComplete);
+    L.push(`\nHomework (${hwDone.length}/${hwEn.length} Completed)`);
+    if(hwDone.length===0){ L.push('  No homework submitted yet.'); }
+    else { hwDone.forEach(td=>L.push(`Day ${td.day} Homework - Completed`)); }
+
+    // NEXT TRAINING DAY
+    const nextDay=TRAINING_DAYS.find(td=>!hire.days[td.day]?.completed);
+    if(nextDay){ L.push(`\nNext Training Day\nDay ${nextDay.day}\n~ ${nextDay.topics}`); }
+
     return L.join('\n');
   };
   const copyReport = () => { const t=generateReport(); navigator.clipboard.writeText(t).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);}); };
@@ -3415,7 +3437,6 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
 
   const activeAgents   = agents.filter(a=>a.status==='active'||a.status==='trainee');
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
-  const supervisors    = [...new Set(agents.map(a=>a.supervisor).filter(Boolean))].sort();
 
   const filtered = activeAgents.filter(a=>{
     if(filterSup  && a.supervisor!==filterSup)  return false;
