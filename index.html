@@ -2484,7 +2484,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[] }) {
     else { completedDays.forEach(td=>{
       const d=hire.days[td.day]; const qpct=dayQuizPct(d);
       const badge=quizBadge(qpct,td.day);
-      const badgeText=badge?` — ${badge.label.replace('\u25b2 ','').replace('\u25bc ','').replace('= ','')} Score (Compared to other New Hires)`:'';
+      const badgeText=badge?` — ${badge.label.replace('\u25b2 ','').replace('\u25bc ','').replace('= ','')} Score`:'';
       const quizStr=qpct!=null?` | Quiz: ${qpct}% (${d.quizCorrect}/${d.quizTotal})${badgeText}`:'';
       L.push(`Day ${td.day}${quizStr}\n~ ${td.topics}`);
     }); }
