@@ -3437,6 +3437,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
 
   const activeAgents   = agents.filter(a=>a.status==='active'||a.status==='trainee');
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
+  const supervisors    = [...new Set(agents.map(a=>a.supervisor).filter(Boolean))].sort();
 
   const filtered = activeAgents.filter(a=>{
     if(filterSup  && a.supervisor!==filterSup)  return false;
