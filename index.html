@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/GoCdCPNV94T4GVpDHzfESxatWB', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/z5E7CG6V24sJY51VCKfYSBB6xW', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/AoqBCQW824t6AZ0DuPhgSGPKSe`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-ZuiCJ6925s8rEq7HGhxSytT45`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/5ir2CR6V09srmZ2KtPi1S1Y20X`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/RUPdCKrV24IqE52jH3ijS5Y2Gm`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/QrLnCVOVk6clwQG4hJspSEy9Je → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/6UYWCL9V24HPjnRJFmsqSy0CSU → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3231,28 +3231,28 @@ function SeatingChart({ agents, onUpdateAgent }) {
     );
   };
 
-  // [seatId, x, y, fixed?]
+  // [seatId, x, y, fixed?]  — x/y = top-left of the 52×44 SeatTile
   const SEATS = [
-    ['adv-1',  14,316], ['adv-2',  70,316],
-    ['adv-3',  14,368], ['adv-4',  70,368],
-    ['net-1', 258,288], ['net-2', 316,288], ['net-3', 374,288], ['net-4', 432,288],
-    ['inv-1', 432,196],
-    ['conf-1',546,238], ['conf-2',604,238], ['conf-3',662,238],
-    ['conf-4',546,290], ['conf-5',604,290], ['conf-6',662,290],
-    ['conf-7',718,300],
-    ['gold-brad', 728,198,true], ['gold-brent',1034,24,true],
-    ['quad-1',942,276], ['quad-2',998,276],
-    ['quad-3',942,328], ['quad-4',998,328],
+    ['adv-1',  16,318], ['adv-2',  74,318],
+    ['adv-3',  16,372], ['adv-4',  74,372],
+    ['net-1', 226,286], ['net-2', 284,286], ['net-3', 342,286], ['net-4', 400,286],
+    ['inv-1', 452,176],
+    ['conf-1',536,222], ['conf-2',596,222], ['conf-3',656,222],
+    ['conf-4',536,278], ['conf-5',596,278], ['conf-6',656,278],
+    ['conf-7',720,286],
+    ['gold-brad',726,196,true], ['gold-brent',1040,22,true],
+    ['quad-1',944,268], ['quad-2',1002,268],
+    ['quad-3',944,322], ['quad-4',1002,322],
     ['main-01', 14,420], ['main-02', 71,420], ['main-03',128,420], ['main-04',185,420],
     ['main-05',247,420], ['main-06',304,420], ['main-07',361,420],
     ['main-08',423,420], ['main-09',480,420], ['main-10',537,420],
     ['main-11',597,420], ['main-12',654,420],
     ['main-13',716,420], ['main-14',773,420],
     ['main-15',835,420], ['main-16',892,420], ['main-17',949,420],
-    ['main-18',1006,420],['main-19',1063,420],
+    ['main-18',1006,420], ['main-19',1063,420],
   ];
 
-  const FW=1120, FH=480;
+  const FW=1120, FH=490;
 
   const supColors = [
     ['Dolan Parnell', TEAM_COLORS['blue']],
@@ -3310,92 +3310,61 @@ function SeatingChart({ agents, onUpdateAgent }) {
               <path d="M 58 0 L 0 0 0 46" fill="none" stroke="#ebebeb" strokeWidth="0.5"/>
             </pattern>
           </defs>
-          {/* Floor fill + subtle grid */}
-          <rect x="3" y="90" width="1114" height="386" fill="#fafafa"/>
-          <rect x="3" y="90" width="1114" height="386" fill="url(#floorGrid)"/>
-          {/* Outer floor outline */}
-          <rect x="3" y="90" width="1114" height="386" fill="none" stroke="black" strokeWidth="3"/>
 
-          {/* Restrooms (dashed) */}
-          <rect x="3" y="98" width="147" height="282" fill="#f0f0f0" stroke="black" strokeWidth="2" strokeDasharray="7,4"/>
-          <line x1="76" y1="98" x2="76" y2="380" stroke="black" strokeWidth="2"/>
-          <rect x="30" y="87" width="30" height="9" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
-          <rect x="95" y="87" width="30" height="9" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
+          {/* ── Floor base ── */}
+          <rect x="3" y="90" width="1114" height="398" fill="#fafafa"/>
+          <rect x="3" y="90" width="1114" height="398" fill="url(#floorGrid)"/>
+          <rect x="3" y="90" width="1114" height="398" fill="none" stroke="black" strokeWidth="3"/>
 
-          {/* Facilities box */}
-          <rect x="226" y="90" width="210" height="52" fill="white" stroke="black" strokeWidth="2"/>
-          {/* IT Networking Room */}
-          <rect x="226" y="142" width="210" height="234" fill="white" stroke="black" strokeWidth="3"/>
-          {/* TS Inventory gray squares */}
-          <rect x="416" y="104" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
-          <rect x="448" y="104" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
-          {/* Customer Care Conference Room */}
-          <rect x="530" y="90" width="238" height="256" fill="white" stroke="black" strokeWidth="3"/>
-          {/* Curved corner top-right */}
-          <path d="M 770 90 C 900 90 1020 155 1040 205 L 1117 205 L 1117 90 Z" fill="white" stroke="black" strokeWidth="2"/>
-          {/* Quad enclosure */}
-          <rect x="922" y="256" width="140" height="100" fill="white" stroke="black" strokeWidth="2"/>
+          {/* ── Restrooms (dashed) ── */}
+          <rect x="3" y="90" width="158" height="292" fill="#f0f0f0" stroke="black" strokeWidth="2" strokeDasharray="7,4"/>
+          <line x1="81" y1="90" x2="81" y2="382" stroke="black" strokeWidth="2"/>
+          <rect x="28" y="79" width="30" height="11" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
+          <rect x="96" y="79" width="30" height="11" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
 
-          {/* ── Main row desk bays (19) ── */}
-          {Array.from({length:19},(_,i)=>{
-            const bx=3+i*58;
-            return <g key={'mb'+i}>
-              <rect x={bx} y={408} width={54} height={66} fill="white" stroke="black" strokeWidth="1.5"/>
-              <rect x={bx+6} y={414} width={42} height={18} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
-            </g>;
-          })}
+          {/* ── Facilities header ── */}
+          <rect x="218" y="90" width="220" height="54" fill="white" stroke="black" strokeWidth="2"/>
 
-          {/* ── ADV-TECH desk bays (2×2 left) ── */}
-          {[[3,300],[59,300],[3,352],[59,352]].map(([bx,by],i)=>(
-            <g key={'ab'+i}>
-              <rect x={bx} y={by} width={52} height={58} fill="white" stroke="black" strokeWidth="1.5"/>
-              <rect x={bx+5} y={by+5} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+          {/* ── IT Networking Room ── */}
+          <rect x="218" y="144" width="220" height="238" fill="white" stroke="black" strokeWidth="3"/>
+
+          {/* ── TS Inventory squares ── */}
+          <rect x="438" y="100" width="28" height="22" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
+          <rect x="470" y="100" width="28" height="22" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
+
+          {/* ── Customer Care Conference Room ── */}
+          <rect x="530" y="90" width="250" height="262" fill="white" stroke="black" strokeWidth="3"/>
+
+          {/* ── Curved corner top-right (Brent Appleby area) ── */}
+          <path d="M 780 90 C 900 90 1042 148 1058 206 L 1117 206 L 1117 90 Z" fill="white" stroke="black" strokeWidth="2"/>
+
+          {/* ── Quad enclosure (right side) ── */}
+          <rect x="918" y="254" width="196" height="128" fill="white" stroke="black" strokeWidth="2"/>
+
+          {/* ── Desk bays: generated from SEATS for perfect tile alignment ── */}
+          {SEATS.filter(([sid])=>!sid.startsWith('gold')).map(([sid,tx,ty])=>(
+            <g key={'bay-'+sid}>
+              <rect x={tx-5} y={ty-14} width={62} height={72} fill="white" stroke="black" strokeWidth="1.5"/>
+              <rect x={tx+1} y={ty-10} width={50} height={10} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
+            </g>
+          ))}
+          {SEATS.filter(([sid])=>sid.startsWith('gold')).map(([sid,tx,ty])=>(
+            <g key={'bayg-'+sid}>
+              <rect x={tx-5} y={ty-14} width={62} height={72} fill="#fffbeb" stroke="#ca8a04" strokeWidth="2"/>
+              <rect x={tx+1} y={ty-10} width={50} height={10} fill="#fef3c7" stroke="#ca8a04" strokeWidth="1"/>
             </g>
           ))}
 
-          {/* ── IT Networking desk bays (1×4 row) ── */}
-          {[244,302,360,418].map((bx,i)=>(
-            <g key={'nb'+i}>
-              <rect x={bx} y={270} width={52} height={60} fill="white" stroke="black" strokeWidth="1.5"/>
-              <rect x={bx+5} y={276} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
-            </g>
-          ))}
-
-          {/* ── Conference room desk bays (3×2) ── */}
-          {[[533,222],[591,222],[649,222],[533,274],[591,274],[649,274]].map(([bx,by],i)=>(
-            <g key={'cb'+i}>
-              <rect x={bx} y={by} width={52} height={52} fill="white" stroke="black" strokeWidth="1.5"/>
-              <rect x={bx+5} y={by+5} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
-            </g>
-          ))}
-          {/* conf-7 offset seat */}
-          <rect x={707} y={284} width={52} height={52} fill="white" stroke="black" strokeWidth="1.5"/>
-          <rect x={712} y={289} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
-
-          {/* ── Quad desk bays (2×2) ── */}
-          {[[928,260],[984,260],[928,312],[984,312]].map(([bx,by],i)=>(
-            <g key={'qb'+i}>
-              <rect x={bx} y={by} width={52} height={52} fill="white" stroke="black" strokeWidth="1.5"/>
-              <rect x={bx+5} y={by+5} width={42} height={16} fill="#e8e8e8" stroke="#bbb" strokeWidth="1"/>
-            </g>
-          ))}
-
-          {/* ── Gold fixed seat bays ── */}
-          <rect x={714} y={182} width={52} height={52} fill="white" stroke="#ca8a04" strokeWidth="2"/>
-          <rect x={719} y={187} width={42} height={16} fill="#fef3c7" stroke="#ca8a04" strokeWidth="1"/>
-          <rect x={1020} y={8} width={52} height={52} fill="white" stroke="#ca8a04" strokeWidth="2"/>
-          <rect x={1025} y={13} width={42} height={16} fill="#fef3c7" stroke="#ca8a04" strokeWidth="1"/>
-
-          {/* Room labels */}
-          <text x="291" y="122" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black">Facilities</text>
-          <text x="271" y="222" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black">IT Networking</text>
-          <text x="289" y="240" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black">Room</text>
-          <text x="456" y="120" fontFamily="Arial" fontSize="8" fill="#444">TS</text>
-          <text x="452" y="130" fontFamily="Arial" fontSize="8" fill="#444">Inv.</text>
-          <text x="580" y="148" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="black">Customer Care</text>
-          <text x="558" y="164" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="black">Conference Room</text>
-          <text x="40" y="240" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,40,240)">{"Women's Restroom"}</text>
-          <text x="112" y="240" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,112,240)">{"Men's Restroom"}</text>
+          {/* ── Room labels ── */}
+          <text x="328" y="124" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Facilities</text>
+          <text x="328" y="214" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">IT Networking</text>
+          <text x="328" y="232" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Room</text>
+          <text x="468" y="114" fontFamily="Arial" fontSize="8" fill="#444" textAnchor="middle">TS</text>
+          <text x="468" y="124" fontFamily="Arial" fontSize="8" fill="#444" textAnchor="middle">Inv.</text>
+          <text x="655" y="144" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="black" textAnchor="middle">Customer Care</text>
+          <text x="655" y="160" fontFamily="Arial" fontWeight="bold" fontSize="12" fill="black" textAnchor="middle">Conference Room</text>
+          <text x="42" y="240" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,42,240)">{"Women's Restroom"}</text>
+          <text x="114" y="240" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,114,240)">{"Men's Restroom"}</text>
         </svg>
 
         {/* Rename modal */}
