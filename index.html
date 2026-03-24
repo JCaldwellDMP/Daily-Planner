@@ -26,6 +26,18 @@
   <!-- Babel Standalone (JSX transform) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <!-- QR sync scripts removed — Gist sync is primary. Re-add if QR fallback is re-enabled. -->
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      document.getElementById('root').innerHTML =
+        '<div style="min-height:100vh;background:#111318;display:flex;align-items:center;justify-content:center;padding:20px">' +
+        '<div style="background:#1c1f2b;border:1px solid #ef4444;border-radius:10px;padding:24px;max-width:700px;width:100%;font-family:monospace">' +
+        '<div style="color:#ef4444;font-size:13px;margin-bottom:8px;letter-spacing:2px">LOAD ERROR</div>' +
+        '<pre style="color:#dde1ee;font-size:11px;white-space:pre-wrap;word-break:break-word">' +
+        msg + '\nLine: ' + line + ' Col: ' + col + '\n' + (err ? err.stack : '') +
+        '</pre></div></div>';
+      return false;
+    };
+  </script>
 </head>
 <body>
   <div id="root"></div>
@@ -1773,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/sQpzCmZ9nJT5J4JnSGfzSRLtw6', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/pGnGCo2g0LTXqW4Ou1fzSp2pEp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1781,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/i_RbCn59oKHGOBOofJh5SJwuoM`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/3bcRCpYjqMUzM6DYhDh5SGKx6y`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1797,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/dXcpCo2g0LTXqWqzhVizSp1FZf`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/QE9RCqxkrNTO0wWqtQi7SEKHIS`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2043,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/ck9XCpYjqMUzM6M8TGs5SGJLdV → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/jrdwCrklvOTAVJ9gCysNS47Vda → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3132,7 +3144,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
         onDragStart={()=>!isFixed&&agent&&setDragId(agent.id)}
         onDragOver={e=>{if(!isFixed)e.preventDefault();}}
         onDrop={()=>!isFixed&&handleDrop(seatId)}
-        title={agent?https://url.us.m.mimecastprotect.com/s/2W0nCqxkrNTO0w05fNt7SE4Imx(label||seatId)}
+        title={agent?https://url.us.m.mimecastprotect.com/s/KoMVCv2pzVTWNVXQfotQSQ9x6J(label||seatId)}
         style={{
           width:52, minHeight:36, borderRadius:5, border:`1px solid ${col}`,
           background:agent?col+'22':C.ca, display:'flex', flexDirection:'column',
