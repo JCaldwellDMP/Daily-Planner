@@ -2502,7 +2502,90 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[] }) {
 
     return L.join('\n');
   };
-  const copyReport = () => { const t=generateReport(); navigator.clipboard.writeText(t).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);}); };
+  const generateReportHtml = () => {
+    const today=new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
+    const mu='#888';const tx='#222';const gr='#1a7a3a';const rd='#b91c1c';const yl='#92710a';
+    const h=(tag,style,content)=>`<${tag} style="${style}">${content}</${tag}>`;
+    const div=(s,c)=>h('div',s,c); const sp=(s,c)=>h('span',s,c); const p=(s,c)=>h('p',s,c);
+    const base='font-family:Calibri,Arial,sans-serif;font-size:14px;color:'+tx+';';
+    const rows=[];
+    // HEADER
+    rows.push(div('margin-bottom:16px;',
+      h('h2','margin:0 0 4px;font-size:18px;color:#222;','NEW HIRE PROGRESS REPORT') +
+      div('font-size:13px;color:'+mu+';line-height:1.8;',
+        sp('','Name: ')+sp('font-weight:bold;color:'+tx+';',hire.name)+'<br/>'+
+        (hire.supervisor?sp('','Supervisor: ')+sp('font-weight:bold;',hire.supervisor)+'<br/>':'')+
+        (hire.discProfile?sp('','DISC Profile: ')+sp('font-weight:bold;',hire.discProfile)+'<br/>':'')+
+        sp('','Start Date: ')+sp('font-weight:bold;',fmtShortDate(hire.startDate))+'<br/>'+
+        sp('','Current Phase: ')+sp('font-weight:bold;',phaseLabel(hire))+'<br/>'+
+        sp('','Generated: ')+sp('font-weight:bold;',today)
+      )
+    ));
+    // QUIZ PERFORMANCE
+    const allPcts=Object.values(hire.days).map(d=>dayQuizPct(d)).filter(s=>s!=null);
+    if(allPcts.length>0){
+      const avg=Math.round(allPcts.reduce((a,b)=>a+b,0)/allPcts.length);
+      const hiPct=Math.max(...allPcts); const loPct=Math.min(...allPcts);
+      const hiDay=TRAINING_DAYS.find(td=>dayQuizPct(hire.days[td.day])===hiPct);
+      const loDay=TRAINING_DAYS.find(td=>dayQuizPct(hire.days[td.day])===loPct);
+      rows.push(
+        div('margin-bottom:16px;border-left:4px solid #3b82f6;padding-left:12px;',
+          h('h3','margin:0 0 8px;font-size:15px;color:#1e40af;','📊 Quiz Performance (per-day)') +
+          div('line-height:2;font-size:13px;',
+            div('',''+sp('color:'+mu+';',"Agent's Average Quiz Score: ")+sp('font-weight:bold;font-size:15px;',avg+'%'))+
+            div('',''+sp('color:'+mu+';',"Agent's Highest Quiz Score: ")+sp('font-weight:bold;color:'+gr+';font-size:15px;',hiPct+'%')+(hiDay?' '+sp('color:'+mu+';font-size:12px;','(Day '+hiDay.day+' — '+hiDay.topics+')'):''))+
+            div('',''+sp('color:'+mu+';',"Agent's Lowest Quiz Score:  ")+sp('font-weight:bold;color:'+rd+';font-size:15px;',loPct+'%')+(loDay?' '+sp('color:'+mu+';font-size:12px;','(Day '+loDay.day+' — '+loDay.topics+')'):''))
+          )
+        )
+      );
+    }
+    // DOING WELL / AREAS OF IMPROVEMENT
+    if(hire.doingWell||hire.areasOfImprovement){
+      const cols=[];
+      if(hire.doingWell) cols.push(div('flex:1;min-width:200px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:10px;',h('div','font-weight:bold;color:'+gr+';margin-bottom:4px;','✅ What the Agent is Doing Well')+div('font-size:13px;color:'+tx+';white-space:pre-wrap;',hire.doingWell)));
+      if(hire.areasOfImprovement) cols.push(div('flex:1;min-width:200px;background:#fefce8;border:1px solid #fde047;border-radius:6px;padding:10px;',h('div','font-weight:bold;color:'+yl+';margin-bottom:4px;','⚠️ Areas of Improvement')+div('font-size:13px;color:'+tx+';white-space:pre-wrap;',hire.areasOfImprovement)));
+      rows.push(div('display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;',cols.join('')));
+    }
+    // TRAINING DAYS COMPLETED
+    const completedDays=TRAINING_DAYS.filter(td=>hire.days[td.day]?.completed);
+    rows.push(h('h3','margin:0 0 8px;font-size:15px;color:#222;',`📋 Training Days Completed (${daysComp}/15 = ${daysPct}%)`));
+    if(completedDays.length===0){ rows.push(p('color:'+mu+';font-size:13px;','No days completed yet.')); }
+    else {
+      const dayRows=completedDays.map(td=>{
+        const d=hire.days[td.day]; const qpct=dayQuizPct(d);
+        const badge=quizBadge(qpct,td.day);
+        const badgeCol=badge?{color:badge.label.includes('Above')?gr:badge.label.includes('Below')?rd:yl}:{color:mu};
+        const badgeHtml=badge?sp('font-weight:bold;color:'+badgeCol.color+';font-size:12px;margin-left:8px;',badge.label.replace('▲ ','').replace('▼ ','').replace('= ','')+ ' Score'):'';
+        const quizHtml=qpct!=null?sp('font-weight:bold;',` | Quiz: ${qpct}% (${d.quizCorrect}/${d.quizTotal})`)+badgeHtml:'';
+        return div('margin-bottom:10px;padding:8px 10px;background:#f8f9fa;border-radius:4px;border-left:3px solid #cbd5e1;',
+          div('font-size:14px;font-weight:bold;color:'+tx+';','Day '+td.day+quizHtml)+
+          div('font-size:12px;color:'+mu+';margin-top:2px;','~ '+td.topics)
+        );
+      });
+      rows.push(div('margin-bottom:16px;',dayRows.join('')));
+    }
+    // HOMEWORK
+    const hwEn=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);
+    const hwDone=hwEn.filter(td=>hire.days[td.day]?.hwComplete);
+    rows.push(h('h3','margin:0 0 8px;font-size:15px;color:#222;',`📎 Homework (${hwDone.length}/${hwEn.length} Completed)`));
+    if(hwDone.length===0){ rows.push(p('color:'+mu+';font-size:13px;','No homework submitted yet.')); }
+    else { rows.push(div('margin-bottom:16px;',hwDone.map(td=>div('font-size:13px;color:'+gr+';line-height:1.8;','✅ Day '+td.day+' Homework — Completed')).join(''))); }
+    // NEXT TRAINING DAY
+    const nextDay=TRAINING_DAYS.find(td=>!hire.days[td.day]?.completed);
+    if(nextDay){ rows.push(div('background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:10px;',h('div','font-weight:bold;color:#1e40af;margin-bottom:4px;','⏭️ Next Training Day')+div('font-size:14px;font-weight:bold;color:'+tx+';','Day '+nextDay.day)+div('font-size:12px;color:'+mu+';margin-top:2px;','~ '+nextDay.topics))); }
+    return `<div style="${base}">${rows.join('')}</div>`;
+  };
+  const copyReport = () => {
+    const html=generateReportHtml();
+    const txt=generateReport();
+    try {
+      const blob=new Blob([html],{type:'text/html'});
+      const txtBlob=new Blob([txt],{type:'text/plain'});
+      navigator.clipboard.write([new ClipboardItem({'text/html':blob,'text/plain':txtBlob})]).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});});
+    } catch(e) {
+      navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);});
+    }
+  };
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
