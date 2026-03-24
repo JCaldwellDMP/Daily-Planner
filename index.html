@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/fKCuClY9mGUonNkDHGfrSzbRk8', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/YzRhCL9V24HPjn5RhBfqSyWz3F', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/ibTOCmZ9nJT5JN6GfOhzSRInbN`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/pQ7yCM8V24I5O4GqikhnS8Qm14`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/T3XMCn59oKHGONxQfNi5SJWM4Z`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/QUL1CNk624TNlm10Hji5SyCtSw`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/q5iYCo2g0LTXq38Ji6szSprn8v → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/WOLpCOY024UARmopirsLSG6kfn → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3413,10 +3413,8 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
   const [newShift,setNewShift] = useState('');
   const [newDisc,setNewDisc]   = useState('');
 
-  const activeAgents   = agents.filter(a=>a.status==='active');
+  const activeAgents   = agents.filter(a=>a.status==='active'||a.status==='trainee');
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
-
-  const supervisors = [...new Set(agents.map(a=>a.supervisor).filter(Boolean))].sort();
 
   const filtered = activeAgents.filter(a=>{
     if(filterSup  && a.supervisor!==filterSup)  return false;
@@ -3457,6 +3455,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
             <div style={{fontFamily:MO,fontSize:9,color:C.mu}}>{agent.supervisor||'No supervisor'}</div>
           </div>
           <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${teamColor}44`,color:teamColor,flexShrink:0,background:teamColor+'11'}}>{agent.team==='none'?'unassigned':agent.team.replace('-',' ')}</span>
+          {agent.status==='trainee'&&<span style={{fontFamily:MO,fontSize:8,padding:'2px 6px',borderRadius:3,border:`1px solid ${C.pu}55`,color:C.pu,background:C.pu+'11',flexShrink:0}}>🎓 training</span>}
         </div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {agent.discProfile&&<span style={{fontFamily:MO,fontSize:9,color:C.pu}}>DISC: {agent.discProfile}</span>}
@@ -3539,7 +3538,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
           {filtered.map(a=><AgentRosterCard key={a.id} agent={a}/>)}
         </div>
 
-        {selectedAgent&&selectedAgent.status==='active'&&<AgentDetail
+        {selectedAgent&&(selectedAgent.status==='active'||selectedAgent.status==='trainee')&&<AgentDetail
           key={selectedAgent.id}
           hire={selectedAgent}
           onUpdate={a=>onUpdateAgent(sanitizeAgent(a))}
