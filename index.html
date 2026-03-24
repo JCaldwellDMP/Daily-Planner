@@ -52,6 +52,38 @@ const C = {
 const MO = "'Courier New', Courier, monospace";
 const PD = { High: C.rd, Medium: C.yl, Low: C.gr };
 
+const SHIFTS = [
+  { id:'7:00-3:30',   label:'7:00 – 3:30',   lunch:'11:00' },
+  { id:'8:00-4:30',   label:'8:00 – 4:30',   lunch:'12:00' },
+  { id:'8:30-5:00',   label:'8:30 – 5:00',   lunch:'12:30' },
+  { id:'9:30-6:00',   label:'9:30 – 6:00',   lunch:'1:30'  },
+  { id:'10:30-7:00',  label:'10:30 – 7:00',  lunch:'2:30'  },
+];
+const QUEUES = [
+  { id:'programming',   label:'Programming / Installation' },
+  { id:'dealerAdmin',   label:'Dealer Admin / Virtual Keypad' },
+  { id:'accessControl', label:'Access Control' },
+  { id:'communicators', label:'Communicators / Takeover Modules' },
+  { id:'video',         label:'Video' },
+  { id:'entre',         label:"Entre' / VR" },
+];
+const ADDITIONAL_ROLES = [
+  { id:'emailManagement', label:'Email Management Team' },
+  { id:'publicBoards',    label:'Managing Public Boards' },
+  { id:'videoBoard',      label:'Managing Video Board' },
+  { id:'repairScrap',     label:'Managing Repair & Scrap' },
+  { id:'inventory',       label:'Managing Inventory' },
+  { id:'wikiEditor',      label:'Wiki Editor' },
+];
+const TEAM_COLORS = {
+  'blue':       '#3b82f6',
+  'dark-green': '#16a34a',
+  'light-green':'#22c55e',
+  'none':       '#52566a',
+};
+const SPECIALTY_RED  = ['Jesse Caldwell','Dolan Parnell','Ryan Kay','Stephen Bowen','Nick Conrad','Chloe Gertner','Garrett Vinson'];
+const SPECIALTY_GOLD = ['Brad Tucker','Brent Appleby'];
+
 const BEFORE8_SLOTS = ['7:00 AM','7:15 AM','7:30 AM','7:45 AM'];
 
 const AFTER5_SLOTS = (() => {
@@ -459,7 +491,7 @@ function TimePicker({ value, onChange }) {
   return (
     <div ref={ref} style={{position:'relative',display:'flex',alignItems:'center',gap:4}}>
       <input type="text" value={value||''} placeholder="HH:MM" onChange={e=>onChange(e.target.value)} style={{...inp,width:70,boxSizing:'border-box'}}/>
-      <button onClick={()=>setOpen(!open)} style={{width:24,height:28,background:open?C.or+'22':C.ca,border:'1px solid '+(open?C.or:C.bo),borderRadius:5,color:open?C.or:C.mu,cursor:'pointer',fontSize:12,padding:0,flexShrink:0}}>🕐</button>
+      <button onClick={()=>setOpen(!open)} style={{width:24,height:28,background:open?C.or+'22':C.ca,border:'1px solid '+(open?C.or:C.bo),borderRadius:5,color:open?C.or:C.mu,cursor:'pointer',fontSize:12,padding:0,flexShrink:0}}>�?</button>
       {open&&(
         <div style={{position:'absolute',top:34,left:0,zIndex:1000,background:'#1a1d26',border:'1px solid '+C.or+'88',borderRadius:8,padding:12,boxShadow:'0 8px 24px rgba(0,0,0,.7)',display:'flex',flexDirection:'column',gap:8,minWidth:180}}>
           <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:2}}>SELECT TIME</div>
@@ -528,7 +560,7 @@ function TimerLogModal({ logs, onSave, onClose, awayMs, trainMs, watchMs, onRese
     <Modal onClose={onClose} width={680} maxH='95vh' flex>
       <div style={{padding:'16px 20px',borderBottom:'1px solid '+C.bo,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
         <div>
-          <div style={{color:C.or,fontFamily:MO,fontSize:11,letterSpacing:2,marginBottom:2}}>⏱ TIMER LOG</div>
+          <div style={{color:C.or,fontFamily:MO,fontSize:11,letterSpacing:2,marginBottom:2}}>�?� TIMER LOG</div>
           <div style={{color:C.tx,fontFamily:MO,fontSize:15,fontWeight:'bold'}}>Session History — Today</div>
         </div>
         <Btn onClick={onClose} style={{padding:'4px 10px'}}>✕</Btn>
@@ -663,7 +695,7 @@ function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onU
       <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Collect & Prioritize</h2>
       <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 16px'}}>Dump everything on your mind, tag the source, then prioritize.</p>
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:16,flexWrap:'wrap'}}>
-        <Btn onClick={onBack}>← Back</Btn>
+        <Btn onClick={onBack}>�? Back</Btn>
         <div style={{display:'flex',gap:6}}>
           {onResetCarry&&<button onClick={onResetCarry} style={{fontFamily:MO,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${C.rd}44`,background:C.rd+'11',color:C.rd,whiteSpace:'nowrap'}} title="Wipe carried tasks for today and re-pull fresh from previous days">↺ Reset & Re-pull</button>}
           <OBtn onClick={onNext} disabled={allTasks.length===0}>Next →</OBtn>
@@ -733,7 +765,7 @@ function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onU
       )}
 
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:4}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext} disabled={allTasks.length===0}>Next →</OBtn>
+        <Btn onClick={onBack}>�? Back</Btn><OBtn onClick={onNext} disabled={allTasks.length===0}>Next →</OBtn>
       </div>
     </div>
   );
@@ -932,7 +964,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
       <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 14px'}}>Click any slot to assign tasks. Multiple items per slot supported.</p>
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:12,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:8}}>
-          <Btn onClick={onBack}>← Back</Btn>
+          <Btn onClick={onBack}>�? Back</Btn>
           <OBtn onClick={onNext}>Next →</OBtn>
         </div>
         {sidebarTasks.length>0&&(
@@ -1067,7 +1099,7 @@ function ScheduleTab({ timeBlocks, tasks, done, timerLogs, deferred={}, onUpdate
       </div>
       {editSlot&&<BlockEditor slot={editSlot} timeBlocks={timeBlocks} allTasks={tasks.filter(t=>!doneSet.has(t.id))} onSave={onUpdateTime} onClose={()=>setEditSlot(null)}/>}
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:16}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext}>Next →</OBtn>
+        <Btn onClick={onBack}>�? Back</Btn><OBtn onClick={onNext}>Next →</OBtn>
       </div>
     </div>
   );
@@ -1117,12 +1149,12 @@ function ProgressTab({ tasks, done, deferred, timeBlocks, onUpdateDone, onUpdate
       <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 14px'}}>Check off tasks as you complete them.</p>
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginBottom:14,flexWrap:'wrap'}}>
         <div style={{display:'flex',gap:8}}>
-          <Btn onClick={onBack}>← Back</Btn>
+          <Btn onClick={onBack}>�? Back</Btn>
           <OBtn onClick={onNext}>Next →</OBtn>
         </div>
         <div style={{display:'flex',gap:6}}>
           {groups.length>0&&<button onClick={()=>setShowSchedule(p=>!p)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:'1px solid '+(showSchedule?C.or:C.bo),background:showSchedule?C.or+'22':C.ca,color:showSchedule?C.or:C.mu}}>📅 Schedule</button>}
-          {tagEntries.length>0&&<button onClick={()=>setShowLabels(p=>!p)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:'1px solid '+(showLabels?C.or:C.bo),background:showLabels?C.or+'22':C.ca,color:showLabels?C.or:C.mu}}>🏷 Labels</button>}
+          {tagEntries.length>0&&<button onClick={()=>setShowLabels(p=>!p)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:'1px solid '+(showLabels?C.or:C.bo),background:showLabels?C.or+'22':C.ca,color:showLabels?C.or:C.mu}}>�?� Labels</button>}
         </div>
       </div>
       <div style={{display:'flex',gap:16,alignItems:'flex-start',flexWrap:isMobile?'wrap':'nowrap'}}>
@@ -1199,7 +1231,7 @@ function ProgressTab({ tasks, done, deferred, timeBlocks, onUpdateDone, onUpdate
         )}
       </div>
       <div style={{display:'flex',gap:10,justifyContent:'space-between',marginTop:20}}>
-        <Btn onClick={onBack}>← Back</Btn><OBtn onClick={onNext}>Next →</OBtn>
+        <Btn onClick={onBack}>�? Back</Btn><OBtn onClick={onNext}>Next →</OBtn>
       </div>
     </div>
   );
@@ -1242,15 +1274,15 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
     const priTag  = i => i.priority ? '['+i.priority[0]+'] ' : '';
     if (copyStyle==='minimal') {
       return copyPlatform==='teams'
-        ? `📅 EOD ${ds}: ✅ ${compItems.length}/${activeTasks.length} (${pctStr}) | 🎓 ${fmtMsShort(trainTotal)} | 👁 ${fmtMsShort(watchTotal)} | 🚶 ${fmtMsShort(awayTotal)}`
+        ? `📅 EOD ${ds}: ✅ ${compItems.length}/${activeTasks.length} (${pctStr}) | 🎓 ${fmtMsShort(trainTotal)} | �? ${fmtMsShort(watchTotal)} | 🚶 ${fmtMsShort(awayTotal)}`
         : `EOD Update ${dateStr} — ${compItems.length}/${activeTasks.length} tasks (${pctStr}). Training ${fmtMsShort(trainTotal)}, Watching ${fmtMsShort(watchTotal)}, Away ${fmtMsShort(awayTotal)}.`;
     }
     if (copyStyle==='plain') {
       if (copyPlatform==='teams') {
         const L=[`📅 **EOD Update — ${dateStr}**`,'']; 
         if(compItems.length){L.push(`✅ **Completed (${compItems.length}):**`);compItems.forEach(i=>L.push('  • '+i.text));L.push('');}
-        if(undoItems.length){L.push(`⏳ **Carrying Forward (${undoItems.length}):**`);undoItems.forEach(i=>L.push('  • '+i.text));L.push('');}
-        L.push(`⏱ Training: ${fmtMsShort(trainTotal)} | Watching: ${fmtMsShort(watchTotal)} | Away: ${fmtMsShort(awayTotal)}`);
+        if(undoItems.length){L.push(`�?� **Carrying Forward (${undoItems.length}):**`);undoItems.forEach(i=>L.push('  • '+i.text));L.push('');}
+        L.push(`�?� Training: ${fmtMsShort(trainTotal)} | Watching: ${fmtMsShort(watchTotal)} | Away: ${fmtMsShort(awayTotal)}`);
         L.push(`📊 Day completion: ${pctStr}`);
         return L.join('\n');
       } else {
@@ -1266,8 +1298,8 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
       const L=[`📅 **DAILY WRAP-UP — ${dateStr}**`,'']; 
       L.push(`✅ **COMPLETED ${compItems.length}/${activeTasks.length} — ${pctStr}**`);
       compItems.forEach(i=>L.push('  [✓] '+priTag(i)+i.text));
-      if(undoItems.length){L.push('');L.push(`⏳ **LEFT UNDONE (${undoItems.length})**`);undoItems.forEach(i=>L.push('  [ ] '+priTag(i)+i.text));}
-      L.push('','⏱ **TIMER SUMMARY**',`  Training:  ${fmtMsShort(trainTotal)}`,`  Watching:  ${fmtMsShort(watchTotal)}`,`  Away:      ${fmtMsShort(awayTotal)}`);
+      if(undoItems.length){L.push('');L.push(`�?� **LEFT UNDONE (${undoItems.length})**`);undoItems.forEach(i=>L.push('  [ ] '+priTag(i)+i.text));}
+      L.push('','�?� **TIMER SUMMARY**',`  Training:  ${fmtMsShort(trainTotal)}`,`  Watching:  ${fmtMsShort(watchTotal)}`,`  Away:      ${fmtMsShort(awayTotal)}`);
       return L.join('\n');
     } else {
       const sep='─'.repeat(42);
@@ -1297,10 +1329,10 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
       <div style={{fontFamily:MO,fontSize:11,color:C.or,letterSpacing:2,marginBottom:4}}>STEP 5 OF 5</div>
       <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>Wrap Up</h2>
       <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 20px'}}>Review your day, save a summary, and carry unfinished work forward.</p>
-      <div style={{marginBottom:16}}><Btn onClick={onBack}>← Back</Btn></div>
+      <div style={{marginBottom:16}}><Btn onClick={onBack}>�? Back</Btn></div>
       {deferredSet.size > 0 && (
         <div style={{fontFamily:MO,fontSize:11,color:C.bl,background:'#0d1520',border:'1px solid '+C.bl+'44',borderRadius:6,padding:'8px 14px',marginBottom:14}}>
-          ⏭ {deferredSet.size} deferred task{deferredSet.size!==1?'s':''} excluded from today's counts and summary.
+          �?� {deferredSet.size} deferred task{deferredSet.size!==1?'s':''} excluded from today's counts and summary.
         </div>
       )}
       <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(3,1fr)',gap:10,marginBottom:16}}>
@@ -1351,7 +1383,7 @@ function WrapUpTab({ tasks, done, timeBlocks, awayMs, trainMs, watchMs, timerLog
           {copied?'✓ COPIED TO CLIPBOARD':'↑ COPY EOD REPORT'}
         </button>
       </div>
-      <div style={{marginTop:4}}><Btn onClick={onBack}>← Back</Btn></div>
+      <div style={{marginTop:4}}><Btn onClick={onBack}>�? Back</Btn></div>
     </div>
   );
 }
@@ -1424,7 +1456,7 @@ function NotesTab({ notes=[], onUpdateNotes, fontSize }) {
 
   return (
     <div>
-      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>📝 Notes</h2>
+      <h2 style={{fontFamily:MO,fontSize:20,color:C.tx,margin:'0 0 6px'}}>�? Notes</h2>
       <p style={{fontFamily:MO,fontSize:13,color:C.mu,margin:'0 0 16px'}}>Day-agnostic observations, ideas, and FYIs. Sorted by newest first.</p>
 
       {/* ── ADD NOTE ── */}
@@ -1453,7 +1485,7 @@ function NotesTab({ notes=[], onUpdateNotes, fontSize }) {
       {/* ── NOTES LIST ── */}
       {filtered.length===0
         ? <div style={{background:C.ca,border:`1px dashed ${C.bo}`,borderRadius:8,padding:'50px 20px',textAlign:'center'}}>
-            <div style={{fontSize:32,marginBottom:10}}>📝</div>
+            <div style={{fontSize:32,marginBottom:10}}>�?</div>
             <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>{notes.length===0?'No notes yet. Add one above.':'No notes match your filter.'}</div>
           </div>
         : filtered.map(note=>(
@@ -1741,7 +1773,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/tU14CpYjqMUzMmk3SPf5SGe9Kb', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/K58ICQW824t6AZ7RixfgSGnQbc', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1781,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/BxpnCqxkrNTO0ZBjUXh7SEL48-`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/PCM-CR6V09srmZNOhNh1S1i1Dr`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1797,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/mPxUCrklvOTAVEMli4iNS48BC6`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/WLHICVOVk6clwQMZcyipSEaZ9D`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -1967,7 +1999,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
             Tasks, schedule, notes, and deferred will be overwritten with incoming data. Timer totals will be merged (highest value wins). Timer logs will be combined.
           </div>
           <div style={{display:'flex',gap:10}}>
-            <Btn onClick={()=>setPending(null)} style={{flex:'0 0 auto',padding:'8px 18px'}}>← Back</Btn>
+            <Btn onClick={()=>setPending(null)} style={{flex:'0 0 auto',padding:'8px 18px'}}>�? Back</Btn>
             <OBtn onClick={doMerge} style={{flex:1,textAlign:'center',padding:'10px 0'}}>✓ Import Session</OBtn>
           </div>
         </div>
@@ -2011,7 +2043,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/u2TCCv2pzVTWNx1ztAsQSQ_jhX → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/ni6PCW69l4sj9o04unsNSodnS8 → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2060,7 +2092,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
                 </div>
                 <canvas ref={canvEl} style={{display:'none'}}/>
                 <div style={{fontFamily:MO,fontSize:11,color:scanning?C.gr:C.mu,letterSpacing:1}}>
-                  {scanning ? '● SCANNING…' : 'Initializing camera…'}
+                  {scanning ? '�? SCANNING…' : 'Initializing camera…'}
                 </div>
               </div>
         )}
@@ -2089,11 +2121,32 @@ const TRAINING_DAYS = [
   {day:15, topics:'Review Day & Final Quiz', review:true, finalQuiz:true},
 ];
 
-const sanitizeHire = h => ({
+const sanitizeAgent = h => ({
   ...h,
   supervisor:     h.supervisor     || '',
   discProfile:    h.discProfile    || '',
-  status:         h.status         || 'active',
+  status:         h.status         || 'trainee',
+  team:           h.team           || 'none',
+  shift:          h.shift          || null,
+  seatId:         h.seatId         || null,
+  queues: {
+    programming:   { active: h.queues?.programming?.active   ?? true,  date: h.queues?.programming?.date   || h.startDate || null },
+    dealerAdmin:   { active: h.queues?.dealerAdmin?.active   ?? false, date: h.queues?.dealerAdmin?.date   || null },
+    accessControl: { active: h.queues?.accessControl?.active ?? false, date: h.queues?.accessControl?.date || null },
+    communicators: { active: h.queues?.communicators?.active ?? false, date: h.queues?.communicators?.date || null },
+    video:         { active: h.queues?.video?.active         ?? false, date: h.queues?.video?.date         || null },
+    entre:         { active: h.queues?.entre?.active         ?? false, date: h.queues?.entre?.date         || null },
+  },
+  additionalRoles: {
+    emailManagement: h.additionalRoles?.emailManagement || false,
+    publicBoards:    h.additionalRoles?.publicBoards    || false,
+    videoBoard:      h.additionalRoles?.videoBoard      || false,
+    repairScrap:     h.additionalRoles?.repairScrap     || false,
+    inventory:       h.additionalRoles?.inventory       || false,
+    wikiEditor:      h.additionalRoles?.wikiEditor      || false,
+  },
+  currentIssues:      h.currentIssues      || '',
+  trainingNeeds:      h.trainingNeeds      || '',
   buddyCalls:     h.buddyCalls     || [],
   buddyCallsGoal: h.buddyCallsGoal || 25,
   mockCalls:      h.mockCalls      || [],
@@ -2126,17 +2179,30 @@ const sanitizeHire = h => ({
   ),
 });
 
-const initHire = (name, startDate) => ({
-  id: nid(), name, startDate, discProfile:'', status:'active',
+const initAgent = (name, startDate) => ({
+  id: nid(), name, startDate,
+  supervisor:'', discProfile:'', status:'trainee',
+  team:'none', shift:null, seatId:null,
+  queues:{
+    programming:   {active:true,  date:startDate},
+    dealerAdmin:   {active:false, date:null},
+    accessControl: {active:false, date:null},
+    communicators: {active:false, date:null},
+    video:         {active:false, date:null},
+    entre:         {active:false, date:null},
+  },
+  additionalRoles:{emailManagement:false,publicBoards:false,videoBoard:false,repairScrap:false,inventory:false,wikiEditor:false},
+  currentIssues:'', trainingNeeds:'', doingWell:'', areasOfImprovement:'',
   days: Object.fromEntries([...Array(15)].map((_,i)=>[i+1,{
     completed:false, completedDate:null,
-    hwComplete:false, hwDate:null,
-    quizSent:false, quizComplete:false, quizCorrect:null, quizTotal:null,
+    hasHw:true, hwComplete:false, hwDate:null,
+    hasQuiz:true, quizSent:false, quizComplete:false, quizCorrect:null, quizTotal:null,
   }])),
-  quizzes: [], mockCalls: [], mockCallsGoal:15,
-  buddyCalls: [], buddyCallsGoal:25,
+  finalQuizCorrect:null, finalQuizTotal:null,
+  mockCalls:[], mockCallsGoal:15,
+  buddyCalls:[], buddyCallsGoal:25,
   buddyChecks:{etiquette:false,patience:false,troubleshooting:false,fielding:false,clearedDate:null},
-  notes: [], doingWell: '', areasOfImprovement: '', finalQuizCorrect: null, finalQuizTotal: null,
+  notes:[],
 });
 
 const fmtShortDate = ds => { const d=new Date(ds+'T12:00:00'); return d.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}); };
@@ -2175,7 +2241,7 @@ function HireCard({ hire, selected, onSelect }) {
           <div style={{fontFamily:MO,fontSize:9,color:C.mu}}>Started {fmtShortDate(hire.startDate)}</div>
           {hire.discProfile&&<div style={{fontFamily:MO,fontSize:9,color:C.pu,marginTop:2}}>DISC: {hire.discProfile}</div>}
         </div>
-        <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}44`,color:hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl,flexShrink:0}}>{hire.status}</span>
+        <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='trainee'?C.yl:C.mu}44`,color:hire.status==='active'?C.gr:hire.status==='trainee'?C.yl:C.mu,flexShrink:0}}>{hire.status}</span>
       </div>
       <div style={{fontFamily:MO,fontSize:10,color:C.or,marginBottom:6}}>{phaseLabel(hire)}</div>
       <div style={{height:4,background:C.bo,borderRadius:2,marginBottom:8}}>
@@ -2252,7 +2318,7 @@ function parseMockCallEmail(txt) {
   return out;
 }
 
-function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
+function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[] }) {
   const [section,setSection]             = useState('days');
   const [hwPrompt,setHwPrompt]           = useState(null);
   const [hwDateDraft,setHwDateDraft]     = useState('');
@@ -2286,11 +2352,11 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
   const TODAY_T = new Date().toISOString().split('T')[0];
   const nowTime = () => { const n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); };
   const inpS = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none',boxSizing:'border-box'};
-  const QUAL = [['needs-work','⚠️ Needs Work',C.rd],['good','👍 Good Work',C.gr],['great','⭐ Great Work',C.yl]];
-  const qualLabel = v => ({good:'👍 Good Work',great:'⭐ Great Work','needs-work':'⚠️ Needs Work'}[v]||'');
+  const QUAL = [['needs-work','⚠�? Needs Work',C.rd],['good','�? Good Work',C.gr],['great','�? Great Work',C.yl]];
+  const qualLabel = v => ({good:'�? Good Work',great:'�? Great Work','needs-work':'⚠�? Needs Work'}[v]||'');
   const qualColor = v => ({'good':C.gr,'great':C.yl,'needs-work':C.rd}[v]||C.mu);
   const tagCol  = t => ({positive:C.gr,improvement:C.yl,milestone:C.bl}[t]||C.mu);
-  const tagIcon = t => ({positive:'👍',improvement:'⚠️',milestone:'📌'}[t]||'📌');
+  const tagIcon = t => ({positive:'�?',improvement:'⚠�?',milestone:'📌'}[t]||'📌');
 
   const daysComp  = Object.values(hire.days).filter(d=>d.completed).length;
   const daysPct   = Math.round((daysComp/15)*100);
@@ -2352,14 +2418,26 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
   const toggleBuddyCheck = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
   const signOff = () => {
     if(!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k]))return;
-    const updated={...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T},status:'complete'};
+    const updated={...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T}};
     onUpdate(updated);
-    if(onArchive&&window.confirm('Training complete! Move this hire to the Alumni archive?')) onArchive(updated);
+    if(onGraduate&&window.confirm('Training complete! Graduate this agent to Active status?')) onGraduate(hire.id);
   };
 
   // Notes
   const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
-  const commitProfile = () => { onUpdate({...hire,name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),supervisor:supDraft.trim(),startDate:startDraft,doingWell:wellDraft.trim(),areasOfImprovement:improveDraft.trim()}); setEditProfile(false); };
+  const [shiftDraft,setShiftDraft]         = useState(hire.shift||'');
+  const [teamDraft,setTeamDraft]           = useState(hire.team||'none');
+  const [queuesDraft,setQueuesDraft]       = useState(hire.queues||{});
+  const [addRolesDraft,setAddRolesDraft]   = useState(hire.additionalRoles||{});
+  const [currentIssuesDraft,setCurrentIssuesDraft] = useState(hire.currentIssues||'');
+  const [trainingNeedsDraft,setTrainingNeedsDraft] = useState(hire.trainingNeeds||'');
+
+  const commitProfile = () => {
+    const base = {name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),supervisor:supDraft.trim(),startDate:startDraft,doingWell:wellDraft.trim(),areasOfImprovement:improveDraft.trim()};
+    const dept = hire.status==='active'?{shift:shiftDraft||null,team:teamDraft,queues:queuesDraft,additionalRoles:addRolesDraft,currentIssues:currentIssuesDraft.trim(),trainingNeeds:trainingNeedsDraft.trim()}:{};
+    onUpdate({...hire,...base,...dept});
+    setEditProfile(false);
+  };
   const saveFinalQuiz = () => { const c=parseFloat(fqCorrect),t=parseFloat(fqTotal); if(!isNaN(c)&&!isNaN(t)&&t>0&&c>=0) onUpdate({...hire,finalQuizCorrect:c,finalQuizTotal:t}); };
 
   const generateReport = () => {
@@ -2369,7 +2447,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
     L.push(`\nTRAINING DAYS COMPLETED (${daysComp}/15 — ${daysPct}%)`);
     TRAINING_DAYS.forEach(td=>{
       const d=hire.days[td.day]; const qpct=dayQuizPct(d);
-      let line=`  ${d.completed?'✅':'☐'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`;
+      let line=`  ${d.completed?'✅':'�?'} Day ${td.day} — ${td.topics}${d.completed&&d.completedDate?' ('+fmtShortDate(d.completedDate)+')':''}`;
       if(d.hasQuiz&&d.quizSent) line+=` | Quiz Sent: ✅`;
       if(d.hasQuiz&&d.quizComplete) line+=` | Quiz: ${qpct!=null?qpct+'% ('+d.quizCorrect+'/'+d.quizTotal+')':'✓'}`;
       L.push(line);
@@ -2378,11 +2456,11 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
     const allPcts=Object.values(hire.days).map(d=>dayQuizPct(d)).filter(s=>s!=null);
     if(allPcts.length>0){const avg=Math.round(allPcts.reduce((a,b)=>a+b,0)/allPcts.length);L.push(`\nQUIZ PERFORMANCE (per-day)\n  Average: ${avg}%  |  High: ${Math.max(...allPcts)}%  |  Low: ${Math.min(...allPcts)}%`);}
     const hwEn=TRAINING_DAYS.filter(td=>!td.review&&hire.days[td.day]?.hasHw!==false);const hwDn=hwEn.filter(td=>hire.days[td.day]?.hwComplete).length;
-    if(hwEn.length>0){L.push(`\nHOMEWORK (${hwDn}/${hwEn.length} complete)`);hwEn.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — completed ${d.hwDate?fmtShortDate(d.hwDate):'(no date)'}`:`  ☐ Day ${td.day} HW — not submitted`);});}
+    if(hwEn.length>0){L.push(`\nHOMEWORK (${hwDn}/${hwEn.length} complete)`);hwEn.forEach(td=>{const d=hire.days[td.day];L.push(d.hwComplete?`  ✅ Day ${td.day} HW — completed ${d.hwDate?fmtShortDate(d.hwDate):'(no date)'}`:`  �? Day ${td.day} HW — not submitted`);});}
     if(hire.doingWell){L.push(`\n✅ DOING WELL\n  ${hire.doingWell}`);}
-    if(hire.areasOfImprovement){L.push(`\n⚠️ AREAS OF IMPROVEMENT\n  ${hire.areasOfImprovement}`);}
+    if(hire.areasOfImprovement){L.push(`\n⚠�? AREAS OF IMPROVEMENT\n  ${hire.areasOfImprovement}`);}
 
-    if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/${mockGoal} — ${mockPct}%)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved!==false?'✅':'❌'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
+    if(hire.mockCalls.length>0){L.push(`\nMOCK CALLS (${hire.mockCalls.length}/${mockGoal} — ${mockPct}%)`);hire.mockCalls.forEach(c=>L.push(`  Call ${c.callNum} — ${fmtShortDate(c.date)} ${c.time||''} | Duration: ${c.duration} min | Resolved: ${c.resolved!==false?'✅':'�?�'} | Notes: ${qualLabel(c.wintouchQuality)} | Overall: ${qualLabel(c.overallPerformance)}`));}
     if(buddyCalls.length>0){L.push(`\nBUDDY CALLS (${buddyCalls.length}/${buddyGoal} — ${buddyPct}%)`);buddyCalls.forEach((c,i)=>{L.push(`  Call ${i+1} — ${fmtShortDate(c.date)}`);if(c.agentNotes)L.push('    Agent: '+c.agentNotes);if(c.traineeNotes)L.push('    Trainee: '+c.traineeNotes);});}
     if(hire.notes.length>0){L.push('\nSUPERVISOR NOTES');hire.notes.forEach(n=>L.push(`  ${fmtShortDate(n.date)} — ${tagIcon(n.tag)} ${n.tag.charAt(0).toUpperCase()+n.tag.slice(1)}: ${n.body}`));}
     return L.join('\n');
@@ -2416,8 +2494,48 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
               <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div><textarea value={wellDraft} onChange={e=>setWellDraft(e.target.value)} placeholder="What are they doing well…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
-              <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div><textarea value={improveDraft} onChange={e=>setImproveDraft(e.target.value)} placeholder="Areas that need improvement…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
+              <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠�? AREAS OF IMPROVEMENT</div><textarea value={improveDraft} onChange={e=>setImproveDraft(e.target.value)} placeholder="Areas that need improvement…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
             </div>
+            {hire.status==='active'&&<div style={{borderTop:'1px solid '+C.bo,paddingTop:10,marginBottom:8}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:2,marginBottom:8}}>�?� DEPARTMENT</div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+                <div style={{flex:'1 1 120px'}}>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>TEAM</div>
+                  <select value={teamDraft} onChange={e=>setTeamDraft(e.target.value)} style={{...inpS,width:'100%',fontSize:11}}>
+                    {Object.entries(TEAM_COLORS).map(([k])=><option key={k} value={k}>{k==='none'?'Unassigned':k.replace('-',' ')}</option>)}
+                  </select>
+                </div>
+                <div style={{flex:'1 1 140px'}}>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>SHIFT</div>
+                  <select value={shiftDraft||''} onChange={e=>setShiftDraft(e.target.value)} style={{...inpS,width:'100%',fontSize:11}}>
+                    <option value="">Not set</option>
+                    {SHIFTS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{marginBottom:8}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>QUEUES</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {QUEUES.map(q=>{
+                    const active=queuesDraft?.[q.id]?.active??false;
+                    return <button key={q.id} onClick={()=>setQueuesDraft(p=>({...p,[q.id]:{active:!active,date:!active?new Date().toISOString().split('T')[0]:p?.[q.id]?.date||null}}))} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${active?C.bl:C.bo}`,background:active?C.bl+'22':C.ca,color:active?C.bl:C.mu}}>{q.label.split('/')[0].trim()}</button>;
+                  })}
+                </div>
+              </div>
+              <div style={{marginBottom:8}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>ADDITIONAL ROLES</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {ADDITIONAL_ROLES.map(r=>{
+                    const on=addRolesDraft?.[r.id]??false;
+                    return <button key={r.id} onClick={()=>setAddRolesDraft(p=>({...p,[r.id]:!on}))} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${on?C.pu:C.bo}`,background:on?C.pu+'22':C.ca,color:on?C.pu:C.mu}}>{r.label}</button>;
+                  })}
+                </div>
+              </div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.rd,letterSpacing:1,marginBottom:4}}>⚠�? CURRENT ISSUES</div><textarea value={currentIssuesDraft} onChange={e=>setCurrentIssuesDraft(e.target.value)} placeholder="Any active issues…" rows={2} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
+                <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>📚 TRAINING NEEDS</div><textarea value={trainingNeedsDraft} onChange={e=>setTrainingNeedsDraft(e.target.value)} placeholder="Skills to develop…" rows={2} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
+              </div>
+            </div>}
             <div style={{display:'flex',gap:8}}><OBtn onClick={commitProfile} style={{fontSize:11,padding:'5px 14px'}}>Save</OBtn><Btn onClick={()=>setEditProfile(false)} style={{fontSize:11}}>Cancel</Btn></div>
           </div>
         ) : (
@@ -2426,7 +2544,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
               <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:3}}>
                 <div style={{fontFamily:MO,fontSize:15,fontWeight:'bold',color:C.tx}}>{hire.name}</div>
                 {hire.discProfile&&<span style={{fontFamily:MO,fontSize:10,padding:'1px 7px',borderRadius:3,border:'1px solid '+C.pu+'55',color:C.pu,background:C.pu+'11'}}>DISC: {hire.discProfile}</span>}
-                <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}44`,color:hire.status==='active'?C.gr:hire.status==='complete'?C.bl:C.yl}}>{hire.status}</span>
+                <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${hire.status==='active'?C.gr:hire.status==='trainee'?C.yl:C.mu}44`,color:hire.status==='active'?C.gr:hire.status==='trainee'?C.yl:C.mu}}>{hire.status}</span>
               </div>
               <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>Started {fmtShortDate(hire.startDate)}{hire.supervisor?' · Supervisor: '+hire.supervisor:''} · {phaseLabel(hire)}</div>
             </div>
@@ -2445,7 +2563,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
           {[
             [`📋 Days`,`${daysComp}/15`,daysPct>=100?C.gr:C.or,`${daysPct}%`],
             [`📞 Calls`,`${hire.mockCalls.length}/${mockGoal}`,mockPct>=100?C.gr:C.or,`${mockPct}%`],
-            [`🤝 Buddy`,`${buddyCalls.length}/${buddyGoal}`,buddyPct>=100?C.gr:C.bl,`${buddyPct}%`],
+            [`�? Buddy`,`${buddyCalls.length}/${buddyGoal}`,buddyPct>=100?C.gr:C.bl,`${buddyPct}%`],
             [`📌 Notes`,`${hire.notes.length}`,'',''],
           ].map(([label,val,col,pct])=>(
             <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
@@ -2454,7 +2572,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
             </div>
           ))}
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>📝 Homework</div>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>�? Homework</div>
             <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hwDoneCount===hwEnabledDays.length&&hwEnabledDays.length>0?C.gr:C.tx}}>{hwDoneCount}/{hwEnabledDays.length}</div>
           </div>
         </div>
@@ -2466,7 +2584,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
             </div>
           ))}
           {finalQuizPct!=null&&<div style={{background:C.ca,border:'1px solid '+C.or+'44',borderRadius:6,padding:'6px 10px',flex:'1 1 80px',minWidth:80}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.or,marginBottom:2}}>🏁 Final Quiz</div>
+            <div style={{fontFamily:MO,fontSize:9,color:C.or,marginBottom:2}}>�?? Final Quiz</div>
             <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd}}>{finalQuizPct}% <span style={{fontSize:10,color:C.mu}}>({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span></div>
           </div>}
         </div>}
@@ -2476,11 +2594,66 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
             <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.doingWell}</div>
           </div>}
           {hire.areasOfImprovement&&<div style={{flex:'1 1 200px',background:C.yl+'0d',border:'1px solid '+C.yl+'33',borderRadius:6,padding:'8px 10px'}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div>
+            <div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠�? AREAS OF IMPROVEMENT</div>
             <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.areasOfImprovement}</div>
           </div>}
         </div>}
       </div>
+
+      {/* DEPARTMENT FIELDS — visible when status === 'active' */}
+      {hire.status==='active'&&(()=>{
+        const [deptOpen,setDeptOpen] = [useState(false)[0], useState(false)[1]]; // local toggle — we'll use a ref trick
+        // Since we can't use extra useState here, we inline the section always open (collapsible via AgentDetail parent state is fine)
+        const teamColor = TEAM_COLORS[hire.team||'none']||C.mu;
+        const activeQueues = QUEUES.filter(q=>hire.queues?.[q.id]?.active);
+        const activeRoles  = ADDITIONAL_ROLES.filter(r=>hire.additionalRoles?.[r.id]);
+        const shiftInfo    = SHIFTS.find(s=>s.id===hire.shift);
+        return (
+          <div style={{background:C.su,borderBottom:'1px solid '+C.bo,padding:'12px 16px'}}>
+            <div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:2,marginBottom:10}}>�?� DEPARTMENT INFO</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>TEAM</div>
+                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:teamColor}}>{hire.team==='none'?'Unassigned':hire.team.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+              </div>
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SHIFT</div>
+                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:shiftInfo?C.tx:C.mu}}>{shiftInfo?shiftInfo.label:'Not set'}</div>
+              </div>
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SEAT</div>
+                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:hire.seatId?C.tx:C.mu}}>{hire.seatId||'Unassigned'}</div>
+              </div>
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'2 1 160px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:4}}>QUEUES ({activeQueues.length})</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {activeQueues.length===0?<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>None active</span>:activeQueues.map(q=>(
+                    <span key={q.id} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,background:C.bl+'22',border:'1px solid '+C.bl+'44',color:C.bl}}>{q.label.split('/')[0].trim()}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {activeRoles.length>0&&<div style={{marginBottom:(hire.currentIssues||hire.trainingNeeds)?10:0}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:4}}>ADDITIONAL ROLES</div>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {activeRoles.map(r=>(
+                  <span key={r.id} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,background:C.pu+'22',border:'1px solid '+C.pu+'44',color:C.pu}}>{r.label}</span>
+                ))}
+              </div>
+            </div>}
+            {(hire.currentIssues||hire.trainingNeeds)&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              {hire.currentIssues&&<div style={{flex:'1 1 200px',background:C.rd+'0d',border:'1px solid '+C.rd+'33',borderRadius:6,padding:'8px 10px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.rd,letterSpacing:1,marginBottom:4}}>⚠�? CURRENT ISSUES</div>
+                <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.currentIssues}</div>
+              </div>}
+              {hire.trainingNeeds&&<div style={{flex:'1 1 200px',background:C.yl+'0d',border:'1px solid '+C.yl+'33',borderRadius:6,padding:'8px 10px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>📚 TRAINING NEEDS</div>
+                <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.trainingNeeds}</div>
+              </div>}
+            </div>}
+          </div>
+        );
+      })()}
 
       {/* DISC INTERACTION GUIDE */}
       {(()=>{
@@ -2536,7 +2709,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
         {[
           ['days',  `📋 Days ${daysComp}/15 · ${daysPct}%`],
           ['mocks', `📞 Calls ${hire.mockCalls.length}/${mockGoal} · ${mockPct}%`],
-          ['buddy', `🤝 Buddy ${buddyCalls.length}/${buddyGoal} · ${buddyPct}%`],
+          ['buddy', `�? Buddy ${buddyCalls.length}/${buddyGoal} · ${buddyPct}%`],
           ['notes', '📌 Notes'],
         ].map(([k,l])=>(
           <button key={k} onClick={()=>setSection(k)} style={{fontFamily:MO,fontSize:11,padding:'9px 16px',cursor:'pointer',border:'none',borderBottom:`2px solid ${section===k?C.or:'transparent'}`,background:'transparent',color:section===k?C.or:C.mu,transition:'all .15s',flex:1,whiteSpace:'nowrap'}}>{l}</button>
@@ -2618,7 +2791,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
                   </div>}
 
                   {td.finalQuiz&&<div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4,paddingTop:4,borderTop:'1px solid '+C.bo}}>
-                    <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>🏁 Final Quiz:</span>
+                    <span style={{fontFamily:MO,fontSize:10,color:C.or,flexShrink:0}}>�?? Final Quiz:</span>
                     <input type="number" min={0} step={0.5} value={fqCorrect} onChange={e=>setFqCorrect(e.target.value)} placeholder="?" title="Correct" style={{...inpS,width:52,padding:'3px 8px',fontSize:11}}/>
                     <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>/</span>
                     <input type="number" min={1} step={0.5} value={fqTotal} onChange={e=>setFqTotal(e.target.value)} placeholder="?" title="Total" style={{...inpS,width:52,padding:'3px 8px',fontSize:11}}/>
@@ -2679,7 +2852,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
               <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>DID THEY RESOLVE?</div>
                 <div style={{display:'flex',gap:6}}>
                   <button onClick={()=>setCallDraft(p=>({...p,resolved:true}))} style={{fontFamily:MO,fontSize:11,padding:'4px 12px',borderRadius:4,cursor:'pointer',border:`1px solid ${callDraft.resolved!==false?C.gr:C.bo}`,background:callDraft.resolved!==false?C.gr+'22':C.ca,color:callDraft.resolved!==false?C.gr:C.mu}}>✅ Yes</button>
-                  <button onClick={()=>setCallDraft(p=>({...p,resolved:false}))} style={{fontFamily:MO,fontSize:11,padding:'4px 12px',borderRadius:4,cursor:'pointer',border:`1px solid ${callDraft.resolved===false?C.rd:C.bo}`,background:callDraft.resolved===false?C.rd+'22':C.ca,color:callDraft.resolved===false?C.rd:C.mu}}>❌ No</button>
+                  <button onClick={()=>setCallDraft(p=>({...p,resolved:false}))} style={{fontFamily:MO,fontSize:11,padding:'4px 12px',borderRadius:4,cursor:'pointer',border:`1px solid ${callDraft.resolved===false?C.rd:C.bo}`,background:callDraft.resolved===false?C.rd+'22':C.ca,color:callDraft.resolved===false?C.rd:C.mu}}>�?� No</button>
                 </div>
               </div>
               <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:5}}>WINTOUCH NOTES QUALITY</div>
@@ -2699,8 +2872,8 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
                 <div onClick={()=>setExpandedCall(isExp?null:call.id)} style={{display:'flex',gap:8,alignItems:'center',padding:'8px 12px',cursor:'pointer',flexWrap:'wrap'}}>
                   <span style={{fontFamily:MO,fontSize:11,fontWeight:'bold',color:C.or,flexShrink:0}}>#{call.callNum}</span>
                   <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>{fmtShortDate(call.date)} {call.time}</span>
-                  <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>⏱ {call.duration} min</span>
-                  <span style={{fontFamily:MO,fontSize:10,color:call.resolved!==false?C.gr:C.rd,flexShrink:0}}>{call.resolved!==false?'✅ Resolved':'❌ Unresolved'}</span>
+                  <span style={{fontFamily:MO,fontSize:10,color:C.mu,flexShrink:0}}>�?� {call.duration} min</span>
+                  <span style={{fontFamily:MO,fontSize:10,color:call.resolved!==false?C.gr:C.rd,flexShrink:0}}>{call.resolved!==false?'✅ Resolved':'�?� Unresolved'}</span>
                   <span style={{fontFamily:MO,fontSize:10,color:qualColor(call.overallPerformance),flex:1,textAlign:'right',whiteSpace:'nowrap'}}>{qualLabel(call.overallPerformance)}</span>
                   <button onClick={e=>{e.stopPropagation();onUpdate({...hire,mockCalls:hire.mockCalls.filter(c=>c.id!==call.id)});}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11,flexShrink:0}}>✕</button>
                 </div>
@@ -2806,7 +2979,7 @@ function HireDetail({ hire, onUpdate, onArchive, peerHires=[] }) {
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>ADD SUPERVISOR NOTE</div>
             <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-              {[['positive','👍 Positive',C.gr],['improvement','⚠️ Improvement',C.yl],['milestone','📌 Milestone',C.bl]].map(([k,l,col])=>(
+              {[['positive','�? Positive',C.gr],['improvement','⚠�? Improvement',C.yl],['milestone','📌 Milestone',C.bl]].map(([k,l,col])=>(
                 <button key={k} onClick={()=>setNoteTag(k)} style={{fontFamily:MO,fontSize:11,padding:'4px 10px',borderRadius:4,cursor:'pointer',border:`1px solid ${noteTag===k?col:C.bo}`,background:noteTag===k?col+'22':C.ca,color:noteTag===k?col:C.mu}}>{l}</button>
               ))}
             </div>
@@ -2854,93 +3027,56 @@ const AddForm = ({isAlumni, onSave, onCancel, name, setName, start, setStart, su
   );
 };
 
-function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
+function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateAgent, onDeleteAgent }) {
   const [selectedId,setSelectedId]   = useState(null);
-  const [roster,setRoster]           = useState('active'); // 'active' | 'alumni'
   const [showAdd,setShowAdd]         = useState(false);
-  const [showAddAlumni,setShowAddAlumni] = useState(false);
   const [newName,setNewName]         = useState('');
   const [newStart,setNewStart]       = useState(new Date().toISOString().split('T')[0]);
   const [newSup,setNewSup]           = useState('');
   const [newDisc,setNewDisc]         = useState('');
 
-  const activeList  = hires;
-  const alumniList  = alumni;
-  const displayList = roster==='active' ? activeList : alumniList;
-  const selectedHire = displayList.find(h=>h.id===selectedId);
+  const selectedHire = trainees.find(h=>h.id===selectedId);
   const inpS = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none'};
 
   const addHire = () => {
     if(!newName.trim()) return;
-    if(hires.length>=3){ alert('Maximum 3 active hires supported.'); return; }
-    const h={...initHire(newName.trim(),newStart),supervisor:newSup.trim(),discProfile:newDisc.trim()};
-    onUpdateHires([...hires,h]);
+    if(trainees.length>=3){ alert('Maximum 3 active trainees supported.'); return; }
+    const h={...initAgent(newName.trim(),newStart),supervisor:newSup.trim(),discProfile:newDisc.trim()};
+    onAddAgent(h);
     setSelectedId(h.id); setShowAdd(false); setNewName(''); setNewSup(''); setNewDisc('');
   };
 
-  const addAlumni = () => {
-    if(!newName.trim()) return;
-    const h={...initHire(newName.trim(),newStart,true),supervisor:newSup.trim(),discProfile:newDisc.trim()};
-    onUpdateAlumni([...alumni,h]);
-    setSelectedId(h.id); setShowAddAlumni(false); setNewName(''); setNewSup(''); setNewDisc('');
-  };
-
-  const updateHire = hire => {
-    const s=sanitizeHire(hire);
-    if(roster==='active') onUpdateHires(hires.map(h=>h.id===s.id?s:h));
-    else onUpdateAlumni(alumni.map(h=>h.id===s.id?s:h));
-  };
-
-  const archiveHire = hire => {
-    onUpdateAlumni([...alumni,{...hire,status:'complete'}]);
-    onUpdateHires(hires.filter(h=>h.id!==hire.id));
-    setSelectedId(null);
-  };
+  const updateHire = hire => onUpdateAgent(sanitizeAgent(hire));
 
   const deleteHire = id => {
     if(!window.confirm('Delete this record and all data?')) return;
-    if(roster==='active'){ onUpdateHires(hires.filter(h=>h.id!==id)); }
-    else { onUpdateAlumni(alumni.filter(h=>h.id!==id)); }
+    onDeleteAgent(id);
     if(selectedId===id) setSelectedId(null);
   };
-
-
 
   return (
     <div style={{padding:'24px 20px'}}>
       <div style={{fontFamily:MO,fontSize:11,color:C.pu,letterSpacing:2,marginBottom:4}}>NEW HIRE TRAINING TRACKER</div>
 
-      {/* Roster toggle + action buttons */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:8}}>
-        <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo}}>
-          <button onClick={()=>{setRoster('active');setSelectedId(null);setShowAdd(false);setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',background:roster==='active'?C.pu:C.ca,color:roster==='active'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
-            👥 Active ({activeList.length})
-          </button>
-          <button onClick={()=>{setRoster('alumni');setSelectedId(null);setShowAdd(false);setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 20px',border:'none',borderLeft:'1px solid '+C.bo,background:roster==='alumni'?C.bl:C.ca,color:roster==='alumni'?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
-            🏆 Alumni ({alumniList.length})
-          </button>
-        </div>
+        <div style={{fontFamily:MO,fontSize:12,color:C.mu}}>Active Trainees: <span style={{color:C.pu,fontWeight:'bold'}}>{trainees.length}</span> / 3</div>
         <div style={{display:'flex',gap:6}}>
-          {roster==='active'&&activeList.length<3&&!showAdd&&!showAddAlumni&&<OBtn onClick={()=>setShowAdd(true)}>+ Add Trainee</OBtn>}
-          {roster==='alumni'&&!showAddAlumni&&!showAdd&&<button onClick={()=>setShowAddAlumni(true)} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 16px',border:'none',borderRadius:6,background:C.bl,color:'#fff',cursor:'pointer'}}>+ Add Past Trainee</button>}
+          {trainees.length<3&&!showAdd&&<OBtn onClick={()=>setShowAdd(true)}>+ Add Trainee</OBtn>}
         </div>
       </div>
 
       {showAdd&&<AddForm isAlumni={false} onSave={addHire} onCancel={()=>{setShowAdd(false);setNewName('');setNewSup('');setNewDisc('');}} name={newName} setName={setNewName} start={newStart} setStart={setNewStart} sup={newSup} setSup={setNewSup} disc={newDisc} setDisc={setNewDisc}/>}
-      {showAddAlumni&&<AddForm isAlumni={true} onSave={addAlumni} onCancel={()=>{setShowAddAlumni(false);setNewName('');setNewSup('');setNewDisc('');}} name={newName} setName={setNewName} start={newStart} setStart={setNewStart} sup={newSup} setSup={setNewSup} disc={newDisc} setDisc={setNewDisc}/>}
 
-      {displayList.length===0&&!showAdd&&!showAddAlumni&&(
+      {trainees.length===0&&!showAdd&&(
         <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'50px 20px',textAlign:'center'}}>
-          <div style={{fontSize:36,marginBottom:12}}>{roster==='alumni'?'🏆':'👥'}</div>
-          <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>
-            {roster==='alumni'?'No alumni yet. Hires move here after sign-off, or add past trainees manually.':'No active hires. Click + New Hire to begin tracking.'}
-          </div>
+          <div style={{fontSize:36,marginBottom:12}}>👥</div>
+          <div style={{fontFamily:MO,fontSize:13,color:C.mu}}>No active trainees. Click + Add Trainee to begin tracking.</div>
         </div>
       )}
 
-      {displayList.length>0&&(
+      {trainees.length>0&&(
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-          {displayList.map(h=>(
+          {trainees.map(h=>(
             <div key={h.id} style={{position:'relative',flex:'1 1 190px',maxWidth:280}}>
               <HireCard hire={h} selected={selectedId===h.id} onSelect={id=>setSelectedId(selectedId===id?null:id)}/>
               <button onClick={()=>deleteHire(h.id)} title="Delete record" style={{position:'absolute',top:6,right:6,background:C.ca,border:'1px solid '+C.bo,borderRadius:3,color:C.mu,cursor:'pointer',fontSize:10,padding:'1px 5px',lineHeight:1}}>✕</button>
@@ -2949,13 +3085,256 @@ function TrainingMode({ hires, onUpdateHires, alumni, onUpdateAlumni }) {
         </div>
       )}
 
-      {selectedHire&&<HireDetail
+      {selectedHire&&<AgentDetail
         key={selectedHire.id}
         hire={selectedHire}
         onUpdate={updateHire}
-        onArchive={roster==='active'?archiveHire:null}
-        peerHires={[...activeList,...alumniList].filter(h=>h.id!==selectedHire.id)}
+        onGraduate={onGraduateAgent}
+        peerHires={agents.filter(h=>h.id!==selectedHire.id)}
       />}
+    </div>
+  );
+}
+
+// ── SeatingChart ──────────────────────────────────────────────────────────────
+function SeatingChart({ agents, onUpdateAgent }) {
+  const [dragId,setDragId] = useState(null);
+
+  const seatMap = {}; // seatId → agent
+  agents.filter(a=>a.seatId).forEach(a=>{ seatMap[a.seatId]=a; });
+
+  const tileColor = a => {
+    if(!a) return C.mu+'44';
+    if(SPECIALTY_GOLD.includes(a.name)) return '#eab308';
+    if(SPECIALTY_RED.includes(a.name))  return C.rd;
+    return TEAM_COLORS[a.team||'none']||C.mu;
+  };
+
+  const handleDrop = (toSeatId) => {
+    if(!dragId||!toSeatId) return;
+    const fromAgent = agents.find(a=>a.id===dragId);
+    if(!fromAgent) return;
+    if(SPECIALTY_GOLD.includes(seatMap[toSeatId]?.name)) return; // can't drop on gold
+    const toAgent = seatMap[toSeatId];
+    if(toAgent) {
+      // swap
+      onUpdateAgent({...toAgent, seatId: fromAgent.seatId});
+    }
+    onUpdateAgent({...fromAgent, seatId: toSeatId});
+    setDragId(null);
+  };
+
+  const SeatTile = ({seatId, label, fixed=false}) => {
+    const agent = seatMap[seatId];
+    const col = tileColor(agent);
+    const isFixed = fixed || (agent && SPECIALTY_GOLD.includes(agent.name));
+    return (
+      <div
+        draggable={!isFixed && !!agent}
+        onDragStart={()=>!isFixed&&agent&&setDragId(agent.id)}
+        onDragOver={e=>{if(!isFixed)e.preventDefault();}}
+        onDrop={()=>!isFixed&&handleDrop(seatId)}
+        title={agent?https://url.us.m.mimecastprotect.com/s/TernCXD904hn5rm9ImtYSWWavd(label||seatId)}
+        style={{
+          width:52, minHeight:36, borderRadius:5, border:`1px solid ${col}`,
+          background:agent?col+'22':C.ca, display:'flex', flexDirection:'column',
+          alignItems:'center', justifyContent:'center', padding:'3px 2px',
+          cursor:isFixed?'default':agent?'grab':'default',
+          fontSize:9, fontFamily:MO, color:col, textAlign:'center', lineHeight:1.2,
+          boxSizing:'border-box', userSelect:'none', transition:'all .15s',
+          opacity:dragId&&dragId===agent?.id?0.4:1,
+        }}>
+        {agent
+          ? <span style={{wordBreak:'break-word',fontSize:8}}>{agent.name.split(' ').map(w=>w[0]).join('')} <br/>{agent.name.split(' ').slice(-1)[0].slice(0,7)}</span>
+          : <span style={{color:C.mu,fontSize:8}}>{label||seatId.split('-').pop()}</span>
+        }
+      </div>
+    );
+  };
+
+  const Zone = ({title, children, style={}}) => (
+    <div style={{border:'1px solid '+C.bo, borderRadius:8, padding:'8px 10px', background:C.su, ...style}}>
+      <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:6}}>{title}</div>
+      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{children}</div>
+    </div>
+  );
+
+  // main row seats 1-19
+  const mainSeats = Array.from({length:19},(_,i)=>`main-${String(i+1).padStart(2,'0')}`);
+
+  return (
+    <div style={{padding:'16px',overflowX:'auto'}}>
+      <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:12}}>Drag agent tiles to swap seats. Gold seats are fixed.</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+        <Zone title="ADV TECH" style={{flex:'0 0 auto'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="adv-1"/><SeatTile seatId="adv-2"/></div>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="adv-3"/><SeatTile seatId="adv-4"/></div>
+          </div>
+        </Zone>
+        <Zone title="IT NETWORKING" style={{flex:'0 0 auto'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="net-1"/><SeatTile seatId="net-2"/></div>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="net-3"/><SeatTile seatId="net-4"/></div>
+          </div>
+        </Zone>
+        <Zone title="TS INVENTORY" style={{flex:'0 0 auto'}}>
+          <SeatTile seatId="inv-1"/>
+        </Zone>
+        <Zone title="CONF ROOM" style={{flex:'0 0 auto'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="conf-1"/><SeatTile seatId="conf-2"/><SeatTile seatId="conf-3"/></div>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="conf-4"/><SeatTile seatId="conf-5"/><SeatTile seatId="conf-6"/></div>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="conf-7"/></div>
+          </div>
+        </Zone>
+        <Zone title="QUAD" style={{flex:'0 0 auto'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="quad-1"/><SeatTile seatId="quad-2"/></div>
+            <div style={{display:'flex',gap:4}}><SeatTile seatId="quad-3"/><SeatTile seatId="quad-4"/></div>
+          </div>
+        </Zone>
+        <Zone title="GOLD (FIXED)" style={{flex:'0 0 auto'}}>
+          <SeatTile seatId="gold-brad" fixed/><SeatTile seatId="gold-brent" fixed/>
+        </Zone>
+      </div>
+      <Zone title="MAIN ROW (01 – 19)" style={{marginTop:4}}>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+          {mainSeats.map(id=><SeatTile key={id} seatId={id}/>)}
+        </div>
+      </Zone>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+        {[['blue','Blue Team'],['dark-green','Dark Green'],['light-green','Light Green'],['none','Unassigned']].map(([k,l])=>(
+          <span key={k} style={{fontFamily:MO,fontSize:9,color:TEAM_COLORS[k],display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:10,height:10,borderRadius:2,background:TEAM_COLORS[k],display:'inline-block'}}/>
+            {l}
+          </span>
+        ))}
+        <span style={{fontFamily:MO,fontSize:9,color:C.rd,display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.rd,display:'inline-block'}}/>Specialty</span>
+        <span style={{fontFamily:MO,fontSize:9,color:'#eab308',display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:'#eab308',display:'inline-block'}}/>Fixed</span>
+      </div>
+    </div>
+  );
+}
+
+// ── DepartmentMode ────────────────────────────────────────────────────────────
+function DepartmentMode({ agents, onUpdateAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent }) {
+  const [deptTab,setDeptTab]     = useState('roster'); // 'roster' | 'seating' | 'inactive'
+  const [selectedId,setSelectedId] = useState(null);
+  const [filterSup,setFilterSup]   = useState('');
+  const [filterTeam,setFilterTeam] = useState('');
+  const [filterQueue,setFilterQueue] = useState('');
+
+  const activeAgents   = agents.filter(a=>a.status==='active');
+  const inactiveAgents = agents.filter(a=>a.status==='inactive');
+
+  const supervisors = [...new Set(agents.map(a=>a.supervisor).filter(Boolean))].sort();
+
+  const filtered = activeAgents.filter(a=>{
+    if(filterSup  && a.supervisor!==filterSup)  return false;
+    if(filterTeam && (a.team||'none')!==filterTeam) return false;
+    if(filterQueue && !a.queues?.[filterQueue]?.active) return false;
+    return true;
+  });
+
+  const selectedAgent = [...activeAgents,...inactiveAgents].find(a=>a.id===selectedId);
+
+  const inpS={fontFamily:MO,fontSize:11,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'4px 8px',color:C.tx,outline:'none'};
+
+  const AgentRosterCard = ({agent}) => {
+    const teamColor = TEAM_COLORS[agent.team||'none']||C.mu;
+    const activeQ   = QUEUES.filter(q=>agent.queues?.[q.id]?.active).length;
+    const shiftInfo = SHIFTS.find(s=>s.id===agent.shift);
+    return (
+      <div onClick={()=>setSelectedId(selectedId===agent.id?null:agent.id)}
+        style={{background:selectedId===agent.id?C.ca:C.su,border:`2px solid ${selectedId===agent.id?C.bl:C.bo}`,borderRadius:10,padding:12,cursor:'pointer',transition:'all .15s',flex:'1 1 200px',maxWidth:300,position:'relative'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:5,gap:6}}>
+          <div>
+            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.tx,marginBottom:1}}>{agent.name}</div>
+            <div style={{fontFamily:MO,fontSize:9,color:C.mu}}>{agent.supervisor||'No supervisor'}</div>
+          </div>
+          <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${teamColor}44`,color:teamColor,flexShrink:0,background:teamColor+'11'}}>{agent.team==='none'?'unassigned':agent.team.replace('-',' ')}</span>
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {agent.discProfile&&<span style={{fontFamily:MO,fontSize:9,color:C.pu}}>DISC: {agent.discProfile}</span>}
+          {shiftInfo&&<span style={{fontFamily:MO,fontSize:9,color:C.mu}}>{shiftInfo.label}</span>}
+          {activeQ>0&&<span style={{fontFamily:MO,fontSize:9,color:C.bl}}>{activeQ} queue{activeQ!==1?'s':''}</span>}
+          {agent.seatId&&<span style={{fontFamily:MO,fontSize:9,color:C.mu}}>Seat: {agent.seatId}</span>}
+        </div>
+        <button onClick={e=>{e.stopPropagation();if(window.confirm(`Deactivate ${agent.name}?`))onDeactivateAgent(agent.id);}} title="Deactivate" style={{position:'absolute',top:6,right:6,background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:10,padding:'2px 4px'}}>✕</button>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{padding:'24px 20px'}}>
+      <div style={{fontFamily:MO,fontSize:11,color:C.bl,letterSpacing:2,marginBottom:12}}>DEPARTMENT MODE</div>
+
+      {/* Tab bar */}
+      <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo,marginBottom:16,width:'fit-content'}}>
+        {[['roster','👤 Roster'],['seating','🪑 Seating'],['inactive','💤 Inactive']].map(([k,l])=>(
+          <button key={k} onClick={()=>{setDeptTab(k);setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 18px',border:'none',borderLeft:k!=='roster'?'1px solid '+C.bo:'none',background:deptTab===k?C.bl:C.ca,color:deptTab===k?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
+            {l}{k==='roster'?` (${activeAgents.length})`:k==='inactive'?` (${inactiveAgents.length})`:''}
+          </button>
+        ))}
+      </div>
+
+      {/* ROSTER TAB */}
+      {deptTab==='roster'&&<div>
+        {/* Filters */}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
+          <select value={filterSup} onChange={e=>setFilterSup(e.target.value)} style={{...inpS}}>
+            <option value="">All Supervisors</option>
+            {supervisors.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={filterTeam} onChange={e=>setFilterTeam(e.target.value)} style={{...inpS}}>
+            <option value="">All Teams</option>
+            {Object.entries(TEAM_COLORS).map(([k])=><option key={k} value={k}>{k==='none'?'Unassigned':k.replace('-',' ')}</option>)}
+          </select>
+          <select value={filterQueue} onChange={e=>setFilterQueue(e.target.value)} style={{...inpS}}>
+            <option value="">All Queues</option>
+            {QUEUES.map(q=><option key={q.id} value={q.id}>{q.label}</option>)}
+          </select>
+          {(filterSup||filterTeam||filterQueue)&&<button onClick={()=>{setFilterSup('');setFilterTeam('');setFilterQueue('');}} style={{fontFamily:MO,fontSize:10,padding:'4px 8px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Clear</button>}
+          <span style={{fontFamily:MO,fontSize:10,color:C.mu,marginLeft:'auto'}}>{filtered.length} of {activeAgents.length}</span>
+        </div>
+
+        {filtered.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No active agents match the current filters.</div>}
+
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {filtered.map(a=><AgentRosterCard key={a.id} agent={a}/>)}
+        </div>
+
+        {selectedAgent&&selectedAgent.status==='active'&&<AgentDetail
+          key={selectedAgent.id}
+          hire={selectedAgent}
+          onUpdate={a=>onUpdateAgent(sanitizeAgent(a))}
+          peerHires={agents.filter(a=>a.id!==selectedAgent.id)}
+        />}
+      </div>}
+
+      {/* SEATING TAB */}
+      {deptTab==='seating'&&<SeatingChart agents={agents} onUpdateAgent={onUpdateAgent}/>}
+
+      {/* INACTIVE TAB */}
+      {deptTab==='inactive'&&<div>
+        {inactiveAgents.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No inactive agents.</div>}
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {inactiveAgents.map(a=>{
+            const teamColor=TEAM_COLORS[a.team||'none']||C.mu;
+            return (
+              <div key={a.id} style={{background:C.su,border:'1px solid '+C.bo,borderRadius:10,padding:12,flex:'1 1 200px',maxWidth:300}}>
+                <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.mu,marginBottom:3}}>{a.name}</div>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:8}}>{a.supervisor||'No supervisor'}</div>
+                <div style={{display:'flex',gap:6}}>
+                  <button onClick={()=>onReactivateAgent(a.id)} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.gr,background:C.gr+'22',color:C.gr,cursor:'pointer'}}>↺ Reactivate</button>
+                  <button onClick={()=>{if(window.confirm('Delete all data?'))onDeleteAgent(a.id);}} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Delete</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>}
     </div>
   );
 }
@@ -2975,8 +3354,34 @@ function DailyPlanner() {
   const [fontScale,setFontScale] = useState(()=>{ try{return parseFloat(localStorage.getItem('dps-fontscale')||'1');}catch(e){return 1;} });
   const adjFont = delta => setFontScale(p=>{ const n=Math.min(1.6,Math.max(0.8,parseFloat((p+delta).toFixed(1)))); try{localStorage.setItem('dps-fontscale',String(n));}catch(e){} return n; });
   const [appMode,setAppMode] = useState(()=>{ try{return store.getItem('dps-mode')||'schedule';}catch(e){return 'schedule';} });
-  const [hires,setHires]     = useState(()=>{ try{const r=store.getItem('dps-hires');return r?JSON.parse(r).map(sanitizeHire):[];}catch(e){return [];} });
-  const [alumni,setAlumni]   = useState(()=>{ try{const r=store.getItem('dps-alumni');return r?JSON.parse(r).map(sanitizeHire):[];}catch(e){return [];} });
+
+  const migrateAgents = () => {
+    try {
+      const existing = store.getItem('dps-agents');
+      if(existing) return JSON.parse(existing).map(sanitizeAgent);
+      const hires  = JSON.parse(store.getItem('dps-hires')  || '[]');
+      const alumni = JSON.parse(store.getItem('dps-alumni') || '[]');
+      const merged = [
+        ...hires.map(h  => sanitizeAgent({...h, status:'trainee'})),
+        ...alumni.map(a => sanitizeAgent({...a, status:'active'})),
+      ];
+      store.setItem('dps-agents', JSON.stringify(merged));
+      store.removeItem('dps-hires');
+      store.removeItem('dps-alumni');
+      return merged;
+    } catch(e) { return []; }
+  };
+
+  const [agents,setAgents] = useState(()=>migrateAgents());
+  const trainees       = agents.filter(a=>a.status==='trainee');
+  const activeAgents   = agents.filter(a=>a.status==='active');
+  const inactiveAgents = agents.filter(a=>a.status==='inactive');
+  const updateAgent    = (updated) => setAgents(prev=>prev.map(a=>a.id===updated.id?updated:a));
+  const addAgent       = (a) => setAgents(prev=>[...prev,a]);
+  const deleteAgent    = (id) => setAgents(prev=>prev.filter(a=>a.id!==id));
+  const graduateAgent  = (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'active'}:a));
+  const deactivateAgent= (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'inactive'}:a));
+  const reactivateAgent= (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'active'}:a));
   const [showHist,setShowHist] = useState(false);
 
   const [showTL,setShowTL]     = useState(false);
@@ -3201,8 +3606,7 @@ function DailyPlanner() {
 
   // ── Persist mode and hires separately ────────────────────────────────────
   useEffect(()=>{ try{store.setItem('dps-mode',appMode);}catch(e){} },[appMode]);
-  useEffect(()=>{ try{store.setItem('dps-hires',JSON.stringify(hires));}catch(e){} },[hires]);
-  useEffect(()=>{ try{store.setItem('dps-alumni',JSON.stringify(alumni));}catch(e){} },[alumni]);
+  useEffect(()=>{ try{store.setItem('dps-agents',JSON.stringify(agents));}catch(e){} },[agents]);
 
   const gistSyncer = useGistSync(sd, setSd);
 
@@ -3351,9 +3755,9 @@ function DailyPlanner() {
     collect: {label:'Collect',  icon:'📥', step:1},
     schedule:{label:'Schedule',icon:'📅', step:2},
     progress:{label:'Progress',icon:'☑',  step:3},
-    wrapup:  {label:'Wrap Up', icon:'🎁', step:4},
+    wrapup:  {label:'Wrap Up', icon:'�?', step:4},
     stats:   {label:'Stats',   icon:'📊', step:null},
-    notes:   {label:'Notes',   icon:'📝', step:null},
+    notes:   {label:'Notes',   icon:'�?', step:null},
   };
 
   const logAwayMs  =timerLogs.filter(r=>r.type==='Away')    .reduce((s,r)=>s+(parseInt(r.duration)||0),0)*60000;
@@ -3407,7 +3811,7 @@ function DailyPlanner() {
               <div style={{fontFamily:MO,fontSize:lunchCd===null||lunchDiff===0?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:lunchCd===null||lunchDiff===0?C.mu:C.gr,whiteSpace:'nowrap'}}>{lunchCd!==null?lunchCd:'—'}</div>
             </div>
             <div style={cdBoxStyle}>
-              <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2}}>🏁 SHIFT ENDS IN</div>
+              <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2}}>�?? SHIFT ENDS IN</div>
               <div style={{fontFamily:MO,fontSize:endDiff===0?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:endDiff===0?C.mu:C.bl,whiteSpace:'nowrap'}}>{endCd}</div>
               <div style={{display:'flex',gap:4,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
                 <button onClick={()=>setEndTime('16:00')} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:4,cursor:'pointer',border:'1px solid '+(endTime==='16:00'?C.bl:C.bo),background:endTime==='16:00'?C.bl+'22':C.ca,color:endTime==='16:00'?C.bl:C.mu,whiteSpace:'nowrap'}}>4 PM</button>
@@ -3417,14 +3821,15 @@ function DailyPlanner() {
             </div>
           </div>
         </div>
-        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>← → navigate steps &nbsp;·&nbsp; 1–4 jump to step &nbsp;·&nbsp; 5 = stats &nbsp;·&nbsp; 6 = notes &nbsp;·&nbsp; Esc close modals</div>}
+        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>�? → navigate steps &nbsp;·&nbsp; 1–4 jump to step &nbsp;·&nbsp; 5 = stats &nbsp;·&nbsp; 6 = notes &nbsp;·&nbsp; Esc close modals</div>}
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
           <TimerCtrl type="away"     ms={awayMs+logAwayMs}   running={awayRun}  color={C.rd}/>
           <TimerCtrl type="training" ms={trainMs+logTrainMs} running={trainRun} color={C.pu}/>
           <TimerCtrl type="watching" ms={watchMs+logWatchMs} running={watchRun} color={C.bl}/>
-          <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:`2px solid ${appMode==='training'?C.pu:C.or}`,flexShrink:0,boxShadow:appMode==='training'?`0 0 10px ${C.pu}44`:`0 0 10px ${C.or}44`,transition:'border-color .2s, box-shadow .2s'}}>
-            <button onClick={()=>setAppMode('schedule')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='schedule'?C.or:C.ca,borderRight:'1px solid '+C.bo,border:'none',borderRight:'1px solid '+(appMode==='training'?C.pu+'66':C.or+'66'),color:appMode==='schedule'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>📅 {isCompact?'SCH':'SCHEDULE'}</button>
-            <button onClick={()=>setAppMode('training')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='training'?C.pu:C.ca,border:'none',color:appMode==='training'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>👥 {isCompact?'TRN':'TRAINING'}</button>
+          <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:`2px solid ${appMode==='training'?C.pu:appMode==='department'?C.bl:C.or}`,flexShrink:0,boxShadow:appMode==='training'?`0 0 10px ${C.pu}44`:appMode==='department'?`0 0 10px ${C.bl}44`:`0 0 10px ${C.or}44`,transition:'border-color .2s, box-shadow .2s'}}>
+            <button onClick={()=>setAppMode('schedule')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='schedule'?C.or:C.ca,border:'none',borderRight:'1px solid '+C.bo,color:appMode==='schedule'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>📅 {isCompact?'SCH':'SCHEDULE'}</button>
+            <button onClick={()=>setAppMode('training')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='training'?C.pu:C.ca,border:'none',borderRight:'1px solid '+C.bo,color:appMode==='training'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>👥 {isCompact?'TRN':'TRAINING'}</button>
+            <button onClick={()=>setAppMode('department')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='department'?C.bl:C.ca,border:'none',color:appMode==='department'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>�?� {isCompact?'DEPT':'DEPARTMENT'}</button>
           </div>
           <div style={{display:'flex',gap:4,marginLeft:'auto',flexWrap:'wrap'}}>
             <div style={{display:'flex',gap:0,alignItems:'center'}}>
@@ -3433,7 +3838,7 @@ function DailyPlanner() {
             </div>
             <button onClick={()=>setShowRest(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#1a1000',border:`1px solid ${C.or}`,borderRadius:6,color:C.or,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'':' '}RESTORE</button>
             <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:savedFlash?'#0d2010':C.ca,border:`1px solid ${savedFlash?C.gr:C.bo}`,borderRadius:6,color:savedFlash?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap',transition:'all .3s'}}>{savedFlash?'✓ SAVED':'💾 SAVE'}</button>
-            <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
+            <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>�?� {isCompact?'':'TIMER LOG'}</button>
             <button onClick={()=>setShowHist(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>■ {isCompact?'HIST':'HISTORY'}</button>
             <button onClick={()=>setShowSync(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#001a1a',border:`1px solid ${gistSyncer.gistStatus==='ok'?C.gr:C.gr}`,borderRadius:6,color:C.gr,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
               {gistSyncer.gistToken&&<span style={{width:7,height:7,borderRadius:'50%',background:gistSyncer.gistStatus==='ok'?C.gr:gistSyncer.gistStatus==='error'?C.rd:C.mu,flexShrink:0}}/>}
@@ -3445,7 +3850,9 @@ function DailyPlanner() {
       </div>
 
       {appMode==='training'
-        ? <TrainingMode hires={hires} onUpdateHires={setHires} alumni={alumni} onUpdateAlumni={setAlumni}/>
+        ? <TrainingMode trainees={trainees} agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onGraduateAgent={graduateAgent} onDeleteAgent={deleteAgent}/>
+        : appMode==='department'
+        ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent}/>
         : <>
           <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'6px 12px',display:'flex',gap:4,flexWrap:'wrap'}}>
             {ALL_TABS.map(t=>{
