@@ -2233,7 +2233,7 @@ const phaseLabel = hire => {
   return `Training Day ${comp+1} of 15`;
 };
 
-function HireCard({ hire, selected, onSelect }) {
+function HireCard({ hire, selected, onSelect, onSelectTraining }) {
   const comp     = Object.values(hire.days).filter(d=>d.completed).length;
   const pct      = Math.round((comp/15)*100);
   const hwDone   = TRAINING_DAYS.filter(td=>!td.review).filter(td=>hire.days[td.day]?.hwComplete).length;
@@ -2266,6 +2266,7 @@ function HireCard({ hire, selected, onSelect }) {
         {mockPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Calls <span style={{color:C.tx}}>{hire.mockCalls.length}/{mockGoal}</span><span style={{color:mockPct>=100?C.gr:C.or}}> {mockPct}%</span></span>}
         {bPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Buddy <span style={{color:C.tx}}>{bLen}/{bGoal}</span><span style={{color:bPct>=100?C.gr:C.bl}}> {bPct}%</span></span>}
       </div>
+      {!hire.queues?.training?.active&&onSelectTraining&&<button onClick={e=>{e.stopPropagation();onSelectTraining(hire.id);}} style={{fontFamily:MO,fontSize:10,marginTop:8,padding:'4px 10px',width:'100%',border:`1px solid ${C.pu}44`,borderRadius:4,background:C.pu+'11',color:C.pu,cursor:'pointer'}}>🎓 Training History</button>}
     </div>
   );
 }
@@ -2330,8 +2331,11 @@ function parseMockCallEmail(txt) {
   return out;
 }
 
-function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[] }) {
-  const [section,setSection]             = useState('days');
+function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false }) {
+  const isTrainee = !!(hire.queues?.training?.active);
+  const [showTraining,setShowTraining]   = useState(forceTraining);
+  const showTabs = isTrainee || showTraining;
+  const [section,setSection]             = useState(isTrainee||forceTraining?'days':'notes');
   const [hwPrompt,setHwPrompt]           = useState(null);
   const [hwDateDraft,setHwDateDraft]     = useState('');
   const [newCallOpen,setNewCallOpen]     = useState(false);
@@ -2827,15 +2831,18 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[] }) {
       })()}
 
       {/* SECTION TABS */}
-      <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,overflowX:'auto'}}>
-        {[
+      <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,overflowX:'auto',alignItems:'center'}}>
+        {(showTabs?[
           ['days',  `📋 Days ${daysComp}/15 · ${daysPct}%`],
           ['mocks', `📞 Calls ${hire.mockCalls.length}/${mockGoal} · ${mockPct}%`],
           ['buddy', `🤝 Buddy ${buddyCalls.length}/${buddyGoal} · ${buddyPct}%`],
           ['notes', '📌 Notes'],
-        ].map(([k,l])=>(
+        ]:[
+          ['notes', '📌 Notes'],
+        ]).map(([k,l])=>(
           <button key={k} onClick={()=>setSection(k)} style={{fontFamily:MO,fontSize:11,padding:'9px 16px',cursor:'pointer',border:'none',borderBottom:`2px solid ${section===k?C.or:'transparent'}`,background:'transparent',color:section===k?C.or:C.mu,transition:'all .15s',flex:1,whiteSpace:'nowrap'}}>{l}</button>
         ))}
+        {!isTrainee&&<button onClick={()=>{setShowTraining(p=>!p);setSection(showTraining?'notes':'days');}} style={{fontFamily:MO,fontSize:10,padding:'6px 12px',marginLeft:'auto',marginRight:8,cursor:'pointer',border:`1px solid ${showTraining?C.pu:C.bo}`,borderRadius:5,background:showTraining?C.pu+'22':'transparent',color:showTraining?C.pu:C.mu,whiteSpace:'nowrap',flexShrink:0}}>{showTraining?'🎓 Hide Training':'🎓 Training History'}</button>}
       </div>
 
       <div style={{padding:16}}>
@@ -3150,7 +3157,8 @@ const AddForm = ({isAlumni, onSave, onCancel, name, setName, start, setStart, su
 };
 
 function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateAgent, onDeleteAgent }) {
-  const [selectedId,setSelectedId]   = useState(null);
+  const [selectedId,setSelectedId]         = useState(null);
+  const [selectedShowTraining,setSelectedShowTraining] = useState(false);
   const [showAdd,setShowAdd]         = useState(false);
   const [newName,setNewName]         = useState('');
   const [newStart,setNewStart]       = useState(new Date().toISOString().split('T')[0]);
@@ -3200,7 +3208,7 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
           {trainees.map(h=>(
             <div key={h.id} style={{position:'relative',flex:'1 1 190px',maxWidth:280}}>
-              <HireCard hire={h} selected={selectedId===h.id} onSelect={id=>setSelectedId(selectedId===id?null:id)}/>
+              <HireCard hire={h} selected={selectedId===h.id} onSelect={id=>{setSelectedId(selectedId===id?null:id);setSelectedShowTraining(false);}} onSelectTraining={id=>{setSelectedId(id);setSelectedShowTraining(true);}}/>
               <button onClick={()=>deleteHire(h.id)} title="Delete record" style={{position:'absolute',top:6,right:6,background:C.ca,border:'1px solid '+C.bo,borderRadius:3,color:C.mu,cursor:'pointer',fontSize:10,padding:'1px 5px',lineHeight:1}}>✕</button>
             </div>
           ))}
@@ -3213,6 +3221,7 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
         onUpdate={updateHire}
         onGraduate={onGraduateAgent}
         peerHires={agents.filter(h=>h.id!==selectedHire.id)}
+        forceTraining={selectedShowTraining}
       />}
     </div>
   );
