@@ -1741,7 +1741,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Jz71CR6V09srmDRxh9f1S19aDH', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/ZL7XCv2pzVTWNn4OuQfQSQpOYa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1749,7 +1749,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/buN5CVOVk6clwn5YFzhpSE0iF6`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-dz0CwpqAWIL8EP0fqhQSJGiqk`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1765,7 +1765,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/mx-VCW69l4sj9LPViKiNSoOVnN`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/_SobCxkrBXTJM5BmHYi2SypwSA`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2011,7 +2011,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/bHBnCXD904hn5PqWSksYSW7b2l → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/ResiCyPvDYhNXPJ6iRs4SxGTkU → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2307,7 +2307,7 @@ function HireDetail({ hire, onUpdate, onArchive }) {
   const commitHw      = () => { const c=hire.days[hwPrompt]; onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...c,hwComplete:true,hwDate:hwDateDraft||TODAY_T}}}); setHwPrompt(null); };
   const setHwDate     = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
   const toggleDayQuiz = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,quizComplete:!(c.quizComplete||false)}}}); };
-  const setQuizField  = (n,f,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,[f]:v===''?null:parseInt(v)||null}}}); };
+  const setQuizField  = (n,f,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,[f]:v===''?null:parseFloat(v)||null}}}); };
 
   // Quiz log
   const addQuiz = () => { if(!quizLabel.trim()||quizScore==='')return; const s=Math.max(0,Math.min(100,parseInt(quizScore))); if(isNaN(s))return; onUpdate({...hire,quizzes:[...hire.quizzes,{id:nid(),label:quizLabel.trim(),score:s,date:TODAY_T}]}); setQuizLabel('');setQuizScore(''); };
