@@ -2639,13 +2639,22 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               </div>
               <div style={{marginBottom:8}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>QUEUES</div>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                <div style={{display:'flex',flexDirection:'column',gap:5}}>
                   {QUEUES.map(q=>{
                     const active=queuesDraft?.[q.id]?.active??false;
-                    return <button key={q.id} onClick={()=>setQueuesDraft(p=>({...p,[q.id]:{active:!active,date:!active?new Date().toISOString().split('T')[0]:p?.[q.id]?.date||null}}))} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${active?C.bl:C.bo}`,background:active?C.bl+'22':C.ca,color:active?C.bl:C.mu}}>{q.label.split('/')[0].trim()}</button>;
+                    const qdate=queuesDraft?.[q.id]?.date||'';
+                    return (
+                      <div key={q.id} style={{display:'flex',alignItems:'center',gap:8}}>
+                        <button onClick={()=>setQueuesDraft(p=>({...p,[q.id]:{active:!active,date:!active?new Date().toISOString().split('T')[0]:p?.[q.id]?.date||null}}))} style={{fontFamily:MO,fontSize:10,padding:'3px 10px',borderRadius:4,cursor:'pointer',border:`1px solid ${active?C.bl:C.bo}`,background:active?C.bl+'22':C.ca,color:active?C.bl:C.mu,minWidth:130,textAlign:'left'}}>{active?'✓':' '} {q.label}</button>
+                        {active&&<input type="date" value={qdate} onChange={e=>setQueuesDraft(p=>({...p,[q.id]:{...p[q.id],date:e.target.value}}))} style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 6px',color:C.tx,outline:'none',colorScheme:'dark'}}/>}
+                        {active&&qdate&&<span style={{fontFamily:MO,fontSize:9,color:C.mu}}>since {new Date(qdate+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</span>}
+                      </div>
+                    );
                   })}
-                  <button onClick={()=>setTrainingDraft(p=>!p)} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${trainingDraft?C.pu:C.bo}`,background:trainingDraft?C.pu+'22':C.ca,color:trainingDraft?C.pu:C.mu}}>🎓 Training</button>
-                  <button onClick={()=>setInactiveDraft(p=>!p)} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${inactiveDraft?C.rd:C.bo}`,background:inactiveDraft?C.rd+'22':C.ca,color:inactiveDraft?C.rd:C.mu}}>💤 Inactive</button>
+                  <div style={{display:'flex',gap:8,marginTop:4}}>
+                    <button onClick={()=>setTrainingDraft(p=>!p)} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${trainingDraft?C.pu:C.bo}`,background:trainingDraft?C.pu+'22':C.ca,color:trainingDraft?C.pu:C.mu}}>🎓 Training</button>
+                    <button onClick={()=>setInactiveDraft(p=>!p)} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${inactiveDraft?C.rd:C.bo}`,background:inactiveDraft?C.rd+'22':C.ca,color:inactiveDraft?C.rd:C.mu}}>💤 Inactive</button>
+                  </div>
                 </div>
               </div>
               <div style={{marginBottom:8}}>
@@ -2748,12 +2757,23 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SEAT</div>
                 <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:hire.seatId?C.tx:C.mu}}>{hire.seatId||'Unassigned'}</div>
               </div>
-              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'2 1 160px'}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:4}}>QUEUES ({activeQueues.length})</div>
-                <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
-                  {activeQueues.length===0?<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>None active</span>:activeQueues.map(q=>(
-                    <span key={q.id} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,background:C.bl+'22',border:'1px solid '+C.bl+'44',color:C.bl}}>{q.label.split('/')[0].trim()}</span>
-                  ))}
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'8px 12px',flex:'2 1 200px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:6}}>QUEUES ({activeQueues.length})</div>
+                {activeQueues.length===0
+                  ? <span style={{fontFamily:MO,fontSize:10,color:C.mu,display:'block',marginBottom:6}}>None active</span>
+                  : <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:8}}>
+                      {activeQueues.map(q=>{
+                        const qdate=hire.queues?.[q.id]?.date;
+                        return (
+                          <div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                            <span style={{fontFamily:MO,fontSize:10,color:C.bl}}>✓ {q.label}</span>
+                            {qdate&&<span style={{fontFamily:MO,fontSize:9,color:C.mu}}>since {new Date(qdate+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'})}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                }
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                   <button onClick={()=>onUpdate({...hire,status:hire.status==='trainee'?'active':'trainee'})} style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,cursor:'pointer',border:`1px solid ${hire.status==='trainee'?C.pu:C.bo}`,background:hire.status==='trainee'?C.pu+'22':C.ca,color:hire.status==='trainee'?C.pu:C.mu,transition:'all .15s'}}>🎓 Training</button>
                   <button onClick={()=>onUpdate({...hire,status:hire.status==='inactive'?'active':'inactive'})} style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,cursor:'pointer',border:`1px solid ${hire.status==='inactive'?C.rd:C.bo}`,background:hire.status==='inactive'?C.rd+'22':C.ca,color:hire.status==='inactive'?C.rd:C.mu,transition:'all .15s'}}>💤 Inactive</button>
                 </div>
