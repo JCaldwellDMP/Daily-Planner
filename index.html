@@ -3249,16 +3249,71 @@ const supervisorColor = sup => {
 
 function SeatingChart({ agents, onUpdateAgent }) {
   const [dragId,setDragId]         = useState(null);
-  const [dragSource,setDragSource] = useState(null); // 'panel' | 'floor'
+  const [dragSource,setDragSource] = useState(null);
   const [dropHover,setDropHover]   = useState(null);
   const [editSeat,setEditSeat]     = useState(null);
   const [editName,setEditName]     = useState('');
 
-  const activeAgents = agents.filter(a => a.status !== 'inactive');
+  // ── Calibration mode state ─────────────────────────────────────────────────
+  const [calibMode,setCalibMode]   = useState(false);
+  const [selCalib,setSelCalib]     = useState(null);   // selected seatId in calib panel
+  const [calibDrag,setCalibDrag]   = useState(null);   // {seatId, offX, offY}
+  const [copied,setCopied]         = useState(false);
+  const floorRef = useRef(null);
 
+  // [seatId, tx, ty, fixed?] -- tile top-left in 1120x540 container
+  const SEATS_INIT = [
+    ['adv-1',  14, 375], ['adv-2',  74, 375],
+    ['adv-3',  14, 435], ['adv-4',  74, 435],
+    ['net-1', 252, 375], ['net-2', 310, 375], ['net-3', 368, 375], ['net-4', 438, 375],
+    ['inv-1', 438, 285],
+    ['conf-1', 558, 272], ['conf-2', 616, 272], ['conf-3', 674, 272],
+    ['conf-4', 558, 344], ['conf-5', 616, 344], ['conf-6', 674, 344],
+    ['conf-7', 736, 344],
+    ['gold-brad', 768, 224, true], ['gold-brent', 1042, 40, true],
+    ['quad-1', 964, 330], ['quad-2', 1022, 330],
+    ['quad-3', 964, 390], ['quad-4', 1022, 390],
+    ['main-01',  16, 470], ['main-02',  75, 470], ['main-03', 134, 470],
+    ['main-04', 193, 470], ['main-05', 252, 470], ['main-06', 311, 470],
+    ['main-07', 370, 470], ['main-08', 429, 470], ['main-09', 488, 470],
+    ['main-10', 547, 470], ['main-11', 606, 470], ['main-12', 665, 470],
+    ['main-13', 724, 470], ['main-14', 783, 470], ['main-15', 842, 470],
+    ['main-16', 901, 470], ['main-17', 960, 470], ['main-18',1019, 470],
+    ['main-19',1062, 470],
+  ];
+
+  const [seatPos, setSeatPos] = useState(() => {
+    const m = {};
+    SEATS_INIT.forEach(([id,x,y,fx])=>{ m[id]={x,y,fixed:!!fx}; });
+    return m;
+  });
+
+  const SEATS = SEATS_INIT.map(([id,,, fx])=>[id, seatPos[id]?.x??0, seatPos[id]?.y??0, fx]);
+
+  const updatePos = (id, x, y) => setSeatPos(p=>({...p,[id]:{...p[id],x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y))}}));
+  const nudge = (id, dx, dy) => setSeatPos(p=>({...p,[id]:{...p[id],x:Math.max(0,(p[id]?.x||0)+dx),y:Math.max(0,(p[id]?.y||0)+dy)}}));
+
+  const copyArray = () => {
+    const lines = SEATS.map(([id,x,y,fx])=>`  ['${id}', ${x}, ${y}${fx?', true':''}],`).join('\n');
+    const out = `const SEATS = [\n${lines}\n];`;
+    navigator.clipboard.writeText(out).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
+  };
+
+  // Mouse handlers for calib drag
+  const onFloorMouseMove = e => {
+    if(!calibDrag) return;
+    const rect = floorRef.current.getBoundingClientRect();
+    const nx = e.clientX - rect.left - calibDrag.offX;
+    const ny = e.clientY - rect.top  - calibDrag.offY;
+    updatePos(calibDrag.seatId, nx, ny);
+  };
+  const onFloorMouseUp = () => setCalibDrag(null);
+
+  const FW=1120, FH=540;
+
+  const activeAgents = agents.filter(a => a.status !== 'inactive');
   const seatMap = {};
   activeAgents.filter(a=>a.seatId).forEach(a=>{ seatMap[a.seatId]=a; });
-
   const unseated = activeAgents.filter(a=>!a.seatId && !SPECIALTY_GOLD.includes(a.name));
 
   const agentColor = a => {
@@ -3290,6 +3345,12 @@ function SeatingChart({ agents, onUpdateAgent }) {
     setEditSeat(null);
   };
 
+  const supColors = [
+    ['Dolan Parnell', TEAM_COLORS['blue']],
+    ['Ryan Kay',      TEAM_COLORS['dark-green']],
+    ['Stephen Bowen', TEAM_COLORS['light-green']],
+  ];
+
   // ── Panel tile (unassigned list) ───────────────────────────────────────────
   const PanelTile = ({agent}) => {
     const col = agentColor(agent);
@@ -3297,58 +3358,44 @@ function SeatingChart({ agents, onUpdateAgent }) {
     const initials = parts.map(w=>w[0]).join('');
     const last = parts.length>1 ? parts[parts.length-1].slice(0,8) : agent.name.slice(0,8);
     return (
-      <div
-        draggable
-        onDragStart={()=>{ setDragId(agent.id); setDragSource('panel'); }}
-        onDragEnd={()=>{ setDragId(null); setDragSource(null); }}
-        title={agent.name}
-        style={{
-          width:52,height:44,borderRadius:4,border:'2px solid '+col,
-          background:col+'2a',display:'flex',flexDirection:'column',
-          alignItems:'center',justifyContent:'center',cursor:'grab',
-          fontFamily:MO,textAlign:'center',lineHeight:1.2,userSelect:'none',
-          opacity:dragId===agent.id?0.4:1,transition:'opacity .15s',flexShrink:0,
-        }}>
+      <div draggable onDragStart={()=>{ setDragId(agent.id); setDragSource('panel'); }}
+        onDragEnd={()=>{ setDragId(null); setDragSource(null); }} title={agent.name}
+        style={{width:52,height:44,borderRadius:4,border:'2px solid '+col,background:col+'2a',
+          display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+          cursor:'grab',fontFamily:MO,textAlign:'center',lineHeight:1.2,userSelect:'none',
+          opacity:dragId===agent.id?0.4:1,transition:'opacity .15s',flexShrink:0}}>
         <span style={{fontSize:9,fontWeight:'bold',color:col}}>{initials}</span>
         <span style={{fontSize:7,color:col}}>{last}</span>
       </div>
     );
   };
 
-  // ── Floor seat tile ────────────────────────────────────────────────────────
+  // ── Normal floor seat tile ─────────────────────────────────────────────────
   const SeatTile = ({seatId, fixed, x, y}) => {
-    const agent  = seatMap[seatId];
-    const col    = agentColor(agent) || '#ccc';
+    const agent   = seatMap[seatId];
+    const col     = agentColor(agent) || '#ccc';
     const isFixed = fixed||(agent&&SPECIALTY_GOLD.includes(agent.name));
     const isHover = dropHover===seatId;
     const parts   = agent ? agent.name.split(' ') : [];
     const initials = parts.map(w=>w[0]).join('');
     const last    = parts.length>1 ? parts[parts.length-1].slice(0,8) : (agent?agent.name.slice(0,8):'');
-    const tileTitle = agent ? agent.name : seatId;
     const emptyBg = isHover ? '#e8ffe8' : '#f5f5f5';
     const emptyBd = isHover ? '#4ade80' : '#ddd';
     return (
-      <div
-        draggable={!isFixed&&!!agent}
+      <div draggable={!isFixed&&!!agent}
         onDragStart={()=>{ if(!isFixed&&agent){ setDragId(agent.id); setDragSource('floor'); } }}
         onDragEnd={()=>{ setDragId(null); setDragSource(null); setDropHover(null); }}
         onDragOver={e=>{ if(!isFixed){ e.preventDefault(); setDropHover(seatId); } }}
         onDragLeave={()=>setDropHover(null)}
         onDrop={e=>{ e.preventDefault(); setDropHover(null); if(dragId&&!isFixed) assignSeat(dragId,seatId); setDragId(null); }}
         onDoubleClick={()=>{ if(agent){ setEditSeat(seatId); setEditName(agent.name); } }}
-        title={tileTitle}
-        style={{
-          position:'absolute',left:x,top:y,width:52,height:44,
-          borderRadius:4,
-          border:'2px solid '+(agent ? col : emptyBd),
-          background:agent ? col+'2a' : emptyBg,
+        title={agent?agent.name:seatId}
+        style={{position:'absolute',left:x,top:y,width:52,height:44,borderRadius:4,
+          border:'2px solid '+(agent?col:emptyBd),background:agent?col+'2a':emptyBg,
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-          cursor:isFixed?'default':agent?'grab':'default',
-          fontFamily:MO,textAlign:'center',lineHeight:1.2,
-          userSelect:'none',transition:'all .12s',
-          opacity:dragId===agent?.id?0.35:1,
-          boxSizing:'border-box',zIndex:2,
-        }}>
+          cursor:isFixed?'default':agent?'grab':'default',fontFamily:MO,textAlign:'center',
+          lineHeight:1.2,userSelect:'none',transition:'all .12s',
+          opacity:dragId===agent?.id?0.35:1,boxSizing:'border-box',zIndex:2}}>
         {agent
           ? <><span style={{fontSize:9,fontWeight:'bold',color:col}}>{initials}</span>
                <span style={{fontSize:7,color:col}}>{last}</span></>
@@ -3357,111 +3404,193 @@ function SeatingChart({ agents, onUpdateAgent }) {
     );
   };
 
-  // [seatId, tx, ty, fixed?] -- tile top-left in 1120x540 container
-  const SEATS = [
-    // ADV zone -- 2x2, lower-left below restroom block
-    ['adv-1',  14, 375], ['adv-2',  74, 375],
-    ['adv-3',  14, 435], ['adv-4',  74, 435],
-    // NET zone -- 4 desks south of IT Networking Room
-    ['net-1', 252, 375], ['net-2', 310, 375], ['net-3', 368, 375], ['net-4', 438, 375],
-    // INV zone -- single desk near TS Inventory
-    ['inv-1', 438, 285],
-    // CONF zone -- row1: 3 desks, row2: 4 desks, south of Conference Room
-    ['conf-1', 558, 272], ['conf-2', 616, 272], ['conf-3', 674, 272],
-    ['conf-4', 558, 344], ['conf-5', 616, 344], ['conf-6', 674, 344],
-    ['conf-7', 736, 344],
-    // GOLD fixed seats -- enclosed offices
-    ['gold-brad', 768, 224, true], ['gold-brent', 1042, 40, true],
-    // QUAD zone -- 2x2 cluster, far right
-    ['quad-1', 964, 330], ['quad-2', 1022, 330],
-    ['quad-3', 964, 390], ['quad-4', 1022, 390],
-    // MAIN row -- 19 seats, 59px spacing
-    ['main-01',  16, 470], ['main-02',  75, 470], ['main-03', 134, 470],
-    ['main-04', 193, 470], ['main-05', 252, 470], ['main-06', 311, 470],
-    ['main-07', 370, 470], ['main-08', 429, 470], ['main-09', 488, 470],
-    ['main-10', 547, 470], ['main-11', 606, 470], ['main-12', 665, 470],
-    ['main-13', 724, 470], ['main-14', 783, 470], ['main-15', 842, 470],
-    ['main-16', 901, 470], ['main-17', 960, 470], ['main-18',1019, 470],
-    ['main-19',1062, 470],
-  ];
+  // ── Calibration seat tile ──────────────────────────────────────────────────
+  const CalibTile = ({seatId, x, y}) => {
+    const agent  = seatMap[seatId];
+    const isSel  = selCalib===seatId;
+    const isDragging = calibDrag?.seatId===seatId;
+    const parts  = agent ? agent.name.split(' ') : [];
+    const initials = parts.map(w=>w[0]).join('');
+    const last   = parts.length>1 ? parts[parts.length-1].slice(0,6) : (agent?agent.name.slice(0,6):'');
+    return (
+      <div
+        onMouseDown={e=>{ e.stopPropagation(); setSelCalib(seatId);
+          const rect=floorRef.current.getBoundingClientRect();
+          setCalibDrag({seatId, offX:e.clientX-rect.left-x, offY:e.clientY-rect.top-y});
+        }}
+        style={{position:'absolute',left:x,top:y,width:52,height:44,borderRadius:4,zIndex:10,
+          border:`2px solid ${isSel?C.or:'#f97316aa'}`,
+          background:isDragging?C.or+'44':isSel?C.or+'22':'#1c1f2bcc',
+          display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+          cursor:'grab',userSelect:'none',boxSizing:'border-box',
+          boxShadow:isSel?`0 0 8px ${C.or}88`:'none'}}>
+        <span style={{fontFamily:MO,fontSize:7,fontWeight:'bold',color:C.or,lineHeight:1.1}}>{seatId}</span>
+        {agent&&<span style={{fontFamily:MO,fontSize:6,color:'#ccc',lineHeight:1.1}}>{initials} {last}</span>}
+        <span style={{fontFamily:MO,fontSize:6,color:C.mu,lineHeight:1}}>{x},{y}</span>
+      </div>
+    );
+  };
 
-  const FW=1120, FH=540;
-
-  const supColors = [
-    ['Dolan Parnell', TEAM_COLORS['blue']],
-    ['Ryan Kay',      TEAM_COLORS['dark-green']],
-    ['Stephen Bowen', TEAM_COLORS['light-green']],
-  ];
+  // ── Selected seat calib editor ─────────────────────────────────────────────
+  const selPos = selCalib ? seatPos[selCalib] : null;
+  const inpNum = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,
+    padding:'4px 6px',color:C.tx,outline:'none',width:64,textAlign:'center'};
+  const nudgeBtn = (label,dx,dy) => (
+    <button onMouseDown={e=>{e.preventDefault();nudge(selCalib,dx,dy);}}
+      style={{fontFamily:MO,fontSize:10,width:24,height:24,borderRadius:4,border:'1px solid '+C.bo,
+        background:C.ca,color:C.tx,cursor:'pointer',display:'flex',alignItems:'center',
+        justifyContent:'center',padding:0,flexShrink:0}}>{label}</button>
+  );
 
   return (
-    <div style={{padding:'12px',display:'flex',gap:10,alignItems:'flex-start',overflowX:'auto'}}>
+    <div style={{padding:'12px',display:'flex',flexDirection:'column',gap:8}}>
 
-      {/* ── Unassigned agents panel ────────────────────────── */}
-      <div
-        onDragOver={e=>e.preventDefault()}
-        onDrop={e=>{e.preventDefault(); if(dragId&&dragSource==='floor') unassignSeat(dragId); setDragId(null);}}
-        style={{
-          flexShrink:0,width:128,minHeight:FH,background:C.su,
-          border:'1px solid '+C.bo,borderRadius:6,padding:'8px 6px',
-          display:'flex',flexDirection:'column',gap:6,boxSizing:'border-box',
-        }}>
-        <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:4,textAlign:'center'}}>UNASSIGNED</div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:4,justifyContent:'center'}}>
-          {unseated.length===0
-            ? <div style={{fontFamily:MO,fontSize:8,color:C.mu,textAlign:'center',padding:'12px 4px',width:'100%'}}>All agents seated</div>
-            : unseated.map(a=><PanelTile key={a.id} agent={a}/>)
-          }
-        </div>
-        <div style={{marginTop:'auto',paddingTop:8,borderTop:'1px solid '+C.bo}}>
-          <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginBottom:4}}>SUPERVISOR KEY</div>
-          {supColors.map(([name,col])=>(
-            <div key={name} style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
-              <span style={{width:8,height:8,borderRadius:2,background:col,flexShrink:0,display:'inline-block'}}/>
-              <span style={{fontFamily:MO,fontSize:7,color:C.tx,lineHeight:1.2}}>{name.split(' ')[1]}</span>
-            </div>
-          ))}
-          <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
-            <span style={{width:8,height:8,borderRadius:2,background:C.rd,flexShrink:0,display:'inline-block'}}/>
-            <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Supervisor</span>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{width:8,height:8,borderRadius:2,background:'#eab308',flexShrink:0,display:'inline-block'}}/>
-            <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Fixed</span>
-          </div>
-        </div>
-        <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginTop:6,lineHeight:1.4,textAlign:'center'}}>
-          Drag to seat<br/>Drag back to unassign<br/>Double-click to rename
-        </div>
+      {/* ── Top toolbar ───────────────────────────────────────────────────── */}
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        <button onClick={()=>{ setCalibMode(p=>!p); setSelCalib(null); setCalibDrag(null); }}
+          style={{fontFamily:MO,fontSize:11,padding:'5px 14px',borderRadius:6,cursor:'pointer',
+            border:`1px solid ${calibMode?C.or:C.bo}`,
+            background:calibMode?C.or+'22':C.ca,
+            color:calibMode?C.or:C.mu,fontWeight:'bold',transition:'all .15s'}}>
+          🔧 {calibMode?'Exit Calibration':'Calibrate Seats'}
+        </button>
+        {calibMode&&(
+          <button onClick={copyArray}
+            style={{fontFamily:MO,fontSize:11,padding:'5px 14px',borderRadius:6,cursor:'pointer',
+              border:`1px solid ${copied?C.gr:C.bo}`,background:copied?C.gr+'22':C.ca,
+              color:copied?C.gr:C.tx,transition:'all .15s'}}>
+            {copied?'✓ Copied!':'📋 Copy SEATS Array'}
+          </button>
+        )}
+        {calibMode&&<span style={{fontFamily:MO,fontSize:9,color:C.or}}>Drag tiles to position · Select to fine-tune · Copy array when done</span>}
       </div>
 
-      {/* ── Floor plan ────────────────────────────────────── */}
-      <div style={{flexShrink:0,position:'relative',width:FW,height:FH,borderRadius:4,overflow:'hidden'}}>
+      <div style={{display:'flex',gap:10,alignItems:'flex-start',overflowX:'auto'}}>
 
-        <img src="./floorplan.png" alt="Floor plan"
-          style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'fill',pointerEvents:'none',userSelect:'none'}}
-        />
-
-
-        {/* Rename modal */}
-        {editSeat&&(
-          <div style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',background:'rgba(0,0,0,0.45)',zIndex:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:8,padding:18,minWidth:230}}>
-              <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginBottom:8,letterSpacing:1}}>RENAME — {editSeat}</div>
-              <input autoFocus value={editName} onChange={e=>setEditName(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')setEditSeat(null);}}
-                style={{fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'6px 10px',color:C.tx,outline:'none',width:'100%',boxSizing:'border-box',marginBottom:10}}/>
-              <div style={{display:'flex',gap:8}}>
-                <OBtn onClick={saveEdit}>Save</OBtn>
-                <Btn onClick={()=>setEditSeat(null)}>Cancel</Btn>
+        {/* ── Left panel: unassigned OR calib editor ─────────────────── */}
+        {!calibMode ? (
+          <div onDragOver={e=>e.preventDefault()}
+            onDrop={e=>{e.preventDefault(); if(dragId&&dragSource==='floor') unassignSeat(dragId); setDragId(null);}}
+            style={{flexShrink:0,width:128,minHeight:FH,background:C.su,border:'1px solid '+C.bo,
+              borderRadius:6,padding:'8px 6px',display:'flex',flexDirection:'column',gap:6,boxSizing:'border-box'}}>
+            <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:4,textAlign:'center'}}>UNASSIGNED</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:4,justifyContent:'center'}}>
+              {unseated.length===0
+                ? <div style={{fontFamily:MO,fontSize:8,color:C.mu,textAlign:'center',padding:'12px 4px',width:'100%'}}>All agents seated</div>
+                : unseated.map(a=><PanelTile key={a.id} agent={a}/>)}
+            </div>
+            <div style={{marginTop:'auto',paddingTop:8,borderTop:'1px solid '+C.bo}}>
+              <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginBottom:4}}>SUPERVISOR KEY</div>
+              {supColors.map(([name,col])=>(
+                <div key={name} style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+                  <span style={{width:8,height:8,borderRadius:2,background:col,flexShrink:0,display:'inline-block'}}/>
+                  <span style={{fontFamily:MO,fontSize:7,color:C.tx,lineHeight:1.2}}>{name.split(' ')[1]}</span>
+                </div>
+              ))}
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}>
+                <span style={{width:8,height:8,borderRadius:2,background:C.rd,flexShrink:0,display:'inline-block'}}/>
+                <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Supervisor</span>
               </div>
+              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                <span style={{width:8,height:8,borderRadius:2,background:'#eab308',flexShrink:0,display:'inline-block'}}/>
+                <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Fixed</span>
+              </div>
+            </div>
+            <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginTop:6,lineHeight:1.4,textAlign:'center'}}>
+              Drag to seat<br/>Drag back to unassign<br/>Double-click to rename
+            </div>
+          </div>
+        ) : (
+          <div style={{flexShrink:0,width:200,minHeight:FH,background:C.su,border:`1px solid ${C.or}44`,
+            borderRadius:6,padding:'8px',display:'flex',flexDirection:'column',gap:6,boxSizing:'border-box'}}>
+            <div style={{fontFamily:MO,fontSize:8,color:C.or,letterSpacing:1,marginBottom:4}}>🔧 SEAT EDITOR</div>
+
+            {/* Selected seat editor */}
+            {selCalib&&selPos ? (
+              <div style={{background:C.ca,border:`1px solid ${C.or}66`,borderRadius:6,padding:10,marginBottom:6}}>
+                <div style={{fontFamily:MO,fontSize:10,color:C.or,fontWeight:'bold',marginBottom:8}}>{selCalib}</div>
+                {/* X coordinate */}
+                <div style={{marginBottom:8}}>
+                  <div style={{fontFamily:MO,fontSize:8,color:C.mu,marginBottom:4}}>X (left)</div>
+                  <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                    {nudgeBtn('−−',-10,0)}{nudgeBtn('−',-1,0)}
+                    <input type="number" value={selPos.x}
+                      onChange={e=>updatePos(selCalib,parseInt(e.target.value)||0,selPos.y)}
+                      style={inpNum}/>
+                    {nudgeBtn('+',1,0)}{nudgeBtn('++',10,0)}
+                  </div>
+                </div>
+                {/* Y coordinate */}
+                <div>
+                  <div style={{fontFamily:MO,fontSize:8,color:C.mu,marginBottom:4}}>Y (top)</div>
+                  <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                    {nudgeBtn('−−',0,-10)}{nudgeBtn('−',0,-1)}
+                    <input type="number" value={selPos.y}
+                      onChange={e=>updatePos(selCalib,selPos.x,parseInt(e.target.value)||0)}
+                      style={inpNum}/>
+                    {nudgeBtn('+',0,1)}{nudgeBtn('++',0,10)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,padding:'8px 4px',textAlign:'center',lineHeight:1.6}}>
+                Click a seat tile<br/>on the floor to<br/>select & edit
+              </div>
+            )}
+
+            {/* Seat list */}
+            <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:2}}>ALL SEATS</div>
+            <div style={{overflowY:'auto',flex:1}}>
+              {SEATS.map(([id,x,y])=>(
+                <div key={id} onClick={()=>setSelCalib(id)}
+                  style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                    padding:'4px 6px',borderRadius:4,marginBottom:2,cursor:'pointer',
+                    background:selCalib===id?C.or+'22':'transparent',
+                    border:`1px solid ${selCalib===id?C.or+'66':'transparent'}`}}>
+                  <span style={{fontFamily:MO,fontSize:9,color:selCalib===id?C.or:C.tx}}>{id}</span>
+                  <span style={{fontFamily:MO,fontSize:8,color:C.mu}}>{x},{y}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {SEATS.map(([sid,sx,sy,fx])=>(
-          <SeatTile key={sid} seatId={sid} x={sx} y={sy} fixed={!!fx}/>
-        ))}
+        {/* ── Floor plan ────────────────────────────────────────────── */}
+        <div ref={floorRef}
+          onMouseMove={calibMode?onFloorMouseMove:undefined}
+          onMouseUp={calibMode?onFloorMouseUp:undefined}
+          onMouseLeave={calibMode?onFloorMouseUp:undefined}
+          style={{flexShrink:0,position:'relative',width:FW,height:FH,borderRadius:4,
+            overflow:'hidden',cursor:calibDrag?'grabbing':'default'}}>
 
+          <img src="./floorplan.png" alt="Floor plan"
+            style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',
+              objectFit:'fill',pointerEvents:'none',userSelect:'none'}}/>
+
+          {/* Rename modal (normal mode only) */}
+          {!calibMode&&editSeat&&(
+            <div style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',
+              background:'rgba(0,0,0,0.45)',zIndex:20,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:8,padding:18,minWidth:230}}>
+                <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginBottom:8,letterSpacing:1}}>RENAME — {editSeat}</div>
+                <input autoFocus value={editName} onChange={e=>setEditName(e.target.value)}
+                  onKeyDown={e=>{if(e.key==='Enter')saveEdit();if(e.key==='Escape')setEditSeat(null);}}
+                  style={{fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,
+                    padding:'6px 10px',color:C.tx,outline:'none',width:'100%',boxSizing:'border-box',marginBottom:10}}/>
+                <div style={{display:'flex',gap:8}}>
+                  <OBtn onClick={saveEdit}>Save</OBtn>
+                  <Btn onClick={()=>setEditSeat(null)}>Cancel</Btn>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {calibMode
+            ? SEATS.map(([sid,sx,sy])=><CalibTile key={sid} seatId={sid} x={sx} y={sy}/>)
+            : SEATS.map(([sid,sx,sy,fx])=><SeatTile key={sid} seatId={sid} x={sx} y={sy} fixed={!!fx}/>)
+          }
+
+        </div>
       </div>
     </div>
   );
