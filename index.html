@@ -4144,7 +4144,17 @@ function DailyPlanner() {
   const watchMs    = gd('watchMs')    || 0;
   const watchRun   = gd('watchRun')   || false;
 
-  const lastDate = idx.filter(Boolean).filter(d => d < TODAY).slice(-1)[0];
+  const lastSumDate = idx.filter(Boolean).filter(d => d < TODAY).slice(-1)[0];
+  // Most recent past day that actually has task data
+  const lastTaskDate = Object.keys(sd)
+    .filter(k => k.startsWith('tasks-'))
+    .map(k => k.replace('tasks-',''))
+    .filter(d => d < TODAY && (sd[`tasks-${d}`]||[]).length > 0)
+    .sort().reverse()[0];
+  // Only show triage panel if summary date matches the most recent task date.
+  // If there's a more recent day with tasks but no WrapUp summary, auto-carry
+  // already handled it — showing the older summary would display stale tasks.
+  const lastDate = (lastSumDate && lastSumDate === lastTaskDate) ? lastSumDate : null;
   const lastSum  = lastDate ? sums[lastDate] : null;
   const exportJson = JSON.stringify({version:2,savedAt:new Date().toISOString(),sd,sums,summaryIndex:idx},null,2);
 
