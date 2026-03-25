@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Av_7CVOVk6clw6EJCJspSEJf93', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/R5wMCjR9kDFj5rynuWf0SmQztZ', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/I0zACW69l4sj9KQEHmtNSo9hvw`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/tkNgCkR0lEFnWEqOfVhDSGTlRt`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/58WeCXD904hn5RgQf9uYSWf49F`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/D2spClY9mGUonrz2HyirSzcK3K`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/4UvBCYE9ngU31qv7h3CvSxgv3G → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/RbZ8CmZ9nJT5JxRjf9szSRK1kj → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2333,7 +2333,7 @@ function parseMockCallEmail(txt) {
   return out;
 }
 
-function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false }) {
+function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false, hideSnapshot=false, isSpecialized=false }) {
   const isTrainee = !!(hire.queues?.training?.active);
   const [showTraining,setShowTraining]   = useState(forceTraining);
   const showTabs = isTrainee || showTraining;
@@ -2618,22 +2618,19 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 <input value={discDraft} onChange={e=>setDiscDraft(e.target.value)} placeholder="Custom…" style={{...inpS,width:80,padding:'3px 8px',fontSize:11}}/>
               </div>
             </div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+            {!isSpecialized&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
               <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div><textarea value={wellDraft} onChange={e=>setWellDraft(e.target.value)} placeholder="What are they doing well…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
               <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div><textarea value={improveDraft} onChange={e=>setImproveDraft(e.target.value)} placeholder="Areas that need improvement…" rows={3} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
-            </div>
+            </div>}
             {hire.status==='active'&&<div style={{borderTop:'1px solid '+C.bo,paddingTop:10,marginBottom:8}}>
               <div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:2,marginBottom:8}}>🏢 DEPARTMENT</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                 <div style={{flex:'1 1 140px'}}>
                   <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>SHIFT</div>
-                  <select value={shiftDraft||''} onChange={e=>setShiftDraft(e.target.value)} style={{...inpS,width:'100%',fontSize:11}}>
-                    <option value="">Not set</option>
-                    {SHIFTS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
+                  <input value={shiftDraft||''} onChange={e=>setShiftDraft(e.target.value)} placeholder="e.g. 8:00-4:30" style={{...inpS,width:'100%',fontSize:11}}/>
                 </div>
               </div>
-              <div style={{marginBottom:8}}>
+              {!isSpecialized&&<div style={{marginBottom:8}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>QUEUES</div>
                 <div style={{display:'flex',flexDirection:'column',gap:5}}>
                   {QUEUES.map(q=>{
@@ -2652,7 +2649,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                     <button onClick={()=>setInactiveDraft(p=>!p)} style={{fontFamily:MO,fontSize:9,padding:'3px 7px',borderRadius:4,cursor:'pointer',border:`1px solid ${inactiveDraft?C.rd:C.bo}`,background:inactiveDraft?C.rd+'22':C.ca,color:inactiveDraft?C.rd:C.mu}}>💤 Inactive</button>
                   </div>
                 </div>
-              </div>
+              </div>}
               <div style={{marginBottom:8}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>ADDITIONAL ROLES</div>
                 <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
@@ -2662,10 +2659,10 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                   })}
                 </div>
               </div>
-              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              {!isSpecialized&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                 <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.rd,letterSpacing:1,marginBottom:4}}>⚠️ CURRENT ISSUES</div><textarea value={currentIssuesDraft} onChange={e=>setCurrentIssuesDraft(e.target.value)} placeholder="Any active issues…" rows={2} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
                 <div style={{flex:'1 1 200px'}}><div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>📚 TRAINING NEEDS</div><textarea value={trainingNeedsDraft} onChange={e=>setTrainingNeedsDraft(e.target.value)} placeholder="Skills to develop…" rows={2} style={{...inpS,width:'100%',resize:'vertical',fontSize:11,lineHeight:1.5}}/></div>
-              </div>
+              </div>}
             </div>}
             <div style={{display:'flex',gap:8}}><OBtn onClick={commitProfile} style={{fontSize:11,padding:'5px 14px'}}>Save</OBtn><Btn onClick={()=>setEditProfile(false)} style={{fontSize:11}}>Cancel</Btn></div>
           </div>
@@ -3490,8 +3487,8 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
   const [newSpecDisc,setNewSpecDisc]   = useState('');
 
   const activeAgents   = agents.filter(a=>(a.status==='active'||a.status==='trainee')&&!a.specializedRole);
-  const inactiveAgents = agents.filter(a=>a.status==='inactive'&&!a.specializedRole);
-  const specializedAgents = agents.filter(a=>!!a.specializedRole);
+  const inactiveAgents = agents.filter(a=>a.status==='inactive');
+  const specializedAgents = agents.filter(a=>!!a.specializedRole && a.status!=='inactive');
   const supervisors    = [...new Set(agents.filter(a=>!a.specializedRole).map(a=>a.supervisor).filter(Boolean))].sort();
 
   const filtered = activeAgents.filter(a=>{
@@ -3750,7 +3747,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                           </button>
                         </div>
                         {/* Edit form */}
-                        <AgentDetail key={selSpec.id} hire={selSpec} onUpdate={updated=>onUpdateAgent(sanitizeAgent({...updated,specializedRole:selSpec.specializedRole}))} hideSnapshot={true}/>
+                        <AgentDetail key={selSpec.id} hire={selSpec} onUpdate={updated=>onUpdateAgent(sanitizeAgent({...updated,specializedRole:selSpec.specializedRole}))} hideSnapshot={true} isSpecialized={true}/>
                       </div>
                     );
                   })()
