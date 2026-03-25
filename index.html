@@ -59,7 +59,7 @@ const store = (() => {
 const C = {
   bg:'#111318', su:'#181b24', ca:'#1c1f2b', bo:'#252836',
   or:'#f97316', gr:'#22c55e', rd:'#ef4444', yl:'#eab308',
-  pu:'#a855f7', bl:'#3b82f6', tx:'#dde1ee', mu:'#52566a',
+  pu:'#a855f7', bl:'#3b82f6', tx:'#e8ebf4', mu:'#8b90a8',
 };
 const MO = "'Courier New', Courier, monospace";
 const PD = { High: C.rd, Medium: C.yl, Low: C.gr };
@@ -2508,7 +2508,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   };
   const generateReportHtml = () => {
     const today=new Date().toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
-    const mu='#888';const tx='#222';const gr='#1a7a3a';const rd='#b91c1c';const yl='#92710a';
+    const mu='#444';const tx='#111';const gr='#166534';const rd='#991b1b';const yl='#713f12';
     const h=(tag,style,content)=>`<${tag} style="${style}">${content}</${tag}>`;
     const div=(s,c)=>h('div',s,c); const sp=(s,c)=>h('span',s,c); const p=(s,c)=>h('p',s,c);
     const base='font-family:Calibri,Arial,sans-serif;font-size:14px;color:'+tx+';';
@@ -3679,18 +3679,42 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
           <button onClick={onLoadSeed} style={{fontFamily:MO,fontSize:10,padding:'3px 10px',borderRadius:5,border:'1px solid '+C.gr,background:C.gr+'11',color:C.gr,cursor:'pointer',whiteSpace:'nowrap'}}>📋 Import Roster</button>
         </div>
 
-        {filtered.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No active agents match the current filters.</div>}
+        {/* TWO-COLUMN LAYOUT: left name list, right detail panel */}
+        <div style={{display:'flex',gap:0,alignItems:'flex-start',minHeight:400}}>
 
-        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-          {filtered.map(a=><AgentRosterCard key={a.id} agent={a}/>)}
+          {/* LEFT: Alphabetical agent list */}
+          <div style={{width:220,flexShrink:0,background:C.su,border:'1px solid '+C.bo,borderRadius:8,overflowY:'auto',maxHeight:'calc(100vh - 220px)',marginRight:12}}>
+            {filtered.length===0
+              ? <div style={{fontFamily:MO,fontSize:11,color:C.mu,padding:'20px 12px',textAlign:'center'}}>No agents match filters.</div>
+              : [...filtered].sort((a,b)=>a.name.localeCompare(b.name)).map(a=>{
+                  const teamColor=TEAM_COLORS[a.team||'none']||C.mu;
+                  const isSel=selectedId===a.id;
+                  return (
+                    <div key={a.id} onClick={()=>setSelectedId(isSel?null:a.id)}
+                      style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6,padding:'9px 12px',cursor:'pointer',borderBottom:'1px solid '+C.bo,background:isSel?C.bl+'22':'transparent',borderLeft:`3px solid ${isSel?C.bl:'transparent'}`,transition:'all .1s'}}>
+                      <div>
+                        <div style={{fontFamily:MO,fontSize:12,fontWeight:isSel?'bold':'normal',color:isSel?C.tx:'#c8ccd8'}}>{a.name}</div>
+                        {a.status==='trainee'&&<span style={{fontFamily:MO,fontSize:8,color:C.pu}}>🎓 training</span>}
+                      </div>
+                      <span style={{fontFamily:MO,fontSize:9,color:teamColor,flexShrink:0}}>{a.supervisor?(a.supervisor.split(' ').slice(-1)[0]):'—'}</span>
+                    </div>
+                  );
+                })
+            }
+          </div>
+
+          {/* RIGHT: Detail panel */}
+          <div style={{flex:1,minWidth:0}}>
+            {!selectedAgent&&<div style={{background:C.su,border:'1px dashed '+C.bo,borderRadius:8,padding:'60px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>Select an agent from the list to view their profile.</div>}
+            {selectedAgent&&(selectedAgent.status==='active'||selectedAgent.status==='trainee')&&<AgentDetail
+              key={selectedAgent.id}
+              hire={selectedAgent}
+              onUpdate={a=>onUpdateAgent(sanitizeAgent(a))}
+              peerHires={agents.filter(a=>a.id!==selectedAgent.id)}
+            />}
+          </div>
+
         </div>
-
-        {selectedAgent&&(selectedAgent.status==='active'||selectedAgent.status==='trainee')&&<AgentDetail
-          key={selectedAgent.id}
-          hire={selectedAgent}
-          onUpdate={a=>onUpdateAgent(sanitizeAgent(a))}
-          peerHires={agents.filter(a=>a.id!==selectedAgent.id)}
-        />}
       </div>}
 
       {/* SEATING TAB */}
