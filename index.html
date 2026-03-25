@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/KDo9CwpqAWIL8m4RsKsQSJ2YTm', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/Av_7CVOVk6clw6EJCJspSEJf93', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/gozZCxkrBXTJMVgQHRt2Sy6A6k`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/I0zACW69l4sj9KQEHmtNSo9hvw`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/GdxzCyPvDYhNXwQytAu4SxPQyX`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/58WeCXD904hn5RgQf9uYSWf49F`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/d0TqCzpwEZIRgZymcBCnS952ui → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/4UvBCYE9ngU31qv7h3CvSxgv3G → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3744,23 +3744,13 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                             <div style={{fontFamily:MO,fontSize:16,fontWeight:'bold',color:C.tx,marginBottom:4}}>{selSpec.name}</div>
                             <span style={{fontFamily:MO,fontSize:10,padding:'2px 8px',borderRadius:4,border:`1px solid ${meta.color}66`,color:meta.color,background:meta.color+'18'}}>{meta.label}</span>
                           </div>
+                          <button onClick={()=>{if(window.confirm(`Move ${selSpec.name} to Inactive?`)){onDeactivateAgent(selSpec.id);setSelectedId(null);}}}
+                            style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.rd,background:C.rd+'18',color:C.rd,cursor:'pointer'}}>
+                            Set Inactive
+                          </button>
                         </div>
-                        {/* Fields grid */}
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10,marginBottom:14}}>
-                          {[
-                            ['Shift', shiftInfo?shiftInfo.label:'—'],
-                            ['Seat',  selSpec.seatId||'—'],
-                            ['DISC',  selSpec.discProfile||'—'],
-                            ['Start Date', selSpec.startDate?fmtShortDate(selSpec.startDate):'—'],
-                          ].map(([lbl,val])=>(
-                            <div key={lbl} style={{background:C.ca,borderRadius:6,padding:'8px 10px'}}>
-                              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:3}}>{lbl.toUpperCase()}</div>
-                              <div style={{fontFamily:MO,fontSize:12,color:C.tx}}>{val}</div>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Full edit via AgentDetail */}
-                        <AgentDetail hire={selSpec} onUpdate={updated=>onUpdateAgent(updated)} hideSnapshot={true}/>
+                        {/* Edit form */}
+                        <AgentDetail key={selSpec.id} hire={selSpec} onUpdate={updated=>onUpdateAgent(sanitizeAgent({...updated,specializedRole:selSpec.specializedRole}))} hideSnapshot={true}/>
                       </div>
                     );
                   })()
