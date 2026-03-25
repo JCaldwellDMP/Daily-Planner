@@ -3286,14 +3286,23 @@ function SeatingChart({ agents, onUpdateAgent }) {
   const [seatPos, setSeatPos] = useState(() => {
     const m = {};
     SEATS_INIT.forEach(([id,x,y,fx])=>{ m[id]={x,y,fixed:!!fx}; });
+    try {
+      const saved = JSON.parse(store.getItem('dps-seat-pos')||'{}');
+      Object.keys(saved).forEach(id=>{ m[id]={...m[id],...saved[id]}; });
+    } catch(e) {}
     return m;
   });
 
-  const SEATS = [...SEATS_INIT.filter(([id])=>!deletedSeats.has(id)), ...addedSeats]
-    .map(([id,,,fx])=>[id, seatPos[id]?.x??0, seatPos[id]?.y??0, fx]);
+  const saveSeatPos = pos => { try{store.setItem('dps-seat-pos',JSON.stringify(pos));}catch(e){} };
 
-  const updatePos = (id, x, y) => setSeatPos(p=>({...p,[id]:{...p[id],x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y))}}));
-  const nudge = (id, dx, dy) => setSeatPos(p=>({...p,[id]:{...p[id],x:Math.max(0,(p[id]?.x||0)+dx),y:Math.max(0,(p[id]?.y||0)+dy)}}));
+  const updatePos = (id, x, y) => setSeatPos(p=>{
+    const n={...p,[id]:{...p[id],x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y))}};
+    saveSeatPos(n); return n;
+  });
+  const nudge = (id, dx, dy) => setSeatPos(p=>{
+    const n={...p,[id]:{...p[id],x:Math.max(0,(p[id]?.x||0)+dx),y:Math.max(0,(p[id]?.y||0)+dy)}};
+    saveSeatPos(n); return n;
+  });
 
   const deleteSeat = id => {
     setDeletedSeats(prev=>{ const n=new Set(prev); n.add(id); try{store.setItem('dps-deleted-seats',JSON.stringify([...n]));}catch(e){} return n; });
@@ -3305,7 +3314,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
     const entry = [sid, 500, 200];
     const next = [...addedSeats, entry];
     setAddedSeats(next);
-    setSeatPos(p=>({...p,[sid]:{x:500,y:200,fixed:false}}));
+    setSeatPos(p=>{ const n={...p,[sid]:{x:500,y:200,fixed:false}}; saveSeatPos(n); return n; });
     try{store.setItem('dps-added-seats',JSON.stringify(next));}catch(e){}
     setNewSeatId('');
     setSelCalib(sid);
