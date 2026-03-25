@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/WG0NCPNV94T4Gm6mFjsESxYCCE', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/GXi2CBBY24uV6mG3HjsAS2gRUk', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-VPYCQW824t6AqRqFrtgSGlHb4`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/H7j-CDkV24TBvm9QCltNSjoBEc`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/_PCLCR6V09srmlOlCou1S1WN_G`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/QX5qCERV24FW9G7KUQu0S7irlL`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/TTk5CVOVk6clwKZKFWCpSE3lC5 → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/GcdYCG6V24sJYl7oS1CYSBE3Uf → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2333,10 +2333,10 @@ function parseMockCallEmail(txt) {
 
 function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false, hideSnapshot=false }) {
   const isTrainee = !!(hire.queues?.training?.active);
-  const [showTraining,setShowTraining]   = useState(forceTraining);
+  const [showTraining,setShowTraining]   = useState(hire.status==='trainee' || forceTraining);
   const [showSnapshot,setShowSnapshot]   = useState(!hideSnapshot);
   const showTabs = isTrainee || showTraining;
-  const [section,setSection]             = useState(isTrainee||forceTraining?'days':'notes');
+  const [section,setSection]             = useState(isTrainee||forceTraining||hire.status==='trainee'?'days':'notes');
   const [hwPrompt,setHwPrompt]           = useState(null);
   const [hwDateDraft,setHwDateDraft]     = useState('');
   const [newCallOpen,setNewCallOpen]     = useState(false);
@@ -2391,7 +2391,43 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const quizLow  = allDayPcts.length>0 ? Math.min(...allDayPcts) : null;
   const hwEnabledDays = TRAINING_DAYS.filter(td=>!td.review && hire.days[td.day]?.hasHw!==false);
   const hwDoneCount   = hwEnabledDays.filter(td=>hire.days[td.day]?.hwComplete).length;
+  const hwPending     = hwEnabledDays.length - hwDoneCount;
   const finalQuizPct  = hire.finalQuizCorrect!=null&&hire.finalQuizTotal!=null ? Math.round((hire.finalQuizCorrect/hire.finalQuizTotal)*100) : null;
+
+  // Historical comparison — graduated agents (status='active') with quiz data
+  const historicalAvg = (()=>{
+    const avgs = peerHires
+      .filter(p=>p.status==='active')
+      .map(p=>{ const pcts=Object.values(p.days||{}).map(d=>dayQuizPct(d)).filter(s=>s!=null); return pcts.length>0?Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length):null; })
+      .filter(s=>s!=null);
+    return avgs.length>0?Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length):null;
+  })();
+
+  // Flagged days — failed quiz (<70%) or completed day with missing HW
+  const flaggedDays = TRAINING_DAYS.filter(td=>{
+    const d=hire.days[td.day]||{};
+    const qpct=dayQuizPct(d);
+    return (qpct!=null&&qpct<70) || (d.hasHw!==false&&!td.review&&!d.hwComplete&&d.completed);
+  }).map(td=>{
+    const d=hire.days[td.day]||{};
+    const qpct=dayQuizPct(d);
+    return {day:td.day,failedQuiz:qpct!=null&&qpct<70,missingHw:d.hasHw!==false&&!td.review&&!d.hwComplete&&d.completed,qpct};
+  });
+
+  // Projected graduation — pace-based estimate
+  const projectedGrad = (()=>{
+    if(daysComp===0||daysComp>=15) return daysComp>=15?'Complete':null;
+    const dates=TRAINING_DAYS.map(td=>hire.days[td.day]?.completedDate).filter(Boolean).sort();
+    const startStr=dates[0]||hire.startDate;
+    if(!startStr) return null;
+    const startMs=new Date(startStr).getTime(), nowMs=Date.now();
+    const weeksElapsed=(nowMs-startMs)/(7*24*60*60*1000);
+    if(weeksElapsed<=0) return null;
+    const pace=daysComp/weeksElapsed;
+    if(pace<=0) return null;
+    const projMs=nowMs+((15-daysComp)/pace)*7*24*60*60*1000;
+    return new Date(projMs).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  })();
 
   // Day handlers
   const toggleDay     = n => { const c=hire.days[n],nv=!c.completed; onUpdate({...hire,days:{...hire.days,[n]:{...c,completed:nv,completedDate:nv?TODAY_T:null}}}); };
@@ -2692,8 +2728,9 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
         )}
       </div>
 
-      {/* PROGRESS SNAPSHOT — hidden for non-trainees and in history view */}
+      {/* PROGRESS SNAPSHOT — trainees only, not shown in history view */}
       {(isTrainee&&!showTraining)&&<div style={{background:C.su,borderBottom:'1px solid '+C.bo}}>
+        {/* Dept mode: collapsible header */}
         {hideSnapshot&&(
           <button onClick={()=>setShowSnapshot(p=>!p)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 16px',background:'transparent',border:'none',borderBottom:showSnapshot?'1px solid '+C.bo:'none',cursor:'pointer',textAlign:'left'}}>
             <span style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2}}>📊 PROGRESS SNAPSHOT</span>
@@ -2702,6 +2739,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
         )}
         {showSnapshot&&<div style={{padding:'12px 16px'}}>
           {!hideSnapshot&&<div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:10}}>📊 PROGRESS SNAPSHOT</div>}
+
+          {/* Core stats row */}
           <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
             {[
               [`📋 Days`,`${daysComp}/15`,daysPct>=100?C.gr:C.or,`${daysPct}%`],
@@ -2714,12 +2753,16 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:col||C.tx}}>{val}{pct&&<span style={{fontSize:10,color:col,marginLeft:4}}>{pct}</span>}</div>
               </div>
             ))}
+            {/* HW card: shows done/total + pending count */}
             <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
               <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>📝 Homework</div>
               <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hwDoneCount===hwEnabledDays.length&&hwEnabledDays.length>0?C.gr:C.tx}}>{hwDoneCount}/{hwEnabledDays.length}</div>
+              {!hideSnapshot&&hwPending>0&&<div style={{fontFamily:MO,fontSize:9,color:C.rd,marginTop:2}}>{hwPending} pending</div>}
             </div>
           </div>
-          {(quizAvg!=null||finalQuizPct!=null)&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:(hire.doingWell||hire.areasOfImprovement)?10:0}}>
+
+          {/* Quiz stats */}
+          {(quizAvg!=null||finalQuizPct!=null)&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
             {quizAvg!=null&&[['Avg Quiz',quizAvg],[' High',quizHigh],['Low',quizLow]].map(([label,val])=>(
               <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 60px',minWidth:60}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
@@ -2730,7 +2773,39 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               <div style={{fontFamily:MO,fontSize:9,color:C.or,marginBottom:2}}>🏁 Final Quiz</div>
               <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd}}>{finalQuizPct}% <span style={{fontSize:10,color:C.mu}}>({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span></div>
             </div>}
+            {/* Historical comparison — training view only */}
+            {!hideSnapshot&&quizAvg!=null&&historicalAvg!=null&&(()=>{
+              const diff=quizAvg-historicalAvg;
+              const col=diff>3?C.gr:diff<-3?C.rd:C.yl;
+              const label=diff>3?`▲ +${diff}% vs cohort`:diff<-3?`▼ ${diff}% vs cohort`:'= Cohort avg';
+              return (
+                <div style={{background:C.ca,border:`1px solid ${col}44`,borderRadius:6,padding:'6px 10px',flex:'1 1 100px',minWidth:100}}>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>📈 vs Cohort ({historicalAvg}%)</div>
+                  <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:col}}>{label}</div>
+                </div>
+              );
+            })()}
           </div>}
+
+          {/* Training-view extras: projected grad + flagged days */}
+          {!hideSnapshot&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:(hire.doingWell||hire.areasOfImprovement)?10:0}}>
+            {projectedGrad&&<div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 120px'}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>🎓 Proj. Graduation</div>
+              <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:projectedGrad==='Complete'?C.gr:C.tx}}>{projectedGrad}</div>
+            </div>}
+            {flaggedDays.length>0&&<div style={{background:C.rd+'0d',border:'1px solid '+C.rd+'33',borderRadius:6,padding:'6px 10px',flex:'2 1 180px'}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.rd,letterSpacing:1,marginBottom:4}}>🚩 FLAGGED DAYS</div>
+              <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                {flaggedDays.map(({day,failedQuiz,missingHw,qpct})=>(
+                  <span key={day} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,background:C.rd+'22',border:'1px solid '+C.rd+'44',color:C.rd}}>
+                    Day {day}{failedQuiz?` ✗${qpct}%`:'  '}{missingHw?' 📎?':''}
+                  </span>
+                ))}
+              </div>
+            </div>}
+          </div>}
+
+          {/* Doing well / areas of improvement */}
           {(hire.doingWell||hire.areasOfImprovement)&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {hire.doingWell&&<div style={{flex:'1 1 200px',background:C.gr+'0d',border:'1px solid '+C.gr+'33',borderRadius:6,padding:'8px 10px'}}>
               <div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div>
