@@ -90,7 +90,7 @@ const ADDITIONAL_ROLES = [
 const TEAM_COLORS = {
   'blue':       '#3b82f6',
   'dark-green': '#16a34a',
-  'light-green':'#22c55e',
+  'light-green':'#86efac',
   'none':       '#52566a',
 };
 const SPECIALTY_RED  = ['Jesse Caldwell','Dolan Parnell','Ryan Kay','Stephen Bowen','Nick Conrad','Chloe Gertner','Garrett Vinson'];
@@ -2268,8 +2268,6 @@ function HireCard({ hire, selected, onSelect, onSelectTraining }) {
         {mockPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Calls <span style={{color:C.tx}}>{hire.mockCalls.length}/{mockGoal}</span><span style={{color:mockPct>=100?C.gr:C.or}}> {mockPct}%</span></span>}
         {bPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Buddy <span style={{color:C.tx}}>{bLen}/{bGoal}</span><span style={{color:bPct>=100?C.gr:C.bl}}> {bPct}%</span></span>}
       </div>
-      {!hire.queues?.training?.active&&onSelectTraining&&<button onClick={e=>{e.stopPropagation();onSelectTraining(hire.id);}} style={{fontFamily:MO,fontSize:10,marginTop:8,padding:'4px 10px',width:'100%',border:`1px solid ${C.pu}44`,borderRadius:4,background:C.pu+'11',color:C.pu,cursor:'pointer'}}>🎓 Training History</button>}
-    </div>
   );
 }
 
@@ -3234,7 +3232,7 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
         onUpdate={updateHire}
         onGraduate={onGraduateAgent}
         peerHires={agents.filter(h=>h.id!==selectedHire.id)}
-        forceTraining={selectedShowTraining}
+        forceTraining={true}
       />}
     </div>
   );
@@ -3265,7 +3263,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
   const agentColor = a => {
     if(!a) return null;
     if(SPECIALTY_GOLD.includes(a.name)) return '#eab308';
-    if(SPECIALTY_RED.includes(a.name))  return C.rd;
+    if(a.specializedRole || SPECIALTY_RED.includes(a.name)) return C.rd;
     const tc = supervisorColor(a.supervisor);
     return TEAM_COLORS[tc] || C.mu;
   };
