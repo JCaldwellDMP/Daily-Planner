@@ -2268,6 +2268,7 @@ function HireCard({ hire, selected, onSelect, onSelectTraining }) {
         {mockPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Calls <span style={{color:C.tx}}>{hire.mockCalls.length}/{mockGoal}</span><span style={{color:mockPct>=100?C.gr:C.or}}> {mockPct}%</span></span>}
         {bPct!=null&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Buddy <span style={{color:C.tx}}>{bLen}/{bGoal}</span><span style={{color:bPct>=100?C.gr:C.bl}}> {bPct}%</span></span>}
       </div>
+    </div>
   );
 }
 
