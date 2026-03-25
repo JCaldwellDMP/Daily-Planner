@@ -2140,11 +2140,20 @@ const sanitizeAgent = h => ({
   discProfile:    h.discProfile    || '',
   status:         h.status         || 'trainee',
   team:           h.team           || 'none',
-  shift:          h.shift          || null,
+  shiftStart: (()=>{
+    if(h.shiftStart) return h.shiftStart;
+    if(h.shift&&typeof h.shift==='string'){const m=h.shift.match(/(\d+):(\d+)/);if(m)return `${String(parseInt(m[1])).padStart(2,'0')}:${m[2]}`;}
+    return null;
+  })(),
+  shiftEnd: (()=>{
+    if(h.shiftEnd) return h.shiftEnd;
+    if(h.shift&&typeof h.shift==='string'){const m=h.shift.match(/-\s*(\d+):(\d+)/);if(m){let eh=parseInt(m[1]),em=m[2];const ss=h.shiftStart||(h.shift.match(/(\d+):(\d+)/)||[])[0];const shm=ss?parseInt(ss.split(':')[0])*60+parseInt(ss.split(':')[1]||0):0;if(eh*60+parseInt(em)<=shm)eh+=12;return `${String(eh).padStart(2,'0')}:${em}`;}}
+    return null;
+  })(),
   seatId:         h.seatId         || null,
   specializedRole: h.specializedRole || '',
   queues: {
-    programming:   { active: h.queues?.programming?.active   ?? true,  date: h.queues?.programming?.date   || h.startDate || null },
+    programming:   { active: h.queues?.programming?.active   ?? false, date: h.queues?.programming?.date   || h.startDate || null },
     dealerAdmin:   { active: h.queues?.dealerAdmin?.active   ?? false, date: h.queues?.dealerAdmin?.date   || null },
     accessControl: { active: h.queues?.accessControl?.active ?? false, date: h.queues?.accessControl?.date || null },
     communicators: { active: h.queues?.communicators?.active ?? false, date: h.queues?.communicators?.date || null },
@@ -2196,9 +2205,9 @@ const sanitizeAgent = h => ({
 const initAgent = (name, startDate) => ({
   id: nid(), name, startDate,
   supervisor:'', discProfile:'', status:'trainee',
-  team:'none', shift:null, seatId:null, specializedRole:'',
+  team:'none', shiftStart:null, shiftEnd:null, seatId:null, specializedRole:'',
   queues:{
-    programming:   {active:true,  date:startDate},
+    programming:   {active:false, date:null},
     dealerAdmin:   {active:false, date:null},
     accessControl: {active:false, date:null},
     communicators: {active:false, date:null},
@@ -2220,6 +2229,8 @@ const initAgent = (name, startDate) => ({
 });
 
 const fmtShortDate = ds => { const d=new Date(ds+'T12:00:00'); return d.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'}); };
+const fmtTime = t => { if(!t) return null; const [h,m]=t.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`; };
+const fmtShift = (s,e) => { const a=fmtTime(s),b=fmtTime(e); return (a&&b)?`${a} – ${b}`:a||b||null; };
 
 const phaseLabel = hire => {
   const comp = Object.values(hire.days).filter(d=>d.completed).length;
@@ -2443,7 +2454,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
 
   // Notes
   const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
-  const [shiftDraft,setShiftDraft]         = useState(hire.shift||'');
+  const [shiftStartDraft,setShiftStartDraft]   = useState(hire.shiftStart||'');
+  const [shiftEndDraft,setShiftEndDraft]       = useState(hire.shiftEnd||'');
   const [teamDraft,setTeamDraft]           = useState(hire.team||'none');
   const [queuesDraft,setQueuesDraft]       = useState(hire.queues||{});
   const [addRolesDraft,setAddRolesDraft]   = useState(hire.additionalRoles||{});
@@ -2455,7 +2467,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const commitProfile = () => {
     const base = {name:nameDraft.trim()||hire.name,discProfile:discDraft.trim(),supervisor:supDraft.trim(),startDate:startDraft,doingWell:wellDraft.trim(),areasOfImprovement:improveDraft.trim()};
     const newStatus = inactiveDraft ? 'inactive' : trainingDraft ? 'trainee' : 'active';
-    const dept = (hire.status==='active'||hire.status==='trainee')?{shift:shiftDraft||null,team:supervisorColor(supDraft.trim()),queues:queuesDraft,additionalRoles:addRolesDraft,currentIssues:currentIssuesDraft.trim(),trainingNeeds:trainingNeedsDraft.trim()}:{};
+    const dept = (hire.status==='active'||hire.status==='trainee')?{shiftStart:shiftStartDraft||null,shiftEnd:shiftEndDraft||null,team:supervisorColor(supDraft.trim()),queues:queuesDraft,additionalRoles:addRolesDraft,currentIssues:currentIssuesDraft.trim(),trainingNeeds:trainingNeedsDraft.trim()}:{};
     onUpdate({...hire,...base,...dept,status:newStatus});
     setEditProfile(false);
   };
@@ -2626,8 +2638,12 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               <div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:2,marginBottom:8}}>🏢 DEPARTMENT</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                 <div style={{flex:'1 1 140px'}}>
-                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>SHIFT</div>
-                  <input value={shiftDraft||''} onChange={e=>setShiftDraft(e.target.value)} placeholder="e.g. 8:00-4:30" style={{...inpS,width:'100%',fontSize:11}}/>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>SHIFT START</div>
+                  <input type="time" value={shiftStartDraft||''} onChange={e=>setShiftStartDraft(e.target.value)} style={{...inpS,width:'100%',fontSize:11,colorScheme:'dark'}}/>
+                </div>
+                <div style={{flex:'1 1 140px'}}>
+                  <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>SHIFT END</div>
+                  <input type="time" value={shiftEndDraft||''} onChange={e=>setShiftEndDraft(e.target.value)} style={{...inpS,width:'100%',fontSize:11,colorScheme:'dark'}}/>
                 </div>
               </div>
               {!isSpecialized&&<div style={{marginBottom:8}}>
@@ -2744,7 +2760,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               </div>
               <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SHIFT</div>
-                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:hire.shift?C.tx:C.mu}}>{hire.shift||'Not set'}</div>
+                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:(hire.shiftStart||hire.shiftEnd)?C.tx:C.mu}}>{fmtShift(hire.shiftStart,hire.shiftEnd)||'Not set'}</div>
               </div>
               <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SEAT</div>
@@ -3649,13 +3665,15 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
   const [showAddAgent,setShowAddAgent] = useState(false);
   const [newName,setNewName]   = useState('');
   const [newSup,setNewSup]     = useState('');
-  const [newShift,setNewShift] = useState('');
   const [newDisc,setNewDisc]   = useState('');
+  const [newShiftStart,setNewShiftStart] = useState('');
+  const [newShiftEnd,setNewShiftEnd]     = useState('');
 
   const [showAddSpec,setShowAddSpec]   = useState(false);
   const [newSpecName,setNewSpecName]   = useState('');
   const [newSpecRole,setNewSpecRole]   = useState('supervisor');
-  const [newSpecShift,setNewSpecShift] = useState('');
+  const [newSpecShiftStart,setNewSpecShiftStart] = useState('');
+  const [newSpecShiftEnd,setNewSpecShiftEnd]     = useState('');
   const [newSpecDisc,setNewSpecDisc]   = useState('');
 
   const activeAgents   = agents.filter(a=>(a.status==='active'||a.status==='trainee')&&!a.specializedRole);
@@ -3678,14 +3696,14 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
     if(!newName.trim()) return;
     const a = sanitizeAgent({
       ...initAgent(newName.trim(), new Date().toISOString().split('T')[0]),
-      status:'active',
       supervisor: newSup.trim(),
-      shift: newShift||null,
+      shiftStart: newShiftStart||null,
+      shiftEnd: newShiftEnd||null,
       discProfile: newDisc.trim(),
     });
     onAddAgent(a);
     setShowAddAgent(false);
-    setNewName(''); setNewSup(''); setNewShift(''); setNewDisc('');
+    setNewName(''); setNewSup(''); setNewShiftStart(''); setNewShiftEnd(''); setNewDisc('');
     setSelectedId(a.id);
   };
 
@@ -3695,19 +3713,20 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
       ...initAgent(newSpecName.trim(), new Date().toISOString().split('T')[0]),
       status:'active',
       specializedRole: newSpecRole,
-      shift: newSpecShift||null,
+      shiftStart: newSpecShiftStart||null,
+      shiftEnd: newSpecShiftEnd||null,
       discProfile: newSpecDisc.trim(),
     });
     onAddAgent(a);
     setShowAddSpec(false);
-    setNewSpecName(''); setNewSpecRole('supervisor'); setNewSpecShift(''); setNewSpecDisc('');
+    setNewSpecName(''); setNewSpecRole('supervisor'); setNewSpecShiftStart(''); setNewSpecShiftEnd(''); setNewSpecDisc('');
     setSelectedId(a.id);
   };
 
   const AgentRosterCard = ({agent}) => {
     const teamColor = TEAM_COLORS[agent.team||'none']||C.mu;
     const activeQ   = QUEUES.filter(q=>agent.queues?.[q.id]?.active).length;
-    const shiftStr  = agent.shift||null;
+    const shiftStr  = fmtShift(agent.shiftStart, agent.shiftEnd);
     return (
       <div onClick={()=>setSelectedId(selectedId===agent.id?null:agent.id)}
         style={{background:selectedId===agent.id?C.ca:C.su,border:`2px solid ${selectedId===agent.id?C.bl:C.bo}`,borderRadius:10,padding:12,cursor:'pointer',transition:'all .15s',flex:'1 1 200px',maxWidth:300,position:'relative'}}>
@@ -3736,7 +3755,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
 
       {/* Tab bar */}
       <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo,marginBottom:16,width:'fit-content'}}>
-        {[['roster','👤 Agent Roster'],['specialized','⭐ Specialized'],['seating','🪑 Seating'],['inactive','💤 Inactive']].map(([k,l])=>(
+        {[['roster','👤 Agent Roster'],['specialized','⭐ Specialized'],['seating','🪑 Seating'],['inactive','💤 Inactive'],['schedule','📊 Schedule']].map(([k,l])=>(
           <button key={k} onClick={()=>{setDeptTab(k);setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 18px',border:'none',borderLeft:k!=='roster'?'1px solid '+C.bo:'none',background:deptTab===k?C.bl:C.ca,color:deptTab===k?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
             {l}{k==='roster'?` (${activeAgents.length})`:k==='inactive'?` (${inactiveAgents.length})`:k==='specialized'?` (${specializedAgents.length})`:''}
           </button>
@@ -3758,16 +3777,20 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                 placeholder="Supervisor…" style={{...inpS,flex:'2 1 160px'}}/>
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
-              <select value={newShift} onChange={e=>setNewShift(e.target.value)} style={{...inpS,flex:'2 1 160px'}}>
-                <option value="">No shift assigned</option>
-                {SHIFTS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
+              <div style={{display:'flex',flexDirection:'column',gap:3,flex:'1 1 120px'}}>
+                <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>SHIFT START</span>
+                <input type="time" value={newShiftStart} onChange={e=>setNewShiftStart(e.target.value)} style={{...inpS,colorScheme:'dark'}}/>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:3,flex:'1 1 120px'}}>
+                <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>SHIFT END</span>
+                <input type="time" value={newShiftEnd} onChange={e=>setNewShiftEnd(e.target.value)} style={{...inpS,colorScheme:'dark'}}/>
+              </div>
               <input value={newDisc} onChange={e=>setNewDisc(e.target.value)}
                 placeholder="DISC profile…" style={{...inpS,flex:'1 1 100px'}}/>
             </div>
             <div style={{display:'flex',gap:8}}>
               <OBtn onClick={saveNewAgent} disabled={!newName.trim()}>+ Add Agent</OBtn>
-              <Btn onClick={()=>{setShowAddAgent(false);setNewName('');setNewSup('');setNewShift('');setNewDisc('');}}>Cancel</Btn>
+              <Btn onClick={()=>{setShowAddAgent(false);setNewName('');setNewSup('');setNewShiftStart('');setNewShiftEnd('');setNewDisc('');}}>Cancel</Btn>
             </div>
           </div>
         )}
@@ -3862,16 +3885,20 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                   </select>
                 </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
-                  <select value={newSpecShift} onChange={e=>setNewSpecShift(e.target.value)} style={{...inpS,flex:'2 1 160px'}}>
-                    <option value="">No shift assigned</option>
-                    {SHIFTS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
+                  <div style={{display:'flex',flexDirection:'column',gap:3,flex:'1 1 120px'}}>
+                    <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>SHIFT START</span>
+                    <input type="time" value={newSpecShiftStart} onChange={e=>setNewSpecShiftStart(e.target.value)} style={{...inpS,colorScheme:'dark'}}/>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:3,flex:'1 1 120px'}}>
+                    <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>SHIFT END</span>
+                    <input type="time" value={newSpecShiftEnd} onChange={e=>setNewSpecShiftEnd(e.target.value)} style={{...inpS,colorScheme:'dark'}}/>
+                  </div>
                   <input value={newSpecDisc} onChange={e=>setNewSpecDisc(e.target.value)}
                     placeholder="DISC profile…" style={{...inpS,flex:'1 1 100px'}}/>
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   <OBtn onClick={saveNewSpec} disabled={!newSpecName.trim()}>+ Add</OBtn>
-                  <Btn onClick={()=>{setShowAddSpec(false);setNewSpecName('');setNewSpecRole('supervisor');setNewSpecShift('');setNewSpecDisc('');}}>Cancel</Btn>
+                  <Btn onClick={()=>{setShowAddSpec(false);setNewSpecName('');setNewSpecRole('supervisor');setNewSpecShiftStart('');setNewSpecShiftEnd('');setNewSpecDisc('');}}>Cancel</Btn>
                 </div>
               </div>
             )}
