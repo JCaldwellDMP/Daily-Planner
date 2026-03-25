@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/RWrlCqxkrNTO0rmpHQi7SENLC8', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/sjFZCmZ9nJT5J3VpC9szSRXIg-', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/oSbRCrklvOTAVjL5fysNS4wOyC`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/gHDiCn59oKHGO24Ximt5SJBrD_`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/AmoICv2pzVTWNgMDCotQSQTIMI`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/E5vsCo2g0LTXqRADsouzSpwLPg`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/4_lMCwpqAWIL8QYDs8uQSJAzA_ → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/BdQGCpYjqMUzMWg9F7C5SGEFLq → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3443,79 +3443,12 @@ function SeatingChart({ agents, onUpdateAgent }) {
       </div>
 
       {/* ── Floor plan ────────────────────────────────────── */}
-      <div style={{flexShrink:0,position:'relative',width:FW,height:FH,background:'#fff',border:'1px solid #ccc',borderRadius:4}}>
+      <div style={{flexShrink:0,position:'relative',width:FW,height:FH,borderRadius:4,overflow:'hidden'}}>
 
-        <svg width={FW} height={FH} style={{position:'absolute',top:0,left:0,pointerEvents:'none'}}>
-          <defs>
-            <pattern id="floorGrid" width="58" height="46" patternUnits="userSpaceOnUse">
-              <path d="M 58 0 L 0 0 0 46" fill="none" stroke="#ebebeb" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
+        <img src="./floorplan.png" alt="Floor plan"
+          style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'fill',pointerEvents:'none',userSelect:'none'}}
+        />
 
-          {/* ── Floor base ── */}
-          <rect x="2" y="92" width="1116" height="446" fill="#fafafa"/>
-          <rect x="2" y="92" width="1116" height="446" fill="url(#floorGrid)"/>
-          <rect x="2" y="92" width="1116" height="446" fill="none" stroke="black" strokeWidth="3"/>
-
-          {/* ── Restrooms — shorter height, protrudes above floor line ── */}
-          <rect x="2" y="28" width="164" height="252" fill="#f0f0f0" stroke="black" strokeWidth="2" strokeDasharray="7,4"/>
-          <line x1="84" y1="28" x2="84" y2="280" stroke="black" strokeWidth="2"/>
-          <rect x="28" y="16" width="32" height="13" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
-          <rect x="98" y="16" width="32" height="13" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
-
-          {/* ── Facilities header box ── */}
-          <rect x="215" y="92" width="222" height="58" fill="white" stroke="black" strokeWidth="2"/>
-
-          {/* ── IT Networking Room — no desks inside, NET desks are south of it ── */}
-          <rect x="215" y="150" width="222" height="200" fill="white" stroke="black" strokeWidth="3"/>
-
-          {/* ── TS Inventory gray squares ── */}
-          <rect x="436" y="102" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
-          <rect x="468" y="102" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
-
-          {/* ── Customer Care Conference Room — no desks inside, CONF desks are south of it ── */}
-          <rect x="524" y="92" width="260" height="188" fill="white" stroke="black" strokeWidth="3"/>
-
-          {/* ── Brad Tucker's enclosed office — right of conf room ── */}
-          <rect x="784" y="92" width="120" height="188" fill="#fffbeb" stroke="#ca8a04" strokeWidth="2.5"/>
-
-          {/* ── Top-right floor notch — architectural indent, covers floor grid ── */}
-          <path d="M 904 92 Q 1000 92 1055 155 L 1118 155 L 1118 92 Z" fill="white" stroke="black" strokeWidth="2"/>
-
-          {/* ── Brent Appleby's corner office — above floor, top-right ── */}
-          <rect x="978" y="2" width="138" height="88" fill="#fffbeb" stroke="#ca8a04" strokeWidth="2"/>
-
-          {/* ── Desk bays — generated from SEATS for guaranteed alignment
-               Outer box = cubicle walls. Desk-surface bar near top = the back desk.
-               Empty space below = open front of cubicle → creates U-shape look.  ── */}
-          {SEATS.filter(([sid])=>!sid.startsWith('gold')).map(([sid,tx,ty])=>(
-            <g key={'bay-'+sid}>
-              <rect x={tx-4} y={ty-14} width={58} height={72} fill="white" stroke="#999" strokeWidth="1.5"/>
-              <rect x={tx+2} y={ty-8} width={46} height={14} fill="#d8d8d8" stroke="#bbb" strokeWidth="1"/>
-            </g>
-          ))}
-          {SEATS.filter(([sid])=>sid.startsWith('gold')).map(([sid,tx,ty])=>(
-            <g key={'bayg-'+sid}>
-              <rect x={tx-4} y={ty-14} width={58} height={72} fill="#fffbeb" stroke="#ca8a04" strokeWidth="2"/>
-              <rect x={tx+2} y={ty-8} width={46} height={14} fill="#fef3c7" stroke="#ca8a04" strokeWidth="1"/>
-            </g>
-          ))}
-
-          {/* ── Room labels ── */}
-          <text x="326" y="128" fontFamily="Arial" fontWeight="bold" fontSize="14" fill="black" textAnchor="middle">Facilities</text>
-          <text x="326" y="218" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">IT Networking</text>
-          <text x="326" y="236" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Room</text>
-          <text x="480" y="116" fontFamily="Arial" fontSize="8" fill="#444" textAnchor="middle">TS</text>
-          <text x="480" y="126" fontFamily="Arial" fontSize="8" fill="#444" textAnchor="middle">Inv.</text>
-          <text x="654" y="148" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Customer Care</text>
-          <text x="654" y="166" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Conference Room</text>
-          <text x="844" y="130" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Brad Tucker</text>
-          <text x="844" y="143" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Office</text>
-          <text x="1047" y="46" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Brent</text>
-          <text x="1047" y="58" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Appleby</text>
-          <text x="44" y="200" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,44,200)">{"Women's Restroom"}</text>
-          <text x="116" y="200" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,116,200)">{"Men's Restroom"}</text>
-        </svg>
 
         {/* Rename modal */}
         {editSeat&&(
@@ -4460,6 +4393,7 @@ root.render(<ErrorBoundary><DailyPlanner /></ErrorBoundary>);
 </script>
 </body>
 </html>
+
 
 
 
