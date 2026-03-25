@@ -3259,6 +3259,9 @@ function SeatingChart({ agents, onUpdateAgent }) {
   const [selCalib,setSelCalib]     = useState(null);   // selected seatId in calib panel
   const [calibDrag,setCalibDrag]   = useState(null);   // {seatId, offX, offY}
   const [copied,setCopied]         = useState(false);
+  const [deletedSeats,setDeletedSeats] = useState(()=>{ try{return new Set(JSON.parse(store.getItem('dps-deleted-seats')||'[]'));}catch(e){return new Set();} });
+  const [addedSeats,setAddedSeats]     = useState(()=>{ try{return JSON.parse(store.getItem('dps-added-seats')||'[]');}catch(e){return [];} });
+  const [newSeatId,setNewSeatId]       = useState('');
   const floorRef = useRef(null);
 
   // [seatId, tx, ty, fixed?] -- tile top-left in 1120x540 container
@@ -3270,7 +3273,6 @@ function SeatingChart({ agents, onUpdateAgent }) {
     ['conf-1', 558, 272], ['conf-2', 616, 272], ['conf-3', 674, 272],
     ['conf-4', 558, 344], ['conf-5', 616, 344], ['conf-6', 674, 344],
     ['conf-7', 736, 344],
-    ['gold-brad', 768, 224, true], ['gold-brent', 1042, 40, true],
     ['quad-1', 964, 330], ['quad-2', 1022, 330],
     ['quad-3', 964, 390], ['quad-4', 1022, 390],
     ['main-01',  16, 470], ['main-02',  75, 470], ['main-03', 134, 470],
@@ -3279,7 +3281,6 @@ function SeatingChart({ agents, onUpdateAgent }) {
     ['main-10', 547, 470], ['main-11', 606, 470], ['main-12', 665, 470],
     ['main-13', 724, 470], ['main-14', 783, 470], ['main-15', 842, 470],
     ['main-16', 901, 470], ['main-17', 960, 470], ['main-18',1019, 470],
-    ['main-19',1062, 470],
   ];
 
   const [seatPos, setSeatPos] = useState(() => {
@@ -3288,10 +3289,27 @@ function SeatingChart({ agents, onUpdateAgent }) {
     return m;
   });
 
-  const SEATS = SEATS_INIT.map(([id,,, fx])=>[id, seatPos[id]?.x??0, seatPos[id]?.y??0, fx]);
+  const SEATS = [...SEATS_INIT.filter(([id])=>!deletedSeats.has(id)), ...addedSeats]
+    .map(([id,,,fx])=>[id, seatPos[id]?.x??0, seatPos[id]?.y??0, fx]);
 
   const updatePos = (id, x, y) => setSeatPos(p=>({...p,[id]:{...p[id],x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y))}}));
   const nudge = (id, dx, dy) => setSeatPos(p=>({...p,[id]:{...p[id],x:Math.max(0,(p[id]?.x||0)+dx),y:Math.max(0,(p[id]?.y||0)+dy)}}));
+
+  const deleteSeat = id => {
+    setDeletedSeats(prev=>{ const n=new Set(prev); n.add(id); try{store.setItem('dps-deleted-seats',JSON.stringify([...n]));}catch(e){} return n; });
+    if(selCalib===id) setSelCalib(null);
+  };
+  const addSeat = () => {
+    const sid = newSeatId.trim().replace(/\s+/g,'-').toLowerCase();
+    if(!sid || [...SEATS_INIT.map(s=>s[0]),...addedSeats.map(s=>s[0])].includes(sid)) return;
+    const entry = [sid, 500, 200];
+    const next = [...addedSeats, entry];
+    setAddedSeats(next);
+    setSeatPos(p=>({...p,[sid]:{x:500,y:200,fixed:false}}));
+    try{store.setItem('dps-added-seats',JSON.stringify(next));}catch(e){}
+    setNewSeatId('');
+    setSelCalib(sid);
+  };
 
   const copyArray = () => {
     const lines = SEATS.map(([id,x,y,fx])=>`  ['${id}', ${x}, ${y}${fx?', true':''}],`).join('\n');
@@ -3391,14 +3409,14 @@ function SeatingChart({ agents, onUpdateAgent }) {
         onDoubleClick={()=>{ if(agent){ setEditSeat(seatId); setEditName(agent.name); } }}
         title={agent?agent.name:seatId}
         style={{position:'absolute',left:x,top:y,width:52,height:44,borderRadius:4,
-          border:'2px solid '+(agent?col:emptyBd),background:agent?col+'2a':emptyBg,
+          border:'2px solid '+(agent?col:emptyBd),background:agent?col:emptyBg,
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
           cursor:isFixed?'default':agent?'grab':'default',fontFamily:MO,textAlign:'center',
           lineHeight:1.2,userSelect:'none',transition:'all .12s',
           opacity:dragId===agent?.id?0.35:1,boxSizing:'border-box',zIndex:2}}>
         {agent
-          ? <><span style={{fontSize:9,fontWeight:'bold',color:col}}>{initials}</span>
-               <span style={{fontSize:7,color:col}}>{last}</span></>
+          ? <><span style={{fontSize:9,fontWeight:'bold',color:'#fff',textShadow:'0 1px 2px rgba(0,0,0,0.6)'}}>{initials}</span>
+               <span style={{fontSize:7,color:'rgba(255,255,255,0.9)',textShadow:'0 1px 2px rgba(0,0,0,0.6)'}}>{last}</span></>
           : <span style={{fontSize:7,color:isHover?'#22c55e':'#bbb'}}>+</span>}
       </div>
     );
@@ -3491,10 +3509,6 @@ function SeatingChart({ agents, onUpdateAgent }) {
                 <span style={{width:8,height:8,borderRadius:2,background:C.rd,flexShrink:0,display:'inline-block'}}/>
                 <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Supervisor</span>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:4}}>
-                <span style={{width:8,height:8,borderRadius:2,background:'#eab308',flexShrink:0,display:'inline-block'}}/>
-                <span style={{fontFamily:MO,fontSize:7,color:C.tx}}>Fixed</span>
-              </div>
             </div>
             <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginTop:6,lineHeight:1.4,textAlign:'center'}}>
               Drag to seat<br/>Drag back to unassign<br/>Double-click to rename
@@ -3544,13 +3558,29 @@ function SeatingChart({ agents, onUpdateAgent }) {
               {SEATS.map(([id,x,y])=>(
                 <div key={id} onClick={()=>setSelCalib(id)}
                   style={{display:'flex',justifyContent:'space-between',alignItems:'center',
-                    padding:'4px 6px',borderRadius:4,marginBottom:2,cursor:'pointer',
+                    padding:'3px 6px',borderRadius:4,marginBottom:2,cursor:'pointer',
                     background:selCalib===id?C.or+'22':'transparent',
                     border:`1px solid ${selCalib===id?C.or+'66':'transparent'}`}}>
-                  <span style={{fontFamily:MO,fontSize:9,color:selCalib===id?C.or:C.tx}}>{id}</span>
-                  <span style={{fontFamily:MO,fontSize:8,color:C.mu}}>{x},{y}</span>
+                  <span style={{fontFamily:MO,fontSize:9,color:selCalib===id?C.or:C.tx,flex:1}}>{id}</span>
+                  <span style={{fontFamily:MO,fontSize:8,color:C.mu,marginRight:4}}>{x},{y}</span>
+                  <button onClick={e=>{e.stopPropagation();if(window.confirm(`Delete seat "${id}"?`))deleteSeat(id);}}
+                    style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,border:'1px solid '+C.rd+'44',
+                      background:'transparent',color:C.rd,cursor:'pointer',lineHeight:1,flexShrink:0}}>✕</button>
                 </div>
               ))}
+            </div>
+            {/* Add seat form */}
+            <div style={{borderTop:'1px solid '+C.bo,paddingTop:6,marginTop:4}}>
+              <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:1,marginBottom:4}}>ADD SEAT</div>
+              <div style={{display:'flex',gap:4}}>
+                <input value={newSeatId} onChange={e=>setNewSeatId(e.target.value)}
+                  onKeyDown={e=>e.key==='Enter'&&addSeat()}
+                  placeholder="seat-id" style={{fontFamily:MO,fontSize:9,background:C.ca,border:'1px solid '+C.bo,
+                    borderRadius:4,padding:'3px 6px',color:C.tx,outline:'none',flex:1,minWidth:0}}/>
+                <button onClick={addSeat} style={{fontFamily:MO,fontSize:9,padding:'3px 8px',borderRadius:4,
+                  border:'1px solid '+C.gr+'66',background:C.gr+'22',color:C.gr,cursor:'pointer',flexShrink:0}}>+ Add</button>
+              </div>
+              <div style={{fontFamily:MO,fontSize:7,color:C.mu,marginTop:3,lineHeight:1.4}}>New seat placed at center. Drag to position.</div>
             </div>
           </div>
         )}
