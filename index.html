@@ -3747,35 +3747,35 @@ function DailyPlanner() {
     };
   };
   const SEED_AGENTS = [
-    // name, disc, sup, shift, queues: prog/ac/da/ent/comm/vid
-    ['Ash Jordan',        'S',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,0,1,0,1,0)],
-    ['Bryant Selleck',    'D',  'Ryan Kay',         '7:00-3:30',   mkQ(1,1,0,1,1,1)],
-    ['Chris Schofield',   'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,0,0,1,1)],
-    ['Clinton Smith',     'C',  'Dolan Parnell',   '8:00-4:30',   mkQ(1,0,1,0,0,0)],
-    ['Cody Wilkinson',    'S',  'Stephen Bowen',    '9:30-6:00',   mkQ(1,1,1,0,0,0)],
-    ['Connor Thompson',   'C',  'Ryan Kay',         '10:30-7:00',  mkQ(1,0,1,0,0,0)],
-    ['Cooper Purvis',     'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(0,0,0,0,0,0)],
-    ['Dennis George',     'C',  'Stephen Bowen',    '8:30-5:00',   mkQ(1,1,1,0,1,0)],
-    ['Dustin Stevens',    'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,1,1,1)],
-    ['Eryne Wilson',      'S',  'Stephen Bowen',    '10:30-7:00',  mkQ(1,0,1,0,1,1)],
-    ['Frank Vargas',      'C',  'Stephen Bowen',    '10:30-7:00',  mkQ(1,0,0,0,1,0)],
-    ['Grant Gregory',     'C',  'Ryan Kay',         '9:30-6:00',   mkQ(1,1,1,0,1,0)],
-    ['Helena Carrico',    '',   'Stephen Bowen',    '8:30-5:00',   mkQ(0,0,0,0,0,0)],
-    ['Jacob Middleton',   'C',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,0,0,0)],
-    ['Justin George',     'C',  'Stephen Bowen',    '8:30-5:00',   mkQ(1,1,1,0,1,1)],
-    ['Londin Walton',     '',   'Ryan Kay',         '8:30-5:00',   mkQ(0,0,0,0,0,0)],
-    ['Madi Stout',        'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,1,1,0,0,0)],
-    ['Matt Ozborn',       'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,0,1,1)],
-    ['Meaghen Schofield', 'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,0,0,0)],
-    ['Nolan Longstaff',   'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(1,0,1,0,0,0)],
-    ['Reid Moose',        'C',  'Dolan Parnell',   '7:00-3:30',   mkQ(1,1,1,1,1,1)],
-    ['Shawn Thieleman',   'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,0,1,0,0,0)],
-    ['Shirley Swanson',   'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(1,0,0,0,0,0)],
-    ['Tyler Moose',       'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,0,0,0,0,0)],
-    ['Will Floyd',        '',   'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,0,1,1)],
-    ['Yoseph Almetnawy',  'C',  'Ryan Kay',         '10:30-7:00',  mkQ(1,1,1,1,1,1)],
-    ['Zach Cosby',        'S',  'Dolan Parnell',   '7:00-3:30',   mkQ(1,1,1,1,1,1)],
-    ['Zach Depew',        'C',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,1,1,1)],
+    // name, disc, sup, shift, queues: prog/ac/da/ent/comm/vid, seatId
+    ['Ash Jordan',        'S',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,0,1,0,1,0), 'net-2'],
+    ['Bryant Selleck',    'D',  'Ryan Kay',         '7:00-3:30',   mkQ(1,1,0,1,1,1), 'main-04'],
+    ['Chris Schofield',   'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,0,0,1,1), 'main-09'],
+    ['Clinton Smith',     'C',  'Dolan Parnell',   '8:00-4:30',   mkQ(1,0,1,0,0,0), 'quad-1'],
+    ['Cody Wilkinson',    'S',  'Stephen Bowen',    '9:30-6:00',   mkQ(1,1,1,0,0,0), 'main-16'],
+    ['Connor Thompson',   'C',  'Ryan Kay',         '10:30-7:00',  mkQ(1,0,1,0,0,0), 'conf-5'],
+    ['Cooper Purvis',     'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(0,0,0,0,0,0), 'main-15'],
+    ['Dennis George',     'C',  'Stephen Bowen',    '8:30-5:00',   mkQ(1,1,1,0,1,0), 'net-1'],
+    ['Dustin Stevens',    'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,1,1,1), 'main-06'],
+    ['Eryne Wilson',      'S',  'Stephen Bowen',    '10:30-7:00',  mkQ(1,0,1,0,1,1), 'main-08'],
+    ['Frank Vargas',      'C',  'Stephen Bowen',    '10:30-7:00',  mkQ(1,0,0,0,1,0), 'main-17'],
+    ['Grant Gregory',     'C',  'Ryan Kay',         '9:30-6:00',   mkQ(1,1,1,0,1,0), 'main-03'],
+    ['Helena Carrico',    '',   'Stephen Bowen',    '8:30-5:00',   mkQ(0,0,0,0,0,0), 'conf-4'],
+    ['Jacob Middleton',   'C',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,0,0,0), 'quad-3'],
+    ['Justin George',     'C',  'Stephen Bowen',    '8:30-5:00',   mkQ(1,1,1,0,1,1), 'quad-4'],
+    ['Londin Walton',     '',   'Ryan Kay',         '8:30-5:00',   mkQ(0,0,0,0,0,0), 'conf-1'],
+    ['Madi Stout',        'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,1,1,0,0,0), 'conf-2'],
+    ['Matt Ozborn',       'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,0,1,1), 'main-01'],
+    ['Meaghen Schofield', 'C',  'Stephen Bowen',    '7:00-3:30',   mkQ(1,1,1,0,0,0), 'net-4'],
+    ['Nolan Longstaff',   'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(1,0,1,0,0,0), 'main-10'],
+    ['Reid Moose',        'C',  'Dolan Parnell',   '7:00-3:30',   mkQ(1,1,1,1,1,1), 'conf-3'],
+    ['Shawn Thieleman',   'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,0,1,0,0,0), 'net-3'],
+    ['Shirley Swanson',   'C',  'Dolan Parnell',   '8:30-5:00',   mkQ(1,0,0,0,0,0), 'conf-6'],
+    ['Tyler Moose',       'C',  'Ryan Kay',         '8:30-5:00',   mkQ(1,0,0,0,0,0), 'main-05'],
+    ['Will Floyd',        '',   'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,0,1,1), 'quad-2'],
+    ['Yoseph Almetnawy',  'C',  'Ryan Kay',         '10:30-7:00',  mkQ(1,1,1,1,1,1), 'inv-1'],
+    ['Zach Cosby',        'S',  'Dolan Parnell',   '7:00-3:30',   mkQ(1,1,1,1,1,1), 'main-02'],
+    ['Zach Depew',        'C',  'Dolan Parnell',   '10:30-7:00',  mkQ(1,1,1,1,1,1), 'main-18'],
   ];
 
   const migrateAgents = () => {
@@ -3788,11 +3788,11 @@ function DailyPlanner() {
         ...hires.map(h  => sanitizeAgent({...h, status:'trainee'})),
         ...alumni.map(a => sanitizeAgent({...a, status:'active'})),
       ];
-      const seeded = SEED_AGENTS.map(([name,disc,sup,shift,queues])=>
+      const seeded = SEED_AGENTS.map(([name,disc,sup,shift,queues,seat])=>
         sanitizeAgent({
           ...initAgent(name,'2024-01-01'),
           status:'active', discProfile:disc, supervisor:sup,
-          shift, queues,
+          shift, queues, seatId: seat||null,
           team: supervisorColor(sup),
         })
       );
@@ -3810,8 +3810,8 @@ function DailyPlanner() {
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
   const loadSeedAgents = () => {
     if(!window.confirm('This will add all 28 agents from the spreadsheet to your roster. Existing agents will be kept. Continue?')) return;
-    const seeded = SEED_AGENTS.map(([name,disc,sup,shift,queues])=>
-      sanitizeAgent({...initAgent(name,'2024-01-01'),status:'active',discProfile:disc,supervisor:sup,shift,queues,team:supervisorColor(sup)})
+    const seeded = SEED_AGENTS.map(([name,disc,sup,shift,queues,seat])=>
+      sanitizeAgent({...initAgent(name,'2024-01-01'),status:'active',discProfile:disc,supervisor:sup,shift,queues,seatId:seat||null,team:supervisorColor(sup)})
     );
     setAgents(prev=>[...prev,...seeded]);
   };
