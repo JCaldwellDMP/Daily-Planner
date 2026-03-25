@@ -3773,7 +3773,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                           ))}
                         </div>
                         {/* Full edit via AgentDetail */}
-                        <AgentDetail agent={selSpec} onUpdate={updated=>onUpdateAgent(updated)} hideSnapshot={true}/>
+                        <AgentDetail hire={selSpec} onUpdate={updated=>onUpdateAgent(updated)} hideSnapshot={true}/>
                       </div>
                     );
                   })()
