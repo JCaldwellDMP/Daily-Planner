@@ -2746,8 +2746,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
             <div style={{fontFamily:MO,fontSize:9,color:C.bl,letterSpacing:2,marginBottom:10}}>🏢 DEPARTMENT INFO</div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
               <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>TEAM</div>
-                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:teamColor}}>{hire.team==='none'?'Unassigned':hire.team.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SUPERVISOR</div>
+                <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:teamColor}}>{hire.supervisor||'Unassigned'}</div>
               </div>
               <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 100px'}}>
                 <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>SHIFT</div>
@@ -3589,7 +3589,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
             <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.tx,marginBottom:1}}>{agent.name}</div>
             <div style={{fontFamily:MO,fontSize:9,color:C.mu}}>{agent.supervisor||'No supervisor'}</div>
           </div>
-          <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${teamColor}44`,color:teamColor,flexShrink:0,background:teamColor+'11'}}>{agent.team==='none'?'unassigned':agent.team.replace('-',' ')}</span>
+          <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${teamColor}44`,color:teamColor,flexShrink:0,background:teamColor+'11'}}>{agent.supervisor?(agent.supervisor.split(' ').slice(-1)[0]):'Unassigned'}</span>
           {agent.status==='trainee'&&<span style={{fontFamily:MO,fontSize:8,padding:'2px 6px',borderRadius:3,border:`1px solid ${C.pu}55`,color:C.pu,background:C.pu+'11',flexShrink:0}}>🎓 training</span>}
         </div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
