@@ -2179,7 +2179,7 @@ const sanitizeAgent = h => ({
       return [n, {
         completed:     d.completed     || false,
         completedDate: d.completedDate || null,
-        hasHw:         d.hasHw         !== false,
+        hasHw:         d.hasHw === true,
         hwComplete:    d.hwComplete    || false,
         hwDate:        d.hwDate        || null,
         hasQuiz:       d.hasQuiz       !== false,
@@ -2208,7 +2208,7 @@ const initAgent = (name, startDate) => ({
   currentIssues:'', trainingNeeds:'', doingWell:'', areasOfImprovement:'',
   days: Object.fromEntries([...Array(15)].map((_,i)=>[i+1,{
     completed:false, completedDate:null,
-    hasHw:true, hwComplete:false, hwDate:null,
+    hasHw:false, hwComplete:false, hwDate:null,
     hasQuiz:true, quizSent:false, quizComplete:false, quizCorrect:null, quizTotal:null,
   }])),
   finalQuizCorrect:null, finalQuizTotal:null,
@@ -3792,6 +3792,9 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                       <div>
                         <div style={{fontFamily:MO,fontSize:12,fontWeight:isSel?'bold':'normal',color:isSel?C.tx:'#c8ccd8'}}>{a.name}</div>
                         {a.status==='trainee'&&<span style={{fontFamily:MO,fontSize:8,color:C.pu}}>🎓 training</span>}
+                        {ADDITIONAL_ROLES.filter(r=>a.additionalRoles?.[r.id]).map(r=>(
+                          <span key={r.id} style={{fontFamily:MO,fontSize:7,color:C.or,display:'inline-block',marginRight:3,marginTop:1}}>◆ {r.label}</span>
+                        ))}
                       </div>
                       <span style={{fontFamily:MO,fontSize:9,color:teamColor,flexShrink:0}}>{a.supervisor?(a.supervisor.split(' ').slice(-1)[0]):'—'}</span>
                     </div>
