@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/RWrlCqxkrNTO0rmpHQi7SENLC8', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/WG0NCPNV94T4Gm6mFjsESxYCCE', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/oSbRCrklvOTAVjL5fysNS4wOyC`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/-VPYCQW824t6AqRqFrtgSGlHb4`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/AmoICv2pzVTWNgMDCotQSQTIMI`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/_PCLCR6V09srmlOlCou1S1WN_G`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/4_lMCwpqAWIL8QYDs8uQSJAzA_ → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/TTk5CVOVk6clwKZKFWCpSE3lC5 → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -2331,9 +2331,10 @@ function parseMockCallEmail(txt) {
   return out;
 }
 
-function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false }) {
+function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false, hideSnapshot=false }) {
   const isTrainee = !!(hire.queues?.training?.active);
   const [showTraining,setShowTraining]   = useState(forceTraining);
+  const [showSnapshot,setShowSnapshot]   = useState(!hideSnapshot);
   const showTabs = isTrainee || showTraining;
   const [section,setSection]             = useState(isTrainee||forceTraining?'days':'notes');
   const [hwPrompt,setHwPrompt]           = useState(null);
@@ -2692,45 +2693,53 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
       </div>
 
       {/* PROGRESS SNAPSHOT — hidden for non-trainees and in history view */}
-      {(isTrainee&&!showTraining)&&<div style={{background:C.su,borderBottom:'1px solid '+C.bo,padding:'12px 16px'}}>
-        <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:10}}>📊 PROGRESS SNAPSHOT</div>
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
-          {[
-            [`📋 Days`,`${daysComp}/15`,daysPct>=100?C.gr:C.or,`${daysPct}%`],
-            [`📞 Calls`,`${hire.mockCalls.length}/${mockGoal}`,mockPct>=100?C.gr:C.or,`${mockPct}%`],
-            [`🤝 Buddy`,`${buddyCalls.length}/${buddyGoal}`,buddyPct>=100?C.gr:C.bl,`${buddyPct}%`],
-            [`📌 Notes`,`${hire.notes.length}`,'',''],
-          ].map(([label,val,col,pct])=>(
-            <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
-              <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
-              <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:col||C.tx}}>{val}{pct&&<span style={{fontSize:10,color:col,marginLeft:4}}>{pct}</span>}</div>
+      {(isTrainee&&!showTraining)&&<div style={{background:C.su,borderBottom:'1px solid '+C.bo}}>
+        {hideSnapshot&&(
+          <button onClick={()=>setShowSnapshot(p=>!p)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 16px',background:'transparent',border:'none',borderBottom:showSnapshot?'1px solid '+C.bo:'none',cursor:'pointer',textAlign:'left'}}>
+            <span style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2}}>📊 PROGRESS SNAPSHOT</span>
+            <span style={{fontFamily:MO,fontSize:10,color:C.mu,marginLeft:'auto'}}>{showSnapshot?'▲ hide':'▼ show'}</span>
+          </button>
+        )}
+        {showSnapshot&&<div style={{padding:'12px 16px'}}>
+          {!hideSnapshot&&<div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:10}}>📊 PROGRESS SNAPSHOT</div>}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+            {[
+              [`📋 Days`,`${daysComp}/15`,daysPct>=100?C.gr:C.or,`${daysPct}%`],
+              [`📞 Calls`,`${hire.mockCalls.length}/${mockGoal}`,mockPct>=100?C.gr:C.or,`${mockPct}%`],
+              [`🤝 Buddy`,`${buddyCalls.length}/${buddyGoal}`,buddyPct>=100?C.gr:C.bl,`${buddyPct}%`],
+              [`📌 Notes`,`${hire.notes.length}`,'',''],
+            ].map(([label,val,col,pct])=>(
+              <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
+                <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:col||C.tx}}>{val}{pct&&<span style={{fontSize:10,color:col,marginLeft:4}}>{pct}</span>}</div>
+              </div>
+            ))}
+            <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>📝 Homework</div>
+              <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hwDoneCount===hwEnabledDays.length&&hwEnabledDays.length>0?C.gr:C.tx}}>{hwDoneCount}/{hwEnabledDays.length}</div>
             </div>
-          ))}
-          <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',minWidth:80,flex:'1 1 80px'}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>📝 Homework</div>
-            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:hwDoneCount===hwEnabledDays.length&&hwEnabledDays.length>0?C.gr:C.tx}}>{hwDoneCount}/{hwEnabledDays.length}</div>
           </div>
-        </div>
-        {(quizAvg!=null||finalQuizPct!=null)&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:(hire.doingWell||hire.areasOfImprovement)?10:0}}>
-          {quizAvg!=null&&[['Avg Quiz',quizAvg],[' High',quizHigh],['Low',quizLow]].map(([label,val])=>(
-            <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 60px',minWidth:60}}>
-              <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
-              <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:val>=90?C.gr:val>=70?C.yl:C.rd}}>{val}%</div>
-            </div>
-          ))}
-          {finalQuizPct!=null&&<div style={{background:C.ca,border:'1px solid '+C.or+'44',borderRadius:6,padding:'6px 10px',flex:'1 1 80px',minWidth:80}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.or,marginBottom:2}}>🏁 Final Quiz</div>
-            <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd}}>{finalQuizPct}% <span style={{fontSize:10,color:C.mu}}>({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span></div>
+          {(quizAvg!=null||finalQuizPct!=null)&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:(hire.doingWell||hire.areasOfImprovement)?10:0}}>
+            {quizAvg!=null&&[['Avg Quiz',quizAvg],[' High',quizHigh],['Low',quizLow]].map(([label,val])=>(
+              <div key={label} style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',flex:'1 1 60px',minWidth:60}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:2}}>{label}</div>
+                <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:val>=90?C.gr:val>=70?C.yl:C.rd}}>{val}%</div>
+              </div>
+            ))}
+            {finalQuizPct!=null&&<div style={{background:C.ca,border:'1px solid '+C.or+'44',borderRadius:6,padding:'6px 10px',flex:'1 1 80px',minWidth:80}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.or,marginBottom:2}}>🏁 Final Quiz</div>
+              <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd}}>{finalQuizPct}% <span style={{fontSize:10,color:C.mu}}>({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span></div>
+            </div>}
           </div>}
-        </div>}
-        {(hire.doingWell||hire.areasOfImprovement)&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          {hire.doingWell&&<div style={{flex:'1 1 200px',background:C.gr+'0d',border:'1px solid '+C.gr+'33',borderRadius:6,padding:'8px 10px'}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div>
-            <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.doingWell}</div>
-          </div>}
-          {hire.areasOfImprovement&&<div style={{flex:'1 1 200px',background:C.yl+'0d',border:'1px solid '+C.yl+'33',borderRadius:6,padding:'8px 10px'}}>
-            <div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div>
-            <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.areasOfImprovement}</div>
+          {(hire.doingWell||hire.areasOfImprovement)&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {hire.doingWell&&<div style={{flex:'1 1 200px',background:C.gr+'0d',border:'1px solid '+C.gr+'33',borderRadius:6,padding:'8px 10px'}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>✅ DOING WELL</div>
+              <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.doingWell}</div>
+            </div>}
+            {hire.areasOfImprovement&&<div style={{flex:'1 1 200px',background:C.yl+'0d',border:'1px solid '+C.yl+'33',borderRadius:6,padding:'8px 10px'}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.yl,letterSpacing:1,marginBottom:4}}>⚠️ AREAS OF IMPROVEMENT</div>
+              <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.areasOfImprovement}</div>
+            </div>}
           </div>}
         </div>}
       </div>}
@@ -3711,6 +3720,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
               hire={selectedAgent}
               onUpdate={a=>onUpdateAgent(sanitizeAgent(a))}
               peerHires={agents.filter(a=>a.id!==selectedAgent.id)}
+              hideSnapshot={true}
             />}
           </div>
 
@@ -4383,6 +4393,7 @@ root.render(<ErrorBoundary><DailyPlanner /></ErrorBoundary>);
 </script>
 </body>
 </html>
+
 
 
 
