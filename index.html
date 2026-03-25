@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/sjFZCmZ9nJT5J3VpC9szSRXIg-', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/h0BOCOY024UARjnYfrsLSGSq84', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/gHDiCn59oKHGO24Ximt5SJBrD_`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/3d8yCPNV94T4GRWgc6tESxShAy`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/E5vsCo2g0LTXqRADsouzSpwLPg`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/QLbzCQW824t6ApOVHAugSGW4XF`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/BdQGCpYjqMUzMWg9F7C5SGEFLq → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/BeanCR6V09srm1EYCQC1S1BamP → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3487,6 +3487,12 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
   const [newShift,setNewShift] = useState('');
   const [newDisc,setNewDisc]   = useState('');
 
+  const [showAddSpec,setShowAddSpec]   = useState(false);
+  const [newSpecName,setNewSpecName]   = useState('');
+  const [newSpecRole,setNewSpecRole]   = useState('supervisor');
+  const [newSpecShift,setNewSpecShift] = useState('');
+  const [newSpecDisc,setNewSpecDisc]   = useState('');
+
   const activeAgents   = agents.filter(a=>(a.status==='active'||a.status==='trainee')&&!a.specializedRole);
   const inactiveAgents = agents.filter(a=>a.status==='inactive'&&!a.specializedRole);
   const specializedAgents = agents.filter(a=>!!a.specializedRole);
@@ -3515,6 +3521,21 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
     onAddAgent(a);
     setShowAddAgent(false);
     setNewName(''); setNewSup(''); setNewShift(''); setNewDisc('');
+    setSelectedId(a.id);
+  };
+
+  const saveNewSpec = () => {
+    if(!newSpecName.trim()) return;
+    const a = sanitizeAgent({
+      ...initAgent(newSpecName.trim(), new Date().toISOString().split('T')[0]),
+      status:'active',
+      specializedRole: newSpecRole,
+      shift: newSpecShift||null,
+      discProfile: newSpecDisc.trim(),
+    });
+    onAddAgent(a);
+    setShowAddSpec(false);
+    setNewSpecName(''); setNewSpecRole('supervisor'); setNewSpecShift(''); setNewSpecDisc('');
     setSelectedId(a.id);
   };
 
@@ -3657,7 +3678,44 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
         });
         const selSpec = specializedAgents.find(a=>a.id===selectedId);
         return (
-          <div style={{display:'flex',gap:0,alignItems:'flex-start',minHeight:400}}>
+          <div>
+            {/* Add form */}
+            {showAddSpec&&(
+              <div style={{background:C.su,border:'1px solid '+C.pu,borderRadius:8,padding:14,marginBottom:14}}>
+                <div style={{fontFamily:MO,fontSize:10,color:C.pu,letterSpacing:2,marginBottom:10}}>ADD SPECIALIZED ROLE</div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+                  <input autoFocus value={newSpecName} onChange={e=>setNewSpecName(e.target.value)}
+                    onKeyDown={e=>e.key==='Enter'&&saveNewSpec()}
+                    placeholder="Full name…" style={{...inpS,flex:'2 1 160px'}}/>
+                  <select value={newSpecRole} onChange={e=>setNewSpecRole(e.target.value)} style={{...inpS,flex:'1 1 160px'}}>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="advTech">Advanced Technician</option>
+                    <option value="trainer">Tech Support Trainer</option>
+                  </select>
+                </div>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+                  <select value={newSpecShift} onChange={e=>setNewSpecShift(e.target.value)} style={{...inpS,flex:'2 1 160px'}}>
+                    <option value="">No shift assigned</option>
+                    {SHIFTS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                  <input value={newSpecDisc} onChange={e=>setNewSpecDisc(e.target.value)}
+                    placeholder="DISC profile…" style={{...inpS,flex:'1 1 100px'}}/>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <OBtn onClick={saveNewSpec} disabled={!newSpecName.trim()}>+ Add</OBtn>
+                  <Btn onClick={()=>{setShowAddSpec(false);setNewSpecName('');setNewSpecRole('supervisor');setNewSpecShift('');setNewSpecDisc('');}}>Cancel</Btn>
+                </div>
+              </div>
+            )}
+
+            {/* Add button row */}
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+              <OBtn onClick={()=>{setShowAddSpec(v=>!v);setSelectedId(null);}} style={{fontSize:10,padding:'3px 10px'}}>
+                {showAddSpec?'✕ Cancel':'+ Add Role'}
+              </OBtn>
+            </div>
+
+            <div style={{display:'flex',gap:0,alignItems:'flex-start',minHeight:400}}>
             {/* LEFT LIST */}
             <div style={{width:220,flexShrink:0,background:C.su,border:'1px solid '+C.bo,borderRadius:8,overflowY:'auto',maxHeight:'calc(100vh - 220px)',marginRight:12}}>
               {sorted.length===0
@@ -3712,6 +3770,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
                   })()
               }
             </div>
+          </div>
           </div>
         );
       })()}
