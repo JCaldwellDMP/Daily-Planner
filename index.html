@@ -3367,21 +3367,26 @@ function SeatingChart({ agents, onUpdateAgent }) {
 
   // [seatId, tx, ty, fixed?] — bay outer=(tx-4,ty-14,58,72), tile=(tx,ty,52,44)
   const SEATS = [
-    // ADV zone — 2×2, lower-left below restroom box
-    ['adv-1',   8, 330], ['adv-2',  68, 330],
+    // ADV zone — 2×2, lower-left below restroom block
+    ['adv-1',   8, 322], ['adv-2',  68, 322],
     ['adv-3',   8, 390], ['adv-4',  68, 390],
-    // NET zone — 4-seat row inside IT Networking Room
-    ['net-1', 226, 290], ['net-2', 278, 290], ['net-3', 330, 290], ['net-4', 382, 290],
-    // INV zone — single seat, TS Inventory corridor
+    // NET zone — 4 desks on open floor SOUTH of IT Networking Room (not inside it)
+    // Dennis George, Ash Jordan, Shawn Thieleman, Meaghen Schofield
+    ['net-1', 226, 390], ['net-2', 278, 390], ['net-3', 330, 390], ['net-4', 450, 390],
+    // INV zone — single desk near TS Inventory corridor (Joseph Almetnawy)
     ['inv-1', 450, 178],
-    // CONF zone — 3×2 grid + 1 offset (Stephen Bowen), gold-brad upper-right
-    ['conf-1', 534, 218], ['conf-2', 594, 218], ['conf-3', 654, 218],
-    ['conf-4', 534, 278], ['conf-5', 594, 278], ['conf-6', 654, 278],
-    ['conf-7', 718, 290],
-    ['gold-brad', 720, 204, true], ['gold-brent', 1042, 26, true],
-    // QUAD zone — 2×2, right enclosure
-    ['quad-1', 930, 272], ['quad-2', 990, 272],
-    ['quad-3', 930, 336], ['quad-4', 990, 336],
+    // CONF zone — 3+4 desks on open floor SOUTH of Conference Room (not inside it)
+    // Row 1: Londin Walton, Madi Stout, Reid Moose
+    // Row 2: Helena Carrico, Connor Thompson, Shirley Swanson, Stephen Bowen
+    ['conf-1', 534, 315], ['conf-2', 594, 315], ['conf-3', 654, 315],
+    ['conf-4', 534, 390], ['conf-5', 594, 390], ['conf-6', 654, 390],
+    ['conf-7', 718, 390],
+    // GOLD fixed seats — enclosed offices
+    ['gold-brad', 820, 160, true], ['gold-brent', 1042, 26, true],
+    // QUAD zone — 2×2 open cluster, far right (no enclosure wall)
+    // Clinton Smith, Will Floyd, Jacob Middleton, Justin George
+    ['quad-1', 940, 315], ['quad-2', 1000, 315],
+    ['quad-3', 940, 390], ['quad-4', 1000, 390],
     // MAIN row — 19 seats, 58px spacing, full-width bottom
     ['main-01',   6, 466], ['main-02',  64, 466], ['main-03', 122, 466],
     ['main-04', 180, 466], ['main-05', 238, 466], ['main-06', 296, 466],
@@ -3456,30 +3461,33 @@ function SeatingChart({ agents, onUpdateAgent }) {
           <rect x="2" y="92" width="1116" height="446" fill="url(#floorGrid)"/>
           <rect x="2" y="92" width="1116" height="446" fill="none" stroke="black" strokeWidth="3"/>
 
-          {/* ── Restrooms — dashed, protrudes above floor line ── */}
-          <rect x="2" y="28" width="164" height="334" fill="#f0f0f0" stroke="black" strokeWidth="2" strokeDasharray="7,4"/>
-          <line x1="84" y1="28" x2="84" y2="362" stroke="black" strokeWidth="2"/>
+          {/* ── Restrooms — shorter height, protrudes above floor line ── */}
+          <rect x="2" y="28" width="164" height="252" fill="#f0f0f0" stroke="black" strokeWidth="2" strokeDasharray="7,4"/>
+          <line x1="84" y1="28" x2="84" y2="280" stroke="black" strokeWidth="2"/>
           <rect x="28" y="16" width="32" height="13" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
           <rect x="98" y="16" width="32" height="13" fill="#c8c8c8" stroke="#888" strokeWidth="1"/>
 
           {/* ── Facilities header box ── */}
           <rect x="215" y="92" width="222" height="58" fill="white" stroke="black" strokeWidth="2"/>
 
-          {/* ── IT Networking Room ── */}
-          <rect x="215" y="150" width="222" height="242" fill="white" stroke="black" strokeWidth="3"/>
+          {/* ── IT Networking Room — no desks inside, NET desks are south of it ── */}
+          <rect x="215" y="150" width="222" height="200" fill="white" stroke="black" strokeWidth="3"/>
 
           {/* ── TS Inventory gray squares ── */}
           <rect x="436" y="102" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
           <rect x="468" y="102" width="28" height="24" fill="#b0b0b0" stroke="#555" strokeWidth="1.5"/>
 
-          {/* ── Customer Care Conference Room ── */}
-          <rect x="524" y="92" width="260" height="270" fill="white" stroke="black" strokeWidth="3"/>
+          {/* ── Customer Care Conference Room — no desks inside, CONF desks are south of it ── */}
+          <rect x="524" y="92" width="260" height="188" fill="white" stroke="black" strokeWidth="3"/>
 
-          {/* ── Curved corner — top-right (Brent Appleby area above floor) ── */}
-          <path d="M 784 92 C 900 92 1050 150 1064 212 L 1118 212 L 1118 92 Z" fill="white" stroke="black" strokeWidth="2"/>
+          {/* ── Brad Tucker's enclosed office — right of conf room ── */}
+          <rect x="784" y="92" width="120" height="188" fill="#fffbeb" stroke="#ca8a04" strokeWidth="2.5"/>
 
-          {/* ── Quad enclosure — right side ── */}
-          <rect x="916" y="256" width="200" height="150" fill="white" stroke="black" strokeWidth="2"/>
+          {/* ── Top-right floor notch — architectural indent, covers floor grid ── */}
+          <path d="M 904 92 Q 1000 92 1055 155 L 1118 155 L 1118 92 Z" fill="white" stroke="black" strokeWidth="2"/>
+
+          {/* ── Brent Appleby's corner office — above floor, top-right ── */}
+          <rect x="978" y="2" width="138" height="88" fill="#fffbeb" stroke="#ca8a04" strokeWidth="2"/>
 
           {/* ── Desk bays — generated from SEATS for guaranteed alignment
                Outer box = cubicle walls. Desk-surface bar near top = the back desk.
@@ -3499,14 +3507,18 @@ function SeatingChart({ agents, onUpdateAgent }) {
 
           {/* ── Room labels ── */}
           <text x="326" y="128" fontFamily="Arial" fontWeight="bold" fontSize="14" fill="black" textAnchor="middle">Facilities</text>
-          <text x="326" y="222" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">IT Networking</text>
-          <text x="326" y="240" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Room</text>
+          <text x="326" y="218" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">IT Networking</text>
+          <text x="326" y="236" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Room</text>
           <text x="480" y="116" fontFamily="Arial" fontSize="8" fill="#444" textAnchor="middle">TS</text>
           <text x="480" y="126" fontFamily="Arial" fontSize="8" fill="#444" textAnchor="middle">Inv.</text>
           <text x="654" y="148" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Customer Care</text>
           <text x="654" y="166" fontFamily="Arial" fontWeight="bold" fontSize="13" fill="black" textAnchor="middle">Conference Room</text>
-          <text x="44" y="218" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,44,218)">{"Women's Restroom"}</text>
-          <text x="116" y="218" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,116,218)">{"Men's Restroom"}</text>
+          <text x="844" y="130" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Brad Tucker</text>
+          <text x="844" y="143" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Office</text>
+          <text x="1047" y="46" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Brent</text>
+          <text x="1047" y="58" fontFamily="Arial" fontSize="9" fill="#92400e" textAnchor="middle" fontStyle="italic">Appleby</text>
+          <text x="44" y="200" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,44,200)">{"Women's Restroom"}</text>
+          <text x="116" y="200" fontFamily="Arial" fontWeight="bold" fontSize="9" fill="black" textAnchor="middle" transform="rotate(-90,116,200)">{"Men's Restroom"}</text>
         </svg>
 
         {/* Rename modal */}
