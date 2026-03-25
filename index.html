@@ -2691,8 +2691,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
         )}
       </div>
 
-      {/* PROGRESS SNAPSHOT */}
-      <div style={{background:C.su,borderBottom:'1px solid '+C.bo,padding:'12px 16px'}}>
+      {/* PROGRESS SNAPSHOT — hidden for non-trainees and in history view */}
+      {(isTrainee&&!showTraining)&&<div style={{background:C.su,borderBottom:'1px solid '+C.bo,padding:'12px 16px'}}>
         <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:10}}>📊 PROGRESS SNAPSHOT</div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
           {[
@@ -2733,7 +2733,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
             <div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{hire.areasOfImprovement}</div>
           </div>}
         </div>}
-      </div>
+      </div>}
 
       {/* DEPARTMENT FIELDS — visible when status === 'active', 'trainee', or 'inactive' */}
       {(hire.status==='active'||hire.status==='trainee'||hire.status==='inactive')&&(()=>{
