@@ -1785,7 +1785,7 @@ function useGistSync(sd, setSd) {
     try {
       let id = gistId;
       if (!id) {
-        const r = await fetch('https://url.us.m.mimecastprotect.com/s/h0BOCOY024UARjnYfrsLSGSq84', {
+        const r = await fetch('https://url.us.m.mimecastprotect.com/s/KDo9CwpqAWIL8m4RsKsQSJ2YTm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify({ ...fileBody, public: false, description: 'DPS Session Sync' }),
@@ -1793,7 +1793,7 @@ function useGistSync(sd, setSd) {
         if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
         const j = await r.json(); id = j.id; setGistId(id);
       } else {
-        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/3d8yCPNV94T4GRWgc6tESxShAy`, {
+        const r = await fetch(`https://url.us.m.mimecastprotect.com/s/gozZCxkrBXTJMVgQHRt2Sy6A6k`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gistToken}` },
           body: JSON.stringify(fileBody),
@@ -1809,7 +1809,7 @@ function useGistSync(sd, setSd) {
     if (!gistToken || !gistId) return;
     setGistStatus('syncing'); setGistMsg('');
     try {
-      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/QLbzCQW824t6ApOVHAugSGW4XF`, {
+      const r = await fetch(`https://url.us.m.mimecastprotect.com/s/GdxzCyPvDYhNXwQytAu4SxPQyX`, {
         headers: { 'Authorization': `Bearer ${gistToken}` },
       });
       if (!r.ok) throw new Error(`GitHub ${r.status}`);
@@ -2055,7 +2055,7 @@ function SyncModal({ today, tasks, done, timeBlocks, deferred, timerLogs, awayMs
           </div>
         )}
         {gs.gistMsg&&<div style={{fontFamily:MO,fontSize:11,marginTop:8,padding:'6px 10px',borderRadius:5,background:C.ca,color:gs.gistMsg.startsWith('✓')?C.gr:gs.gistMsg.startsWith('⚠')?C.yl:C.rd}}>{gs.gistMsg}</div>}
-        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/BeanCR6V09srm1EYCQC1S1BamP → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
+        {!gs.gistToken&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:8,lineHeight:1.6}}>Create a token at https://url.us.m.mimecastprotect.com/s/d0TqCzpwEZIRgZymcBCnS952ui → New classic token → check <strong style={{color:C.tx}}>gist</strong> scope.</div>}
       </div>
 
       {/* ── QR FALLBACK — hidden until Gist sync is fully verified ── */}
@@ -3361,36 +3361,32 @@ function SeatingChart({ agents, onUpdateAgent }) {
     );
   };
 
-  // [seatId, tx, ty, fixed?] — bay outer=(tx-4,ty-14,58,72), tile=(tx,ty,52,44)
+  // [seatId, tx, ty, fixed?] -- tile top-left in 1120x540 container
   const SEATS = [
-    // ADV zone — 2×2, lower-left below restroom block
-    ['adv-1',   8, 322], ['adv-2',  68, 322],
-    ['adv-3',   8, 390], ['adv-4',  68, 390],
-    // NET zone — 4 desks on open floor SOUTH of IT Networking Room (not inside it)
-    // Dennis George, Ash Jordan, Shawn Thieleman, Meaghen Schofield
-    ['net-1', 226, 390], ['net-2', 278, 390], ['net-3', 330, 390], ['net-4', 450, 390],
-    // INV zone — single desk near TS Inventory corridor (Joseph Almetnawy)
-    ['inv-1', 450, 178],
-    // CONF zone — 3+4 desks on open floor SOUTH of Conference Room (not inside it)
-    // Row 1: Londin Walton, Madi Stout, Reid Moose
-    // Row 2: Helena Carrico, Connor Thompson, Shirley Swanson, Stephen Bowen
-    ['conf-1', 534, 315], ['conf-2', 594, 315], ['conf-3', 654, 315],
-    ['conf-4', 534, 390], ['conf-5', 594, 390], ['conf-6', 654, 390],
-    ['conf-7', 718, 390],
-    // GOLD fixed seats — enclosed offices
-    ['gold-brad', 820, 160, true], ['gold-brent', 1042, 26, true],
-    // QUAD zone — 2×2 open cluster, far right (no enclosure wall)
-    // Clinton Smith, Will Floyd, Jacob Middleton, Justin George
-    ['quad-1', 940, 315], ['quad-2', 1000, 315],
-    ['quad-3', 940, 390], ['quad-4', 1000, 390],
-    // MAIN row — 19 seats, 58px spacing, full-width bottom
-    ['main-01',   6, 466], ['main-02',  64, 466], ['main-03', 122, 466],
-    ['main-04', 180, 466], ['main-05', 238, 466], ['main-06', 296, 466],
-    ['main-07', 354, 466], ['main-08', 412, 466], ['main-09', 470, 466],
-    ['main-10', 528, 466], ['main-11', 586, 466], ['main-12', 644, 466],
-    ['main-13', 702, 466], ['main-14', 760, 466], ['main-15', 818, 466],
-    ['main-16', 876, 466], ['main-17', 934, 466], ['main-18', 992, 466],
-    ['main-19', 1050, 466],
+    // ADV zone -- 2x2, lower-left below restroom block
+    ['adv-1',  14, 375], ['adv-2',  74, 375],
+    ['adv-3',  14, 435], ['adv-4',  74, 435],
+    // NET zone -- 4 desks south of IT Networking Room
+    ['net-1', 252, 375], ['net-2', 310, 375], ['net-3', 368, 375], ['net-4', 438, 375],
+    // INV zone -- single desk near TS Inventory
+    ['inv-1', 438, 285],
+    // CONF zone -- row1: 3 desks, row2: 4 desks, south of Conference Room
+    ['conf-1', 558, 272], ['conf-2', 616, 272], ['conf-3', 674, 272],
+    ['conf-4', 558, 344], ['conf-5', 616, 344], ['conf-6', 674, 344],
+    ['conf-7', 736, 344],
+    // GOLD fixed seats -- enclosed offices
+    ['gold-brad', 768, 224, true], ['gold-brent', 1042, 40, true],
+    // QUAD zone -- 2x2 cluster, far right
+    ['quad-1', 964, 330], ['quad-2', 1022, 330],
+    ['quad-3', 964, 390], ['quad-4', 1022, 390],
+    // MAIN row -- 19 seats, 59px spacing
+    ['main-01',  16, 470], ['main-02',  75, 470], ['main-03', 134, 470],
+    ['main-04', 193, 470], ['main-05', 252, 470], ['main-06', 311, 470],
+    ['main-07', 370, 470], ['main-08', 429, 470], ['main-09', 488, 470],
+    ['main-10', 547, 470], ['main-11', 606, 470], ['main-12', 665, 470],
+    ['main-13', 724, 470], ['main-14', 783, 470], ['main-15', 842, 470],
+    ['main-16', 901, 470], ['main-17', 960, 470], ['main-18',1019, 470],
+    ['main-19',1062, 470],
   ];
 
   const FW=1120, FH=540;
