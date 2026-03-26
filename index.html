@@ -3231,6 +3231,17 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
           const allRated = evalAllRated();
           const ratingBg = r => r==='needs'?C.rd+'22':r==='good'?C.yl+'22':r==='great'?C.gr+'22':'transparent';
           const ratingBdr = r => r==='needs'?C.rd+'66':r==='good'?C.yl+'66':r==='great'?C.gr+'66':C.bo;
+          const sectionStatus = group => {
+            const cats = Object.values(ev[group]||{});
+            const rated = cats.filter(c=>c.rating!=null).length;
+            if (rated===0) return null;
+            const needs = cats.filter(c=>c.rating==='needs').length;
+            if (needs===0) return {label:'On Track',color:C.gr};
+            if (needs<=2) return {label:'Needs Attention',color:C.yl};
+            return {label:'At Risk',color:C.rd};
+          };
+          const dmpStatus  = sectionStatus('dmpValues');
+          const tswpStatus = sectionStatus('tswp');
           const RatingBtn = ({val, cur, onClick, color, label}) => (
             <button onClick={onClick} style={{fontFamily:MO,fontSize:10,padding:'3px 10px',borderRadius:4,cursor:'pointer',border:`1px solid ${cur===val?color+'99':C.bo}`,background:cur===val?color+'22':C.ca,color:cur===val?color:C.mu,transition:'all .15s',flexShrink:0}}>{label}</button>
           );
@@ -3256,16 +3267,20 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 : <button onClick={signOff} disabled={!allRated} style={{width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',marginBottom:14,border:'none',borderRadius:8,cursor:allRated?'pointer':'default',background:allRated?C.gr:C.bo,color:allRated?'#fff':C.mu,opacity:allRated?1:0.5,transition:'all .3s'}}>✅ CLEAR FOR SOLO — Sign Off{!allRated?' (rate all categories first)':''}</button>
               }
               {/* Header strip */}
-              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:'10px 14px',marginBottom:12,display:'flex',gap:16,flexWrap:'wrap'}}>
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:'10px 14px',marginBottom:12,display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
                 {quizAvg!=null&&<span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Avg Quiz: <span style={{color:quizAvg>=90?C.gr:quizAvg>=70?C.yl:C.rd,fontWeight:'bold'}}>{quizAvg}%</span></span>}
                 {finalQuizPct!=null&&<span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Final Quiz: <span style={{color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd,fontWeight:'bold'}}>{finalQuizPct}%</span></span>}
+                {dmpStatus&&<span style={{fontFamily:MO,fontSize:10,fontWeight:'bold',color:dmpStatus.color,background:dmpStatus.color+'22',border:'1px solid '+dmpStatus.color+'55',borderRadius:4,padding:'2px 8px'}}>DMP: {dmpStatus.label}</span>}
+                {tswpStatus&&<span style={{fontFamily:MO,fontSize:10,fontWeight:'bold',color:tswpStatus.color,background:tswpStatus.color+'22',border:'1px solid '+tswpStatus.color+'55',borderRadius:4,padding:'2px 8px'}}>TSWP: {tswpStatus.label}</span>}
                 {hire.doingWell&&<span style={{fontFamily:MO,fontSize:11,color:C.gr,flex:1,minWidth:120}}>👍 {hire.doingWell}</span>}
                 {hire.areasOfImprovement&&<span style={{fontFamily:MO,fontSize:11,color:C.yl,flex:1,minWidth:120}}>⚠️ {hire.areasOfImprovement}</span>}
               </div>
               {/* Sub-tabs */}
               <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,marginBottom:12}}>
-                {[['dmp','DMP Values'],['tswp','Tech Support Word Pictures']].map(([k,l])=>(
-                  <button key={k} onClick={()=>setEvalSubTab(k)} style={{fontFamily:MO,fontSize:11,padding:'8px 16px',cursor:'pointer',border:'none',borderBottom:`2px solid ${evalSubTab===k?C.or:'transparent'}`,background:'transparent',color:evalSubTab===k?C.or:C.mu,transition:'all .15s'}}>{l}</button>
+                {[['dmp','DMP Values',dmpStatus],['tswp','Tech Support Word Pictures',tswpStatus]].map(([k,l,st])=>(
+                  <button key={k} onClick={()=>setEvalSubTab(k)} style={{fontFamily:MO,fontSize:11,padding:'8px 16px',cursor:'pointer',border:'none',borderBottom:`2px solid ${evalSubTab===k?C.or:'transparent'}`,background:'transparent',color:evalSubTab===k?C.or:C.mu,transition:'all .15s',display:'flex',gap:6,alignItems:'center'}}>
+                    {l}{st&&<span style={{fontFamily:MO,fontSize:9,fontWeight:'bold',color:st.color,background:st.color+'22',border:'1px solid '+st.color+'44',borderRadius:3,padding:'1px 5px'}}>{st.label}</span>}
+                  </button>
                 ))}
               </div>
               {/* DMP Values */}
