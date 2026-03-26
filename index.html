@@ -2191,19 +2191,25 @@ const sanitizeAgent = h => ({
     signedOff:     h.trainingEval?.signedOff     || false,
     signedOffDate: h.trainingEval?.signedOffDate || null,
     dmpValues: {
-      ownership:     { rating: h.trainingEval?.dmpValues?.ownership?.rating     || null, notes: h.trainingEval?.dmpValues?.ownership?.notes     || '' },
-      integrity:     { rating: h.trainingEval?.dmpValues?.integrity?.rating     || null, notes: h.trainingEval?.dmpValues?.integrity?.notes     || '' },
-      teamwork:      { rating: h.trainingEval?.dmpValues?.teamwork?.rating      || null, notes: h.trainingEval?.dmpValues?.teamwork?.notes      || '' },
-      growth:        { rating: h.trainingEval?.dmpValues?.growth?.rating        || null, notes: h.trainingEval?.dmpValues?.growth?.notes        || '' },
-      customerFocus: { rating: h.trainingEval?.dmpValues?.customerFocus?.rating || null, notes: h.trainingEval?.dmpValues?.customerFocus?.notes || '' },
+      honestyIntegrity:     { rating: h.trainingEval?.dmpValues?.honestyIntegrity?.rating     || null, notes: h.trainingEval?.dmpValues?.honestyIntegrity?.notes     || '' },
+      innovationInitiative: { rating: h.trainingEval?.dmpValues?.innovationInitiative?.rating || null, notes: h.trainingEval?.dmpValues?.innovationInitiative?.notes || '' },
+      responsiveness:       { rating: h.trainingEval?.dmpValues?.responsiveness?.rating       || null, notes: h.trainingEval?.dmpValues?.responsiveness?.notes       || '' },
+      kindness:             { rating: h.trainingEval?.dmpValues?.kindness?.rating             || null, notes: h.trainingEval?.dmpValues?.kindness?.notes             || '' },
+      fun:                  { rating: h.trainingEval?.dmpValues?.fun?.rating                  || null, notes: h.trainingEval?.dmpValues?.fun?.notes                  || '' },
+      profit:               { rating: h.trainingEval?.dmpValues?.profit?.rating               || null, notes: h.trainingEval?.dmpValues?.profit?.notes               || '' },
+      teamworkDmp:          { rating: h.trainingEval?.dmpValues?.teamworkDmp?.rating          || null, notes: h.trainingEval?.dmpValues?.teamworkDmp?.notes          || '' },
+      generosity:           { rating: h.trainingEval?.dmpValues?.generosity?.rating           || null, notes: h.trainingEval?.dmpValues?.generosity?.notes           || '' },
+      appearance:           { rating: h.trainingEval?.dmpValues?.appearance?.rating           || null, notes: h.trainingEval?.dmpValues?.appearance?.notes           || '' },
     },
     tswp: {
-      greeting:     { rating: h.trainingEval?.tswp?.greeting?.rating     || null, notes: h.trainingEval?.tswp?.greeting?.notes     || '' },
-      discovery:    { rating: h.trainingEval?.tswp?.discovery?.rating    || null, notes: h.trainingEval?.tswp?.discovery?.notes    || '' },
-      empathy:      { rating: h.trainingEval?.tswp?.empathy?.rating      || null, notes: h.trainingEval?.tswp?.empathy?.notes      || '' },
-      resolution:   { rating: h.trainingEval?.tswp?.resolution?.rating   || null, notes: h.trainingEval?.tswp?.resolution?.notes   || '' },
-      confirmation: { rating: h.trainingEval?.tswp?.confirmation?.rating || null, notes: h.trainingEval?.tswp?.confirmation?.notes || '' },
-      closing:      { rating: h.trainingEval?.tswp?.closing?.rating      || null, notes: h.trainingEval?.tswp?.closing?.notes      || '' },
+      resolutionMindset:   { rating: h.trainingEval?.tswp?.resolutionMindset?.rating   || null, notes: h.trainingEval?.tswp?.resolutionMindset?.notes   || '' },
+      phoneEtiquette:      { rating: h.trainingEval?.tswp?.phoneEtiquette?.rating      || null, notes: h.trainingEval?.tswp?.phoneEtiquette?.notes      || '' },
+      attitude:            { rating: h.trainingEval?.tswp?.attitude?.rating            || null, notes: h.trainingEval?.tswp?.attitude?.notes            || '' },
+      initiative:          { rating: h.trainingEval?.tswp?.initiative?.rating          || null, notes: h.trainingEval?.tswp?.initiative?.notes          || '' },
+      documentingCalls:    { rating: h.trainingEval?.tswp?.documentingCalls?.rating    || null, notes: h.trainingEval?.tswp?.documentingCalls?.notes    || '' },
+      responseToCoaching:  { rating: h.trainingEval?.tswp?.responseToCoaching?.rating  || null, notes: h.trainingEval?.tswp?.responseToCoaching?.notes  || '' },
+      attendance:          { rating: h.trainingEval?.tswp?.attendance?.rating          || null, notes: h.trainingEval?.tswp?.attendance?.notes          || '' },
+      teamworkTswp:        { rating: h.trainingEval?.tswp?.teamworkTswp?.rating        || null, notes: h.trainingEval?.tswp?.teamworkTswp?.notes        || '' },
     },
   },
   days: Object.fromEntries(
@@ -2255,12 +2261,14 @@ const initAgent = (name, startDate) => ({
   trainingEval:{
     signedOff:false, signedOffDate:null,
     dmpValues:{
-      ownership:{rating:null,notes:''}, integrity:{rating:null,notes:''}, teamwork:{rating:null,notes:''},
-      growth:{rating:null,notes:''}, customerFocus:{rating:null,notes:''},
+      honestyIntegrity:{rating:null,notes:''}, innovationInitiative:{rating:null,notes:''}, responsiveness:{rating:null,notes:''},
+      kindness:{rating:null,notes:''}, fun:{rating:null,notes:''}, profit:{rating:null,notes:''},
+      teamworkDmp:{rating:null,notes:''}, generosity:{rating:null,notes:''}, appearance:{rating:null,notes:''},
     },
     tswp:{
-      greeting:{rating:null,notes:''}, discovery:{rating:null,notes:''}, empathy:{rating:null,notes:''},
-      resolution:{rating:null,notes:''}, confirmation:{rating:null,notes:''}, closing:{rating:null,notes:''},
+      resolutionMindset:{rating:null,notes:''}, phoneEtiquette:{rating:null,notes:''}, attitude:{rating:null,notes:''},
+      initiative:{rating:null,notes:''}, documentingCalls:{rating:null,notes:''}, responseToCoaching:{rating:null,notes:''},
+      attendance:{rating:null,notes:''}, teamworkTswp:{rating:null,notes:''},
     },
   },
   notes:[],
@@ -3262,20 +3270,26 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               </div>
               {/* DMP Values */}
               {evalSubTab==='dmp'&&<div>
-                <CategoryRow group="dmpValues" catKey="ownership"     label="Ownership"/>
-                <CategoryRow group="dmpValues" catKey="integrity"     label="Integrity"/>
-                <CategoryRow group="dmpValues" catKey="teamwork"      label="Teamwork"/>
-                <CategoryRow group="dmpValues" catKey="growth"        label="Growth"/>
-                <CategoryRow group="dmpValues" catKey="customerFocus" label="Customer Focus"/>
+                <CategoryRow group="dmpValues" catKey="honestyIntegrity"     label="Honesty and integrity"/>
+                <CategoryRow group="dmpValues" catKey="innovationInitiative" label="Innovation and initiative"/>
+                <CategoryRow group="dmpValues" catKey="responsiveness"       label="Responsiveness"/>
+                <CategoryRow group="dmpValues" catKey="kindness"             label="Kindness"/>
+                <CategoryRow group="dmpValues" catKey="fun"                  label="Fun!"/>
+                <CategoryRow group="dmpValues" catKey="profit"               label="Profit"/>
+                <CategoryRow group="dmpValues" catKey="teamworkDmp"          label="Teamwork"/>
+                <CategoryRow group="dmpValues" catKey="generosity"           label="Generosity"/>
+                <CategoryRow group="dmpValues" catKey="appearance"           label="Appearance"/>
               </div>}
               {/* TSWP */}
               {evalSubTab==='tswp'&&<div>
-                <CategoryRow group="tswp" catKey="greeting"     label="Greeting"/>
-                <CategoryRow group="tswp" catKey="discovery"    label="Discovery"/>
-                <CategoryRow group="tswp" catKey="empathy"      label="Empathy"/>
-                <CategoryRow group="tswp" catKey="resolution"   label="Resolution"/>
-                <CategoryRow group="tswp" catKey="confirmation" label="Confirmation"/>
-                <CategoryRow group="tswp" catKey="closing"      label="Closing"/>
+                <CategoryRow group="tswp" catKey="resolutionMindset"  label="Resolution mindset"/>
+                <CategoryRow group="tswp" catKey="phoneEtiquette"     label="Phone etiquette"/>
+                <CategoryRow group="tswp" catKey="attitude"           label="Attitude"/>
+                <CategoryRow group="tswp" catKey="initiative"         label="Initiative"/>
+                <CategoryRow group="tswp" catKey="documentingCalls"   label="Documenting calls"/>
+                <CategoryRow group="tswp" catKey="responseToCoaching" label="Response to coaching"/>
+                <CategoryRow group="tswp" catKey="attendance"         label="Attendance"/>
+                <CategoryRow group="tswp" catKey="teamworkTswp"       label="Teamwork"/>
               </div>}
             </div>
           );
