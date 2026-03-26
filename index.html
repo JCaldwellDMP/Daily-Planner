@@ -2133,6 +2133,7 @@ const TRAINING_DAYS = [
   {day:14, topics:'Troubleshooting, Critical Thinking'},
   {day:15, topics:'Review Day & Final Quiz', review:true, finalQuiz:true},
 ];
+const REVIEW_QUIZ_DAYS = new Set([2,3,6,7,8,11,12,13,14]);
 
 const sanitizeAgent = h => ({
   ...h,
@@ -2183,6 +2184,28 @@ const sanitizeAgent = h => ({
     etiquette:false, patience:false, troubleshooting:false, fielding:false, clearedDate:null,
     ...(h.buddyChecks||{}),
   },
+  trainingDaysComplete: h.trainingDaysComplete || false,
+  mockCallsComplete:    h.mockCallsComplete    || false,
+  buddyCallsComplete:   h.buddyCallsComplete   || false,
+  trainingEval: {
+    signedOff:     h.trainingEval?.signedOff     || false,
+    signedOffDate: h.trainingEval?.signedOffDate || null,
+    dmpValues: {
+      ownership:     { rating: h.trainingEval?.dmpValues?.ownership?.rating     || null, notes: h.trainingEval?.dmpValues?.ownership?.notes     || '' },
+      integrity:     { rating: h.trainingEval?.dmpValues?.integrity?.rating     || null, notes: h.trainingEval?.dmpValues?.integrity?.notes     || '' },
+      teamwork:      { rating: h.trainingEval?.dmpValues?.teamwork?.rating      || null, notes: h.trainingEval?.dmpValues?.teamwork?.notes      || '' },
+      growth:        { rating: h.trainingEval?.dmpValues?.growth?.rating        || null, notes: h.trainingEval?.dmpValues?.growth?.notes        || '' },
+      customerFocus: { rating: h.trainingEval?.dmpValues?.customerFocus?.rating || null, notes: h.trainingEval?.dmpValues?.customerFocus?.notes || '' },
+    },
+    tswp: {
+      greeting:     { rating: h.trainingEval?.tswp?.greeting?.rating     || null, notes: h.trainingEval?.tswp?.greeting?.notes     || '' },
+      discovery:    { rating: h.trainingEval?.tswp?.discovery?.rating    || null, notes: h.trainingEval?.tswp?.discovery?.notes    || '' },
+      empathy:      { rating: h.trainingEval?.tswp?.empathy?.rating      || null, notes: h.trainingEval?.tswp?.empathy?.notes      || '' },
+      resolution:   { rating: h.trainingEval?.tswp?.resolution?.rating   || null, notes: h.trainingEval?.tswp?.resolution?.notes   || '' },
+      confirmation: { rating: h.trainingEval?.tswp?.confirmation?.rating || null, notes: h.trainingEval?.tswp?.confirmation?.notes || '' },
+      closing:      { rating: h.trainingEval?.tswp?.closing?.rating      || null, notes: h.trainingEval?.tswp?.closing?.notes      || '' },
+    },
+  },
   days: Object.fromEntries(
     [...Array(15)].map((_,i)=>{
       const n=i+1, d=(h.days||{})[n]||{};
@@ -2197,6 +2220,8 @@ const sanitizeAgent = h => ({
         quizComplete:  d.quizComplete  || false,
         quizCorrect:   d.quizCorrect   != null ? d.quizCorrect : null,
         quizTotal:     d.quizTotal     != null ? d.quizTotal   : null,
+        reviewQuizComplete: d.reviewQuizComplete || false,
+        reviewQuizDate:     d.reviewQuizDate     || null,
       }];
     })
   ),
@@ -2220,11 +2245,24 @@ const initAgent = (name, startDate) => ({
     completed:false, completedDate:null,
     hasHw:false, hwComplete:false, hwDate:null,
     hasQuiz:true, quizSent:false, quizComplete:false, quizCorrect:null, quizTotal:null,
+    reviewQuizComplete:false, reviewQuizDate:null,
   }])),
   finalQuizCorrect:null, finalQuizTotal:null,
   mockCalls:[], mockCallsGoal:15,
   buddyCalls:[], buddyCallsGoal:25,
   buddyChecks:{etiquette:false,patience:false,troubleshooting:false,fielding:false,clearedDate:null},
+  trainingDaysComplete:false, mockCallsComplete:false, buddyCallsComplete:false,
+  trainingEval:{
+    signedOff:false, signedOffDate:null,
+    dmpValues:{
+      ownership:{rating:null,notes:''}, integrity:{rating:null,notes:''}, teamwork:{rating:null,notes:''},
+      growth:{rating:null,notes:''}, customerFocus:{rating:null,notes:''},
+    },
+    tswp:{
+      greeting:{rating:null,notes:''}, discovery:{rating:null,notes:''}, empathy:{rating:null,notes:''},
+      resolution:{rating:null,notes:''}, confirmation:{rating:null,notes:''}, closing:{rating:null,notes:''},
+    },
+  },
   notes:[],
 });
 
@@ -2234,10 +2272,11 @@ const fmtShift = (s,e) => { const a=fmtTime(s),b=fmtTime(e); return (a&&b)?`${a}
 
 const phaseLabel = hire => {
   const comp = Object.values(hire.days).filter(d=>d.completed).length;
-  if (hire.buddyChecks.clearedDate) return 'Training Complete ✓';
+  if (hire.trainingEval?.signedOff) return 'Training Complete ✓';
   if (comp >= 15) {
-    const allBuddy=['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k]);
-    if (allBuddy) return 'Ready for Sign-Off';
+    const ev = hire.trainingEval;
+    const allRated = ev && [...Object.values(ev.dmpValues||{}), ...Object.values(ev.tswp||{})].every(c=>c.rating!=null);
+    if (allRated) return 'Ready for Sign-Off';
     const bLen=(hire.buddyCalls||[]).length, bGoal=hire.buddyCallsGoal||25;
     const mGoal=hire.mockCallsGoal||15;
     if (bLen>0 || hire.mockCalls.length>=mGoal) return `Buddy Calls (${bLen}/${bGoal})`;
@@ -2351,6 +2390,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const [section,setSection]             = useState(isTrainee||forceTraining?'days':'notes');
   const [hwPrompt,setHwPrompt]           = useState(null);
   const [hwDateDraft,setHwDateDraft]     = useState('');
+  const [rqPrompt,setRqPrompt]           = useState(null);
+  const [rqDateDraft,setRqDateDraft]     = useState('');
   const [newCallOpen,setNewCallOpen]     = useState(false);
   const [callDraft,setCallDraft]         = useState({});
   const [expandedCall,setExpandedCall]   = useState(null);
@@ -2366,6 +2407,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const [newBuddyOpen,setNewBuddyOpen]   = useState(false);
   const [buddyDraft,setBuddyDraft]       = useState({});
   const [expandedBuddy,setExpandedBuddy] = useState(null);
+  const [evalSubTab,setEvalSubTab]       = useState('dmp');
   const [editProfile,setEditProfile]     = useState(false);
   const [showDiscGuide,setShowDiscGuide] = useState(false);
   const [showImport,setShowImport]       = useState(false);
@@ -2414,6 +2456,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const toggleHw      = n => { const c=hire.days[n]; if(!c.hwComplete){setHwPrompt(n);setHwDateDraft(TODAY_T);}else onUpdate({...hire,days:{...hire.days,[n]:{...c,hwComplete:false,hwDate:null}}}); };
   const commitHw      = () => { const c=hire.days[hwPrompt]; onUpdate({...hire,days:{...hire.days,[hwPrompt]:{...c,hwComplete:true,hwDate:hwDateDraft||TODAY_T}}}); setHwPrompt(null); };
   const setHwDate     = (n,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,hwDate:v}}}); };
+  const toggleReviewQuiz = n => { const c=hire.days[n]; if(!c.reviewQuizComplete){setRqPrompt(n);setRqDateDraft(TODAY_T);}else onUpdate({...hire,days:{...hire.days,[n]:{...c,reviewQuizComplete:false,reviewQuizDate:null}}}); };
+  const commitRq      = () => { const c=hire.days[rqPrompt]; onUpdate({...hire,days:{...hire.days,[rqPrompt]:{...c,reviewQuizComplete:true,reviewQuizDate:rqDateDraft||TODAY_T}}}); setRqPrompt(null); };
   const toggleDayQuiz = n => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,quizComplete:!(c.quizComplete||false)}}}); };
   const setQuizField  = (n,f,v) => { const c=hire.days[n]; onUpdate({...hire,days:{...hire.days,[n]:{...c,[f]:v===''?null:parseFloat(v)||null}}}); };
 
@@ -2445,13 +2489,30 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const saveBuddy  = () => { onUpdate({...hire,buddyCalls:[...buddyCalls,{id:nid(),...buddyDraft}]}); setNewBuddyOpen(false); };
   const deleteBuddy = id => onUpdate({...hire,buddyCalls:buddyCalls.filter(c=>c.id!==id)});
   const toggleBuddyCheck = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
-  const signOff = () => {
-    if(!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k]))return;
-    const updated={...hire,buddyChecks:{...hire.buddyChecks,clearedDate:TODAY_T}};
-    onUpdate(updated);
-    if(onGraduate&&window.confirm('Training complete! Graduate this agent to Active status?')) onGraduate(hire.id);
-  };
 
+  // Eval
+  const setEvalRating = (group, key, val) => {
+    const ev = hire.trainingEval;
+    const cur = ev[group][key];
+    const newRating = cur.rating === val ? null : val;
+    onUpdate({...hire, trainingEval:{...ev, [group]:{...ev[group], [key]:{...cur, rating:newRating}}}});
+  };
+  const setEvalNotes = (group, key, val) => {
+    const ev = hire.trainingEval;
+    onUpdate({...hire, trainingEval:{...ev, [group]:{...ev[group], [key]:{...ev[group][key], notes:val}}}});
+  };
+  const evalAllRated = () => {
+    const ev = hire.trainingEval;
+    return ev && [...Object.values(ev.dmpValues||{}), ...Object.values(ev.tswp||{})].every(c=>c.rating!=null);
+  };
+  const signOff = () => {
+    if (!evalAllRated()) return;
+    const today = new Date().toISOString().split('T')[0];
+    const updated = {...hire, trainingEval:{...hire.trainingEval, signedOff:true, signedOffDate:today},
+      queues:{...hire.queues, programming:{active:true, date:today}}};
+    onUpdate(updated);
+    if (onGraduate && window.confirm('Training complete! Graduate this agent to Active status?')) onGraduate(hire.id);
+  };
   // Notes
   const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
   const [shiftStartDraft,setShiftStartDraft]   = useState(hire.shiftStart||'');
@@ -2865,6 +2926,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
           ['days',  `📋 Days ${daysComp}/15 · ${daysPct}%`],
           ['mocks', `📞 Calls ${hire.mockCalls.length}/${mockGoal} · ${mockPct}%`],
           ['buddy', `🤝 Buddy ${buddyCalls.length}/${buddyGoal} · ${buddyPct}%`],
+          ['eval',  '📊 Eval'],
           ['notes', '📌 Notes'],
         ]:[
           ['notes', '📌 Notes'],
@@ -2878,6 +2940,13 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
 
         {/* ── TRAINING DAYS ── */}
         {section==='days'&&<div>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
+            <button onClick={()=>onUpdate({...hire,trainingDaysComplete:!hire.trainingDaysComplete})} style={{flexShrink:0,width:16,height:16,borderRadius:3,border:`2px solid ${hire.trainingDaysComplete?C.gr:C.bo}`,background:hire.trainingDaysComplete?C.gr+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              {hire.trainingDaysComplete&&<span style={{fontSize:9,color:C.gr,lineHeight:1}}>✓</span>}
+            </button>
+            <span style={{fontFamily:MO,fontSize:11,color:hire.trainingDaysComplete?C.gr:C.mu}}>Mark this step complete</span>
+            {hire.trainingDaysComplete&&<span style={{fontFamily:MO,fontSize:10,fontWeight:'bold',color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:4,padding:'1px 8px'}}>✓ Complete</span>}
+          </div>
           <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14}}>
             <span style={{fontFamily:MO,fontSize:11,color:C.tx,flexShrink:0}}>{daysComp}/15 days complete</span>
             <div style={{flex:1,height:5,background:C.bo,borderRadius:3}}><div style={{height:'100%',width:`${daysPct}%`,background:daysPct>=100?C.gr:C.or,borderRadius:3,transition:'width .4s'}}/></div>
@@ -2908,7 +2977,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                   </div>
                 </div>
 
-                {(hasHw||hasQuiz)&&<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid '+C.bo+'55',display:'flex',flexDirection:'column',gap:7}}>
+                {(hasHw||hasQuiz||REVIEW_QUIZ_DAYS.has(td.day))&&<div style={{marginTop:8,paddingTop:8,borderTop:'1px solid '+C.bo+'55',display:'flex',flexDirection:'column',gap:7}}>
                   {/* Homework */}
                   {hasHw&&!isRev&&(hwPrompt===td.day
                     ? <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
@@ -2956,6 +3025,24 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                     <OBtn onClick={saveFinalQuiz} style={{fontSize:10,padding:'3px 10px'}}>Save</OBtn>
                     {hire.finalQuizCorrect!=null&&hire.finalQuizTotal!=null&&(()=>{const fp=Math.round((hire.finalQuizCorrect/hire.finalQuizTotal)*100);const b=quizBadge(fp,15);return(<><span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:fp>=90?C.gr:fp>=75?C.yl:C.rd}}>{fp}% ({hire.finalQuizCorrect}/{hire.finalQuizTotal})</span>{b&&<span style={{fontFamily:MO,fontSize:9,fontWeight:'bold',color:b.color,background:b.color+'22',border:'1px solid '+b.color+'55',borderRadius:4,padding:'1px 5px',flexShrink:0}}>{b.label}</span>}</>);})()}
                   </div>}
+
+                  {REVIEW_QUIZ_DAYS.has(td.day)&&(rqPrompt===td.day
+                    ? <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+                        <span style={{fontFamily:MO,fontSize:10,color:C.pu,flexShrink:0}}>📝 RQ Date:</span>
+                        <input autoFocus type="date" value={rqDateDraft} onChange={e=>setRqDateDraft(e.target.value)} style={{...inpS,padding:'3px 6px',fontSize:11,width:120,colorScheme:'dark',flexShrink:0}}/>
+                        <OBtn onClick={commitRq} style={{fontSize:10,padding:'3px 10px',flexShrink:0}}>✓ Mark Done</OBtn>
+                        <Btn onClick={()=>setRqPrompt(null)} style={{fontSize:10,padding:'3px 8px',flexShrink:0}}>✕</Btn>
+                      </div>
+                    : <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',paddingLeft:4}}>
+                        <button onClick={()=>toggleReviewQuiz(td.day)} style={{flexShrink:0,width:14,height:14,borderRadius:2,border:`2px solid ${d.reviewQuizComplete?C.pu:C.bo}`,background:d.reviewQuizComplete?C.pu+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          {d.reviewQuizComplete&&<span style={{fontSize:8,color:C.pu,lineHeight:1}}>✓</span>}
+                        </button>
+                        {d.reviewQuizComplete
+                          ? <><span style={{fontFamily:MO,fontSize:10,color:C.pu,flex:1}}>📝 Day {td.day} Review Quiz — done</span><input type="date" value={d.reviewQuizDate||''} onChange={e=>onUpdate({...hire,days:{...hire.days,[td.day]:{...d,reviewQuizDate:e.target.value}}})} title="Review quiz date" style={{...inpS,padding:'2px 6px',fontSize:10,width:112,colorScheme:'dark',flexShrink:0}}/></>
+                          : <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Day {td.day} Review Quiz</span>
+                        }
+                      </div>
+                  )}
                 </div>}
               </div>
             );
@@ -2964,6 +3051,13 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
 
         {/* ── MOCK CALLS ── */}
         {section==='mocks'&&<div>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
+            <button onClick={()=>onUpdate({...hire,mockCallsComplete:!hire.mockCallsComplete})} style={{flexShrink:0,width:16,height:16,borderRadius:3,border:`2px solid ${hire.mockCallsComplete?C.gr:C.bo}`,background:hire.mockCallsComplete?C.gr+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              {hire.mockCallsComplete&&<span style={{fontSize:9,color:C.gr,lineHeight:1}}>✓</span>}
+            </button>
+            <span style={{fontFamily:MO,fontSize:11,color:hire.mockCallsComplete?C.gr:C.mu}}>Mark this step complete</span>
+            {hire.mockCallsComplete&&<span style={{fontFamily:MO,fontSize:10,fontWeight:'bold',color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:4,padding:'1px 8px'}}>✓ Complete</span>}
+          </div>
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
               <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:C.tx}}>Mock Calls</span>
@@ -3068,6 +3162,13 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
 
         {/* ── BUDDY CALLS ── */}
         {section==='buddy'&&<div>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
+            <button onClick={()=>onUpdate({...hire,buddyCallsComplete:!hire.buddyCallsComplete})} style={{flexShrink:0,width:16,height:16,borderRadius:3,border:`2px solid ${hire.buddyCallsComplete?C.gr:C.bo}`,background:hire.buddyCallsComplete?C.gr+'22':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              {hire.buddyCallsComplete&&<span style={{fontSize:9,color:C.gr,lineHeight:1}}>✓</span>}
+            </button>
+            <span style={{fontFamily:MO,fontSize:11,color:hire.buddyCallsComplete?C.gr:C.mu}}>Mark this step complete</span>
+            {hire.buddyCallsComplete&&<span style={{fontFamily:MO,fontSize:10,fontWeight:'bold',color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:4,padding:'1px 8px'}}>✓ Complete</span>}
+          </div>
           <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginBottom:14}}>
             <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginBottom:10}}>
               <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:C.tx}}>Buddy Calls</span>
@@ -3114,23 +3215,71 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               </div>
             );
           })}
-          <div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:8,padding:12,marginTop:6}}>
-            <div style={{fontFamily:MO,fontSize:10,color:C.or,letterSpacing:2,marginBottom:8}}>PROFICIENCY SIGN-OFF</div>
-            <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:10}}>All items must be checked before sign-off.</div>
-            {[['etiquette','Good call etiquette'],['patience','Patient with customers'],['troubleshooting','Follows troubleshooting steps'],['fielding','Able to field varied call types']].map(([k,label])=>(
-              <div key={k} onClick={()=>!hire.buddyChecks.clearedDate&&toggleBuddyCheck(k)} style={{display:'flex',gap:10,alignItems:'center',background:hire.buddyChecks[k]?C.gr+'0d':C.ca,border:`1px solid ${hire.buddyChecks[k]?C.gr+'44':C.bo}`,borderRadius:7,padding:'10px 14px',marginBottom:8,cursor:hire.buddyChecks.clearedDate?'default':'pointer',transition:'all .15s'}}>
-                <div style={{width:18,height:18,borderRadius:3,border:`2px solid ${hire.buddyChecks[k]?C.gr:C.bo}`,background:hire.buddyChecks[k]?C.gr+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  {hire.buddyChecks[k]&&<span style={{fontSize:11,color:C.gr,lineHeight:1}}>✓</span>}
-                </div>
-                <span style={{fontFamily:MO,fontSize:12,color:hire.buddyChecks[k]?C.gr:C.tx}}>{label}</span>
-              </div>
-            ))}
-            {hire.buddyChecks.clearedDate
-              ? <div style={{fontFamily:MO,fontSize:13,color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:8,padding:'14px 16px',textAlign:'center'}}>✅ CLEARED FOR SOLO — Signed off {fmtShortDate(hire.buddyChecks.clearedDate)}</div>
-              : <button onClick={signOff} disabled={!['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])} style={{width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',marginTop:4,border:'none',borderRadius:8,cursor:'pointer',background:C.gr,color:'#fff',opacity:['etiquette','patience','troubleshooting','fielding'].every(k=>hire.buddyChecks[k])?1:0.35,transition:'all .3s'}}>✅ CLEAR FOR SOLO — Sign Off</button>
-            }
-          </div>
         </div>}
+
+        {/* ── EVAL ── */}
+        {section==='eval'&&(()=>{
+          const ev = hire.trainingEval;
+          const allRated = evalAllRated();
+          const ratingBg = r => r==='needs'?C.rd+'22':r==='good'?C.yl+'22':r==='great'?C.gr+'22':'transparent';
+          const ratingBdr = r => r==='needs'?C.rd+'66':r==='good'?C.yl+'66':r==='great'?C.gr+'66':C.bo;
+          const RatingBtn = ({val, cur, onClick, color, label}) => (
+            <button onClick={onClick} style={{fontFamily:MO,fontSize:10,padding:'3px 10px',borderRadius:4,cursor:'pointer',border:`1px solid ${cur===val?color+'99':C.bo}`,background:cur===val?color+'22':C.ca,color:cur===val?color:C.mu,transition:'all .15s',flexShrink:0}}>{label}</button>
+          );
+          const CategoryRow = ({group, catKey, label}) => {
+            const cat = ev[group][catKey];
+            return (
+              <div style={{background:ratingBg(cat.rating),border:`1px solid ${ratingBdr(cat.rating)}`,borderRadius:7,padding:'10px 12px',marginBottom:6}}>
+                <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:cat.rating?6:0}}>
+                  <span style={{fontFamily:MO,fontSize:11,color:C.tx,flex:1,minWidth:120}}>{label}</span>
+                  <RatingBtn val="needs" cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'needs')} color={C.rd} label="⚠️ Needs Work"/>
+                  <RatingBtn val="good"  cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'good')}  color={C.yl} label="👍 Good Work"/>
+                  <RatingBtn val="great" cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'great')} color={C.gr} label="⭐ Great Work"/>
+                </div>
+                {cat.rating&&<input value={cat.notes} onChange={e=>setEvalNotes(group,catKey,e.target.value)} placeholder="Notes (optional)…" style={{...inpS,width:'100%',fontSize:11,padding:'4px 8px',boxSizing:'border-box'}}/>}
+              </div>
+            );
+          };
+          return (
+            <div>
+              {/* Sign-off */}
+              {ev.signedOff
+                ? <div style={{fontFamily:MO,fontSize:13,color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:8,padding:'14px 16px',textAlign:'center',marginBottom:14}}>✅ TRAINING COMPLETE — Signed off {fmtShortDate(ev.signedOffDate)}</div>
+                : <button onClick={signOff} disabled={!allRated} style={{width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',marginBottom:14,border:'none',borderRadius:8,cursor:allRated?'pointer':'default',background:allRated?C.gr:C.bo,color:allRated?'#fff':C.mu,opacity:allRated?1:0.5,transition:'all .3s'}}>✅ CLEAR FOR SOLO — Sign Off{!allRated?' (rate all categories first)':''}</button>
+              }
+              {/* Header strip */}
+              <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:'10px 14px',marginBottom:12,display:'flex',gap:16,flexWrap:'wrap'}}>
+                {quizAvg!=null&&<span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Avg Quiz: <span style={{color:quizAvg>=90?C.gr:quizAvg>=70?C.yl:C.rd,fontWeight:'bold'}}>{quizAvg}%</span></span>}
+                {finalQuizPct!=null&&<span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Final Quiz: <span style={{color:finalQuizPct>=90?C.gr:finalQuizPct>=75?C.yl:C.rd,fontWeight:'bold'}}>{finalQuizPct}%</span></span>}
+                {hire.doingWell&&<span style={{fontFamily:MO,fontSize:11,color:C.gr,flex:1,minWidth:120}}>👍 {hire.doingWell}</span>}
+                {hire.areasOfImprovement&&<span style={{fontFamily:MO,fontSize:11,color:C.yl,flex:1,minWidth:120}}>⚠️ {hire.areasOfImprovement}</span>}
+              </div>
+              {/* Sub-tabs */}
+              <div style={{display:'flex',gap:0,borderBottom:'1px solid '+C.bo,marginBottom:12}}>
+                {[['dmp','DMP Values'],['tswp','Tech Support Word Pictures']].map(([k,l])=>(
+                  <button key={k} onClick={()=>setEvalSubTab(k)} style={{fontFamily:MO,fontSize:11,padding:'8px 16px',cursor:'pointer',border:'none',borderBottom:`2px solid ${evalSubTab===k?C.or:'transparent'}`,background:'transparent',color:evalSubTab===k?C.or:C.mu,transition:'all .15s'}}>{l}</button>
+                ))}
+              </div>
+              {/* DMP Values */}
+              {evalSubTab==='dmp'&&<div>
+                <CategoryRow group="dmpValues" catKey="ownership"     label="Ownership"/>
+                <CategoryRow group="dmpValues" catKey="integrity"     label="Integrity"/>
+                <CategoryRow group="dmpValues" catKey="teamwork"      label="Teamwork"/>
+                <CategoryRow group="dmpValues" catKey="growth"        label="Growth"/>
+                <CategoryRow group="dmpValues" catKey="customerFocus" label="Customer Focus"/>
+              </div>}
+              {/* TSWP */}
+              {evalSubTab==='tswp'&&<div>
+                <CategoryRow group="tswp" catKey="greeting"     label="Greeting"/>
+                <CategoryRow group="tswp" catKey="discovery"    label="Discovery"/>
+                <CategoryRow group="tswp" catKey="empathy"      label="Empathy"/>
+                <CategoryRow group="tswp" catKey="resolution"   label="Resolution"/>
+                <CategoryRow group="tswp" catKey="confirmation" label="Confirmation"/>
+                <CategoryRow group="tswp" catKey="closing"      label="Closing"/>
+              </div>}
+            </div>
+          );
+        })()}
 
         {/* ── NOTES ── */}
         {section==='notes'&&<div>
@@ -4096,7 +4245,7 @@ function DailyPlanner() {
   const updateAgent    = (updated) => setAgents(prev=>prev.map(a=>a.id===updated.id?updated:a));
   const addAgent       = (a) => setAgents(prev=>[...prev,a]);
   const deleteAgent    = (id) => setAgents(prev=>prev.filter(a=>a.id!==id));
-  const graduateAgent  = (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'active'}:a));
+  const graduateAgent  = (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'active',queues:{...a.queues,programming:{active:true,date:new Date().toISOString().split('T')[0]}}}:a));
   const deactivateAgent= (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'inactive'}:a));
   const reactivateAgent= (id) => setAgents(prev=>prev.map(a=>a.id===id?{...a,status:'active'}:a));
   const [showHist,setShowHist] = useState(false);
