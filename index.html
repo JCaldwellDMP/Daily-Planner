@@ -2391,6 +2391,67 @@ function parseMockCallEmail(txt) {
   return out;
 }
 
+function parseBuddyCallEmail(txt) {
+  const out = {
+    date:'', observerName:'', agentNotes:'', traineeNotes:'',
+    independence:null, confidence:null, wintouchCaseNum:'',
+    checklist:{ greetedCorrectly:false, identifiedIssue:false, pulledProgramming:false, loggedWintouch:false, askedForHelpApprop:false }
+  };
+  const lines = txt.split('\n');
+  let i=0;
+  const boolStr = v => v.trim().toLowerCase()==='yes';
+  const parseD = s => { try{const d=new Date(s);return isNaN(d)?'':d.toISOString().split('T')[0];}catch(e){return '';} };
+  const indepMap = v => {
+    const lv=v.toLowerCase();
+    if(lv.includes('guid')) return 'guidance';
+    if(lv.includes('exceed')) return 'exceeding';
+    if(lv.includes('independ')) return 'independent';
+    return null;
+  };
+  const confMap = v => {
+    const lv=v.toLowerCase();
+    if(lv.includes('low')) return 'low';
+    if(lv.includes('develop')) return 'developing';
+    if(lv.includes('confid')) return 'confident';
+    return null;
+  };
+  const tabMap = {
+    'Date':                          v=>{out.date=parseD(v);},
+    'Observer Name':                 v=>{out.observerName=v;},
+    'Greeted caller correctly':      v=>{out.checklist.greetedCorrectly=boolStr(v);},
+    'Identified the issue':          v=>{out.checklist.identifiedIssue=boolStr(v);},
+    'Pulled panel programming':      v=>{out.checklist.pulledProgramming=boolStr(v);},
+    'Logged Wintouch ticket':        v=>{out.checklist.loggedWintouch=boolStr(v);},
+    'Wintouch Case#':                v=>{out.wintouchCaseNum=v;},
+    'Asked for help appropriately':  v=>{out.checklist.askedForHelpApprop=boolStr(v);},
+    'Independence':                  v=>{out.independence=indepMap(v);},
+    'Confidence':                    v=>{out.confidence=confMap(v);},
+  };
+  const secMap = {
+    'Observer Notes':'agentNotes',
+    'Agent Notes':'agentNotes',
+    'Trainee Notes':'traineeNotes',
+    'Self-Reflection':'traineeNotes',
+    'Trainee Self-Reflection':'traineeNotes',
+  };
+  const allHdrs=[...Object.keys(tabMap),...Object.keys(secMap)];
+  while(i<lines.length){
+    const raw=lines[i],tr=raw.trim();
+    if(raw.includes('\t')){
+      const ti=raw.indexOf('\t'),label=raw.slice(0,ti).trim(),value=raw.slice(ti+1).trim();
+      if(label&&tabMap[label]) tabMap[label](value);
+      i++;continue;
+    }
+    if(secMap[tr]){
+      const key=secMap[tr];i++;const bl=[];
+      while(i<lines.length){const nx=lines[i].trim();if(lines[i].includes('\t')||allHdrs.includes(nx))break;bl.push(nx);i++;}
+      out[key]=bl.filter(Boolean).join('\n').trim();continue;
+    }
+    i++;
+  }
+  return out;
+}
+
 function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=false, hideSnapshot=false, isSpecialized=false }) {
   const isTrainee = !!(hire.queues?.training?.active);
   const [showTraining,setShowTraining]   = useState(forceTraining);
@@ -2421,6 +2482,9 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
   const [showImport,setShowImport]       = useState(false);
   const [importText,setImportText]       = useState('');
   const [importError,setImportError]     = useState('');
+  const [showBuddyImport,setShowBuddyImport] = useState(false);
+  const [buddyImportText,setBuddyImportText] = useState('');
+  const [buddyImportError,setBuddyImportError] = useState('');
   const [nameDraft,setNameDraft]         = useState(hire.name);
   const [discDraft,setDiscDraft]         = useState(hire.discProfile||'');
   const [supDraft,setSupDraft]           = useState(hire.supervisor||'');
@@ -2493,9 +2557,17 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
 
   // Buddy calls
   const saveBuddyGoal = () => { const n=parseInt(buddyGoalDraft); if(!isNaN(n)&&n>0) onUpdate({...hire,buddyCallsGoal:n}); setEditBuddyGoal(false); };
-  const openBuddy  = () => { setBuddyDraft({date:TODAY_T,agentNotes:'',traineeNotes:''}); setNewBuddyOpen(true); };
+  const openBuddy  = () => { setBuddyDraft({date:TODAY_T,agentNotes:'',traineeNotes:'',observerName:'',independence:null,confidence:null,wintouchCaseNum:'',checklist:{greetedCorrectly:false,identifiedIssue:false,pulledProgramming:false,loggedWintouch:false,askedForHelpApprop:false}}); setNewBuddyOpen(true); };
   const saveBuddy  = () => { onUpdate({...hire,buddyCalls:[...buddyCalls,{id:nid(),...buddyDraft}]}); setNewBuddyOpen(false); };
   const deleteBuddy = id => onUpdate({...hire,buddyCalls:buddyCalls.filter(c=>c.id!==id)});
+  const importBuddyCall = () => {
+    if(!buddyImportText.trim()){setBuddyImportError('Paste the email text first.');return;}
+    const p=parseBuddyCallEmail(buddyImportText);
+    if(!p.date&&!p.observerName&&!p.agentNotes){setBuddyImportError('Could not parse — make sure you pasted the full email text.');return;}
+    const newCall={id:nid(),date:p.date||TODAY_T,agentNotes:p.agentNotes||'',traineeNotes:p.traineeNotes||'',observerName:p.observerName||'',independence:p.independence,confidence:p.confidence,wintouchCaseNum:p.wintouchCaseNum||'',checklist:p.checklist};
+    onUpdate({...hire,buddyCalls:[...buddyCalls,newCall]});
+    setBuddyImportText('');setBuddyImportError('');setShowBuddyImport(false);
+  };
   const toggleBuddyCheck = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
 
   // Eval
@@ -2673,6 +2745,116 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
       navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);}).catch(()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2500);});
     }
   };
+
+  // ── Staged report helpers ─────────────────────────────────────────────────
+  const mu2='#444';const tx2='#111';const gr2='#166534';const rd2='#991b1b';const yl2='#713f12';const bl2='#1e40af';
+  const hTag=(tag,style,content)=>`<${tag} style="${style}">${content}</${tag}>`;
+  const dv=(s,c)=>hTag('div',s,c); const sp2=(s,c)=>hTag('span',s,c);
+  const perfDot=v=>v==='great'?'🟢':v==='good'?'🟠':'🔴';
+  const indDot=v=>v==='exceeding'?'🟢':v==='independent'?'🟠':'🔴';
+  const confDot=v=>v==='confident'?'🟢':v==='developing'?'🟠':'🔴';
+
+  const mockSectionHtml = () => {
+    const calls=hire.mockCalls||[];
+    const goal=hire.mockCallsGoal||15;
+    const rows=[];
+    rows.push(hTag('h3','margin:16px 0 8px;font-size:15px;color:#222;border-top:2px solid #e2e8f0;padding-top:12px;',`📞 Mock Calls (${calls.length}/${goal})`));
+    if(calls.length===0){rows.push(dv('color:'+mu2+';font-size:13px;margin-bottom:12px;','No mock calls logged yet.'));return rows.join('');}
+    // Resolution rate
+    const resolved=calls.filter(c=>c.resolved).length;
+    const resPct=Math.round((resolved/calls.length)*100);
+    // Checklist compliance
+    const ckKeys=[['askedCompanyName','Asked company name'],['askedMyName','Asked caller name'],['askedPanelType','Asked panel type'],['pulledPanelProgramming','Pulled panel programming'],['loggedWintouch','Logged Wintouch ticket']];
+    const ckStats=ckKeys.map(([k,l])=>{const yes=calls.filter(c=>c[k]==='Yes'||c[k]===true).length;const pct=Math.round((yes/calls.length)*100);return {k,l,yes,pct};});
+    // Trend dots
+    const dots=calls.map(c=>perfDot(c.overallPerformance)).join(' ');
+    rows.push(dv('margin-bottom:12px;',
+      dv('display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;',
+        dv('font-size:13px;color:'+mu2+';','Resolution rate: '+sp2('font-weight:bold;color:'+(resPct>=80?gr2:resPct>=60?yl2:rd2)+';',resPct+'%'))+
+        dv('font-size:13px;color:'+mu2+';','Performance trend: '+dots)
+      )+
+      hTag('h4','margin:8px 0 4px;font-size:13px;color:#333;','Checklist Compliance')+
+      ckStats.map(({l,pct})=>dv('font-size:13px;color:'+(pct>=80?gr2:pct>=60?yl2:rd2)+';line-height:1.8;',(pct>=80?'✅ ':'⚠️ ')+l+': '+pct+'%'+(pct<80?' — below 80%':''))).join('')
+    ));
+    rows.push(hTag('h4','margin:8px 0 6px;font-size:13px;color:#333;','Call Log'));
+    calls.forEach((c,i)=>{
+      const col=c.overallPerformance==='great'?gr2:c.overallPerformance==='good'?yl2:rd2;
+      rows.push(dv('margin-bottom:10px;padding:8px 10px;background:#f8f9fa;border-radius:4px;border-left:3px solid '+(c.overallPerformance==='great'?'#22c55e':c.overallPerformance==='good'?'#eab308':'#ef4444')+';',
+        dv('font-size:13px;font-weight:bold;color:'+tx2+';','Call #'+(i+1)+(c.date?' — '+c.date:'')+' '+perfDot(c.overallPerformance)+sp2('font-weight:normal;font-size:12px;color:'+mu2+';margin-left:8px;',(c.resolved?'✅ Resolved':'❌ Not Resolved')+(c.wintouchCaseNum?' · Case# '+c.wintouchCaseNum:'')))+
+        (c.whatWentWell?dv('font-size:12px;color:'+gr2+';margin-top:4px;','👍 '+c.whatWentWell):'')+
+        (c.whatToImprove?dv('font-size:12px;color:'+yl2+';margin-top:2px;','⚠️ '+c.whatToImprove):'')
+      ));
+    });
+    return rows.join('');
+  };
+
+  const buddySectionHtml = () => {
+    const calls=hire.buddyCalls||[];
+    const goal=hire.buddyCallsGoal||25;
+    const rows=[];
+    rows.push(hTag('h3','margin:16px 0 8px;font-size:15px;color:#222;border-top:2px solid #e2e8f0;padding-top:12px;',`🤝 Buddy Calls (${calls.length}/${goal})`));
+    if(calls.length===0){rows.push(dv('color:'+mu2+';font-size:13px;margin-bottom:12px;','No buddy calls logged yet.'));return rows.join('');}
+    const withInd=calls.filter(c=>c.independence);
+    const withConf=calls.filter(c=>c.confidence);
+    const indDots=withInd.map(c=>indDot(c.independence)).join(' ');
+    const confDots=withConf.map(c=>confDot(c.confidence)).join(' ');
+    const ckBKeys=[['greetedCorrectly','Greeted caller correctly'],['identifiedIssue','Identified the issue'],['pulledProgramming','Pulled panel programming'],['loggedWintouch','Logged Wintouch ticket'],['askedForHelpApprop','Asked for help appropriately']];
+    const ckBStats=ckBKeys.map(([k,l])=>{const yes=calls.filter(c=>c.checklist?.[k]).length;const pct=calls.length?Math.round((yes/calls.length)*100):0;return {l,pct};});
+    rows.push(dv('margin-bottom:12px;',
+      (indDots?dv('font-size:13px;color:'+mu2+';margin-bottom:4px;','Independence trend: '+indDots):'')+
+      (confDots?dv('font-size:13px;color:'+mu2+';margin-bottom:8px;','Confidence trend:  '+confDots):'')+
+      hTag('h4','margin:8px 0 4px;font-size:13px;color:#333;','Checklist Compliance')+
+      ckBStats.map(({l,pct})=>dv('font-size:13px;color:'+(pct>=80?gr2:pct>=60?yl2:rd2)+';line-height:1.8;',(pct>=80?'✅ ':'⚠️ ')+l+': '+pct+'%'+(pct<80?' — below 80%':''))).join('')
+    ));
+    const withNotes=calls.filter(c=>c.agentNotes||c.traineeNotes);
+    if(withNotes.length>0){
+      rows.push(hTag('h4','margin:8px 0 6px;font-size:13px;color:#333;','Observer Notes'));
+      withNotes.forEach((c,i)=>{
+        rows.push(dv('margin-bottom:8px;padding:7px 10px;background:#f8f9fa;border-radius:4px;border-left:3px solid #a855f7;',
+          dv('font-size:12px;font-weight:bold;color:'+tx2+';margin-bottom:3px;','Call #'+(calls.indexOf(c)+1)+(c.date?' — '+c.date:'')+(c.observerName?' · '+c.observerName:''))+
+          (c.agentNotes?dv('font-size:12px;color:'+gr2+';','👁 '+c.agentNotes):'')+
+          (c.traineeNotes?dv('font-size:12px;color:#5b21b6;margin-top:2px;','🔄 '+c.traineeNotes):'')
+        ));
+      });
+    }
+    return rows.join('');
+  };
+
+  const evalSectionHtml = () => {
+    const ev=hire.trainingEval;
+    if(!ev) return '';
+    const rows=[];
+    rows.push(hTag('h3','margin:16px 0 8px;font-size:15px;color:#222;border-top:2px solid #e2e8f0;padding-top:12px;','📝 Training Evaluation'));
+    if(ev.signedOff) rows.push(dv('background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-weight:bold;color:'+gr2+';','✅ TRAINING COMPLETE — Signed off '+fmtShortDate(ev.signedOffDate)));
+    const renderCats=(title,group)=>{
+      const cats=ev[group]||{};
+      const entries=Object.entries(cats);
+      if(!entries.some(([,v])=>v.rating)) return '';
+      const catLabels={honestyIntegrity:'Honesty and integrity',innovationInitiative:'Innovation and initiative',responsiveness:'Responsiveness',kindness:'Kindness',fun:'Fun!',profit:'Profit',teamworkDmp:'Teamwork',generosity:'Generosity',appearance:'Appearance',resolutionMindset:'Resolution mindset',phoneEtiquette:'Phone etiquette',attitude:'Attitude',initiative:'Initiative',documentingCalls:'Documenting calls',responseToCoaching:'Response to coaching',attendance:'Attendance',teamworkTswp:'Teamwork'};
+      const catRows=entries.filter(([,v])=>v.rating).map(([k,v])=>{
+        const col=v.rating==='great'?gr2:v.rating==='good'?yl2:rd2;
+        const icon=v.rating==='great'?'⭐':v.rating==='good'?'👍':'⚠️';
+        return dv('font-size:13px;line-height:1.8;color:'+col+';',icon+' '+(catLabels[k]||k)+': '+sp2('font-weight:bold;',v.rating==='great'?'Great Work':v.rating==='good'?'Good Work':'Needs Work')+(v.notes?sp2('font-weight:normal;color:'+mu2+';font-size:12px;',' — '+v.notes):''));
+      }).join('');
+      return hTag('h4','margin:8px 0 4px;font-size:13px;color:#333;',title)+dv('margin-bottom:10px;',catRows);
+    };
+    rows.push(renderCats('DMP Values','dmpValues'));
+    rows.push(renderCats('Tech Support Word Pictures','tswp'));
+    return rows.join('');
+  };
+
+  const [copiedMock,setCopiedMock]=useState(false);
+  const [copiedBuddy,setCopiedBuddy]=useState(false);
+  const [copiedEval,setCopiedEval]=useState(false);
+  const doCopy=(html,setCp)=>{
+    const base='font-family:Calibri,Arial,sans-serif;font-size:14px;color:#111;';
+    const full=`<div style="${base}">${html}</div>`;
+    try{const blob=new Blob([full],{type:'text/html'});navigator.clipboard.write([new ClipboardItem({'text/html':blob})]).then(()=>{setCp(true);setTimeout(()=>setCp(false),2500);}).catch(()=>{navigator.clipboard.writeText(full).then(()=>{setCp(true);setTimeout(()=>setCp(false),2500);});});}
+    catch(e){navigator.clipboard.writeText(full).then(()=>{setCp(true);setTimeout(()=>setCp(false),2500);});}
+  };
+  const copyMockReport  = () => doCopy(generateReportHtml()+mockSectionHtml(), setCopiedMock);
+  const copyBuddyReport = () => doCopy(generateReportHtml()+mockSectionHtml()+buddySectionHtml(), setCopiedBuddy);
+  const copyEvalReport  = () => doCopy(generateReportHtml()+mockSectionHtml()+buddySectionHtml()+evalSectionHtml(), setCopiedEval);
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -3079,6 +3261,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               </div>
               <OBtn onClick={openCall} style={{fontSize:11,padding:'5px 12px',flexShrink:0}}>+ Log Call</OBtn>
               <button onClick={()=>{setShowImport(p=>!p);setImportError('');}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${showImport?C.pu:C.bo}`,background:showImport?C.pu+'22':C.ca,color:showImport?C.pu:C.mu,flexShrink:0}}>📥 Import</button>
+              <button onClick={e=>{flash(e);copyMockReport();}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',background:copiedMock?C.gr+'22':C.ca,border:`1px solid ${copiedMock?C.gr:C.bo}`,borderRadius:6,color:copiedMock?C.gr:C.tx,cursor:'pointer',transition:'all .3s',flexShrink:0}}>{copiedMock?'✓ COPIED':'📤 Copy Report'}</button>
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
               <span style={{fontFamily:MO,fontSize:11,color:mockPct>=100?C.gr:C.or,flexShrink:0}}>{hire.mockCalls.length}/{mockGoal}</span>
@@ -3189,6 +3372,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 }
               </div>
               <OBtn onClick={openBuddy} style={{fontSize:11,padding:'5px 12px',flexShrink:0}}>+ Log Call</OBtn>
+              <button onClick={()=>{setShowBuddyImport(p=>!p);setBuddyImportError('');}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${showBuddyImport?C.pu:C.bo}`,background:showBuddyImport?C.pu+'22':C.ca,color:showBuddyImport?C.pu:C.mu,flexShrink:0}}>📥 Import</button>
+              <button onClick={e=>{flash(e);copyBuddyReport();}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',background:copiedBuddy?C.gr+'22':C.ca,border:`1px solid ${copiedBuddy?C.gr:C.bo}`,borderRadius:6,color:copiedBuddy?C.gr:C.tx,cursor:'pointer',transition:'all .3s',flexShrink:0}}>{copiedBuddy?'✓ COPIED':'📤 Copy Report'}</button>
             </div>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
               <span style={{fontFamily:MO,fontSize:11,color:buddyPct>=100?C.gr:C.bl,flexShrink:0}}>{buddyCalls.length}/{buddyGoal}</span>
@@ -3196,9 +3381,61 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:buddyPct>=100?C.gr:C.bl,flexShrink:0}}>{buddyPct}%</span>
             </div>
           </div>
+          {showBuddyImport&&(
+            <div style={{background:C.ca,border:'1px solid '+C.pu,borderRadius:8,padding:14,marginBottom:14}}>
+              <div style={{fontFamily:MO,fontSize:10,color:C.pu,letterSpacing:2,marginBottom:8}}>IMPORT BUDDY CALL</div>
+              <div style={{fontFamily:MO,fontSize:11,color:C.mu,marginBottom:8}}>Paste the full buddy call form email submission below. All available fields will be auto-filled.</div>
+              <textarea value={buddyImportText} onChange={e=>{setBuddyImportText(e.target.value);setBuddyImportError('');}} rows={8} placeholder="Paste email text here…" style={{fontFamily:MO,fontSize:11,color:C.tx,background:C.su,border:`1px solid ${buddyImportError?C.rd:C.bo}`,borderRadius:6,padding:'8px 10px',width:'100%',resize:'vertical',outline:'none',boxSizing:'border-box',lineHeight:1.5,marginBottom:6}}/>
+              {buddyImportError&&<div style={{fontFamily:MO,fontSize:11,color:C.rd,marginBottom:6}}>{buddyImportError}</div>}
+              <div style={{display:'flex',gap:8}}>
+                <OBtn onClick={importBuddyCall} style={{background:C.pu}}>📥 Parse & Import</OBtn>
+                <Btn onClick={()=>{setShowBuddyImport(false);setBuddyImportText('');setBuddyImportError('');}}>Cancel</Btn>
+              </div>
+            </div>
+          )}
           {newBuddyOpen&&<div style={{background:C.ca,border:'1px solid '+C.bl,borderRadius:8,padding:14,marginBottom:14}}>
             <div style={{fontFamily:MO,fontSize:10,color:C.bl,letterSpacing:2,marginBottom:10}}>LOG BUDDY CALL</div>
-            <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>DATE</div><input type="date" value={buddyDraft.date||''} onChange={e=>setBuddyDraft(p=>({...p,date:e.target.value}))} style={{...inpS,colorScheme:'dark'}}/></div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:8}}>
+              <div style={{flex:1,minWidth:140}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>DATE</div><input type="date" value={buddyDraft.date||''} onChange={e=>setBuddyDraft(p=>({...p,date:e.target.value}))} style={{...inpS,colorScheme:'dark',width:'100%'}}/></div>
+              <div style={{flex:2,minWidth:180}}><div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:3}}>OBSERVER NAME</div><input value={buddyDraft.observerName||''} onChange={e=>setBuddyDraft(p=>({...p,observerName:e.target.value}))} placeholder="Seasoned agent name…" style={{...inpS,width:'100%'}}/></div>
+            </div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:8}}>
+              <div style={{flex:1,minWidth:180}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:4}}>INDEPENDENCE</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {[['guidance','Needed Guidance',C.rd],['independent','Handled Independently',C.yl],['exceeding','Exceeded Expectations',C.gr]].map(([val,lbl,col])=>(
+                    <button key={val} onClick={()=>setBuddyDraft(p=>({...p,independence:p.independence===val?null:val}))} style={{fontFamily:MO,fontSize:10,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${buddyDraft.independence===val?col+'99':C.bo}`,background:buddyDraft.independence===val?col+'22':C.ca,color:buddyDraft.independence===val?col:C.mu}}>{lbl}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{flex:1,minWidth:160}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:4}}>CONFIDENCE</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {[['low','Low',C.rd],['developing','Developing',C.yl],['confident','Confident',C.gr]].map(([val,lbl,col])=>(
+                    <button key={val} onClick={()=>setBuddyDraft(p=>({...p,confidence:p.confidence===val?null:val}))} style={{fontFamily:MO,fontSize:10,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${buddyDraft.confidence===val?col+'99':C.bo}`,background:buddyDraft.confidence===val?col+'22':C.ca,color:buddyDraft.confidence===val?col:C.mu}}>{lbl}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:6,padding:'8px 10px',marginBottom:8}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:6}}>CHECKLIST</div>
+              {[['greetedCorrectly','Greeted caller correctly'],['identifiedIssue','Identified the issue'],['pulledProgramming','Pulled panel programming'],['loggedWintouch','Logged Wintouch ticket'],['askedForHelpApprop','Asked for help appropriately']].map(([key,lbl])=>(
+                <div key={key} style={{marginBottom:4}}>
+                  <div onClick={()=>setBuddyDraft(p=>({...p,checklist:{...p.checklist,[key]:!p.checklist?.[key]}}))} style={{display:'flex',gap:8,alignItems:'center',cursor:'pointer'}}>
+                    <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${buddyDraft.checklist?.[key]?C.gr:C.bo}`,background:buddyDraft.checklist?.[key]?C.gr+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      {buddyDraft.checklist?.[key]&&<span style={{fontSize:9,color:C.gr,lineHeight:1}}>✓</span>}
+                    </div>
+                    <span style={{fontFamily:MO,fontSize:11,color:buddyDraft.checklist?.[key]?C.tx:C.mu}}>{lbl}</span>
+                  </div>
+                  {key==='loggedWintouch'&&buddyDraft.checklist?.loggedWintouch&&(
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginTop:3,marginLeft:22}}>
+                      <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>CASE#</span>
+                      <input value={buddyDraft.wintouchCaseNum||''} onChange={e=>setBuddyDraft(p=>({...p,wintouchCaseNum:e.target.value}))} placeholder="0000000" maxLength={7} style={{...inpS,width:80,fontSize:11,padding:'2px 6px'}}/>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
             <div style={{marginBottom:8}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:3}}>AGENT NOTES (your observations)</div><textarea value={buddyDraft.agentNotes||''} onChange={e=>setBuddyDraft(p=>({...p,agentNotes:e.target.value}))} rows={3} placeholder="Your notes from sitting with them…" style={{...inpS,width:'100%',resize:'vertical',lineHeight:1.5}}/></div>
             <div style={{marginBottom:12}}><div style={{fontFamily:MO,fontSize:9,color:C.pu,letterSpacing:1,marginBottom:3}}>TRAINEE NOTES (their self-reflection)</div><textarea value={buddyDraft.traineeNotes||''} onChange={e=>setBuddyDraft(p=>({...p,traineeNotes:e.target.value}))} rows={3} placeholder="Trainee's own notes or reflections…" style={{...inpS,width:'100%',resize:'vertical',lineHeight:1.5}}/></div>
             <div style={{display:'flex',gap:8}}><OBtn onClick={saveBuddy} style={{flex:1}}>💾 Save</OBtn><Btn onClick={()=>setNewBuddyOpen(false)}>Cancel</Btn></div>
@@ -3211,14 +3448,28 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 <div onClick={()=>setExpandedBuddy(isExp?null:call.id)} style={{display:'flex',gap:8,alignItems:'center',padding:'8px 12px',cursor:'pointer',flexWrap:'wrap'}}>
                   <span style={{fontFamily:MO,fontSize:11,fontWeight:'bold',color:C.bl,flexShrink:0}}>#{i+1}</span>
                   <span style={{fontFamily:MO,fontSize:10,color:C.mu,flex:1}}>{fmtShortDate(call.date)}</span>
-                  {call.agentNotes&&<span style={{fontFamily:MO,fontSize:9,color:C.gr,border:'1px solid '+C.gr+'44',padding:'1px 5px',borderRadius:3,flexShrink:0}}>agent ✓</span>}
-                  {call.traineeNotes&&<span style={{fontFamily:MO,fontSize:9,color:C.pu,border:'1px solid '+C.pu+'44',padding:'1px 5px',borderRadius:3,flexShrink:0}}>trainee ✓</span>}
+                  {call.observerName&&<span style={{fontFamily:MO,fontSize:9,color:C.mu,flexShrink:0}}>{call.observerName}</span>}
+                  {call.independence&&<span style={{fontFamily:MO,fontSize:9,color:call.independence==='exceeding'?C.gr:call.independence==='independent'?C.yl:C.rd,border:`1px solid ${call.independence==='exceeding'?C.gr:call.independence==='independent'?C.yl:C.rd}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>{call.independence==='exceeding'?'Exceeded':call.independence==='independent'?'Independent':'Guided'}</span>}
+                  {call.confidence&&<span style={{fontFamily:MO,fontSize:9,color:call.confidence==='confident'?C.gr:call.confidence==='developing'?C.yl:C.rd,border:`1px solid ${call.confidence==='confident'?C.gr:call.confidence==='developing'?C.yl:C.rd}44`,padding:'1px 5px',borderRadius:3,flexShrink:0}}>{call.confidence==='confident'?'Confident':call.confidence==='developing'?'Developing':'Low'}</span>}
                   <button onClick={e=>{e.stopPropagation();deleteBuddy(call.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:11,flexShrink:0}}>✕</button>
                 </div>
                 {isExp&&<div style={{padding:'10px 12px 12px',borderTop:'1px solid '+C.bo}}>
+                  {(call.independence||call.confidence)&&<div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
+                    {call.independence&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Independence: <span style={{color:call.independence==='exceeding'?C.gr:call.independence==='independent'?C.yl:C.rd,fontWeight:'bold'}}>{call.independence==='exceeding'?'Exceeded Expectations':call.independence==='independent'?'Handled Independently':'Needed Guidance'}</span></span>}
+                    {call.confidence&&<span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Confidence: <span style={{color:call.confidence==='confident'?C.gr:call.confidence==='developing'?C.yl:C.rd,fontWeight:'bold'}}>{call.confidence==='confident'?'Confident':call.confidence==='developing'?'Developing':'Low'}</span></span>}
+                  </div>}
+                  {call.checklist&&Object.values(call.checklist).some(Boolean)&&<div style={{background:C.su,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',marginBottom:10}}>
+                    <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:4}}>CHECKLIST</div>
+                    {[['greetedCorrectly','Greeted caller correctly'],['identifiedIssue','Identified the issue'],['pulledProgramming','Pulled panel programming'],['loggedWintouch','Logged Wintouch ticket'],['askedForHelpApprop','Asked for help appropriately']].map(([key,lbl])=>(
+                      call.checklist[key]&&<div key={key} style={{fontFamily:MO,fontSize:10,color:C.gr,marginBottom:2}}>✓ {lbl}{key==='loggedWintouch'&&call.wintouchCaseNum?<span style={{color:C.mu}}> · Case# {call.wintouchCaseNum}</span>:null}</div>
+                    ))}
+                    {[['greetedCorrectly','Greeted caller correctly'],['identifiedIssue','Identified the issue'],['pulledProgramming','Pulled panel programming'],['loggedWintouch','Logged Wintouch ticket'],['askedForHelpApprop','Asked for help appropriately']].map(([key,lbl])=>(
+                      !call.checklist[key]&&<div key={key+'x'} style={{fontFamily:MO,fontSize:10,color:C.rd,marginBottom:2}}>✕ {lbl}</div>
+                    ))}
+                  </div>}
                   {call.agentNotes&&<div style={{marginBottom:call.traineeNotes?10:0}}><div style={{fontFamily:MO,fontSize:9,color:C.gr,letterSpacing:1,marginBottom:4}}>AGENT NOTES</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.agentNotes}</div></div>}
                   {call.traineeNotes&&<div><div style={{fontFamily:MO,fontSize:9,color:C.pu,letterSpacing:1,marginBottom:4}}>TRAINEE NOTES</div><div style={{fontFamily:MO,fontSize:11,color:C.tx,lineHeight:1.5,whiteSpace:'pre-wrap'}}>{call.traineeNotes}</div></div>}
-                  {!call.agentNotes&&!call.traineeNotes&&<div style={{fontFamily:MO,fontSize:11,color:C.mu}}>No notes recorded.</div>}
+                  {!call.agentNotes&&!call.traineeNotes&&!call.independence&&!call.confidence&&<div style={{fontFamily:MO,fontSize:11,color:C.mu}}>No notes recorded.</div>}
                 </div>}
               </div>
             );
@@ -3266,6 +3517,9 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                 ? <div style={{fontFamily:MO,fontSize:13,color:C.gr,background:C.gr+'11',border:'1px solid '+C.gr+'44',borderRadius:8,padding:'14px 16px',textAlign:'center',marginBottom:14}}>✅ TRAINING COMPLETE — Signed off {fmtShortDate(ev.signedOffDate)}</div>
                 : <button onClick={signOff} disabled={!allRated} style={{width:'100%',fontFamily:MO,fontSize:13,fontWeight:'bold',padding:'12px',marginBottom:14,border:'none',borderRadius:8,cursor:allRated?'pointer':'default',background:allRated?C.gr:C.bo,color:allRated?'#fff':C.mu,opacity:allRated?1:0.5,transition:'all .3s'}}>✅ CLEAR FOR SOLO — Sign Off{!allRated?' (rate all categories first)':''}</button>
               }
+              <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+                <button onClick={e=>{flash(e);copyEvalReport();}} style={{fontFamily:MO,fontSize:11,padding:'5px 12px',background:copiedEval?C.gr+'22':C.ca,border:`1px solid ${copiedEval?C.gr:C.bo}`,borderRadius:6,color:copiedEval?C.gr:C.tx,cursor:'pointer',transition:'all .3s'}}>{copiedEval?'✓ COPIED':'📤 Copy Full Report'}</button>
+              </div>
               {/* Header strip */}
               <div style={{background:C.ca,border:'1px solid '+C.bo,borderRadius:8,padding:'10px 14px',marginBottom:12,display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
                 {quizAvg!=null&&<span style={{fontFamily:MO,fontSize:11,color:C.mu}}>Avg Quiz: <span style={{color:quizAvg>=90?C.gr:quizAvg>=70?C.yl:C.rd,fontWeight:'bold'}}>{quizAvg}%</span></span>}
