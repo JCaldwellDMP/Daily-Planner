@@ -4088,9 +4088,280 @@ function SeatingChart({ agents, onUpdateAgent }) {
   );
 }
 
+// ── CoverageGrid ──────────────────────────────────────────────────────────────
+function CoverageGrid({ agents }) {
+  const GRID_START = 7 * 60;
+  const GRID_END   = 19 * 60;
+  const SLOT_MIN   = 30;
+  const NUM_SLOTS  = (GRID_END - GRID_START) / SLOT_MIN;
+  const TODAY = new Date().toISOString().split('T')[0];
+
+  const [filterTeam,  setFilterTeam]  = React.useState('');
+  const [filterQueue, setFilterQueue] = React.useState('');
+  const [showQueues,  setShowQueues]  = React.useState(false);
+  const [showTeams,   setShowTeams]   = React.useState(false);
+  const [gridDate,    setGridDate]    = React.useState(TODAY);
+
+  const [allAbsences, setAllAbsences] = React.useState(() => {
+    try { return JSON.parse(store.getItem('dps-absences')||'{}'); } catch(e) { return {}; }
+  });
+  const absentIds = new Set(allAbsences[gridDate] || []);
+
+  const toggleAbsent = (id) => {
+    setAllAbsences(prev => {
+      const cur = prev[gridDate] || [];
+      const next = cur.includes(id) ? cur.filter(x=>x!==id) : [...cur, id];
+      const updated = {...prev, [gridDate]: next};
+      try { store.setItem('dps-absences', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
+  };
+
+  const toMin = t => { if(!t) return null; const parts=t.split(':').map(Number); return parts[0]*60+(parts[1]||0); };
+  const fmtSlot = min => {
+    const h=Math.floor(min/60), m=min%60, h12=h>12?h-12:(h===0?12:h);
+    return `${h12}${m?':'+String(m).padStart(2,'0'):''}`;
+  };
+  const fmtTime = t => {
+    if(!t) return '—';
+    const [hh,mm]=t.split(':').map(Number);
+    const ap=hh>=12?'PM':'AM', h12=hh>12?hh-12:(hh===0?12:hh);
+    return `${h12}:${String(mm||0).padStart(2,'0')} ${ap}`;
+  };
+  const getLunch = shiftStart => {
+    if(!shiftStart) return null;
+    const m=toMin(shiftStart);
+    if(m===null) return null;
+    const lm=m+240; // lunch always 4hr after start
+    const h=Math.floor(lm/60), mn=lm%60;
+    return `${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`;
+  };
+
+  const slots = Array.from({length:NUM_SLOTS},(_,i)=>GRID_START+i*SLOT_MIN);
+
+  const visible = agents.filter(a=>{
+    if(filterTeam  && (a.team||'none')!==filterTeam)  return false;
+    if(filterQueue && !a.queues?.[filterQueue]?.active) return false;
+    return true;
+  });
+
+  const sorted = [...visible].sort((a,b)=>{
+    const am=toMin(a.shiftStart)||0, bm=toMin(b.shiftStart)||0;
+    return am!==bm ? am-bm : a.name.localeCompare(b.name);
+  });
+
+  const agentMeta = sorted.map(a=>{
+    const s=toMin(a.shiftStart), e=toMin(a.shiftEnd);
+    const lunchStr=getLunch(a.shiftStart);
+    const lm=lunchStr?toMin(lunchStr):null;
+    const teamColor=TEAM_COLORS[a.team||'none']||C.mu;
+    const absent=absentIds.has(a.id);
+    return {a, s, e, lm, lunchStr, teamColor, absent};
+  });
+
+  const inShift = (s,e,slot) => s!==null&&e!==null&&slot>=s&&slot<e;
+  const presentMeta = agentMeta.filter(m=>!m.absent);
+  const coverage = slots.map(sl=>presentMeta.filter(({s,e})=>inShift(s,e,sl)).length);
+
+  const queueMeta = QUEUES.map(q=>({
+    q,
+    counts: slots.map(sl=>presentMeta.filter(({a,s,e})=>inShift(s,e,sl)&&a.queues?.[q.id]?.active).length)
+  }));
+
+  const teamKeys = [...new Set(agents.map(a=>a.team||'none'))].sort();
+  const teamMeta = teamKeys.map(tk=>({
+    tk,
+    color: TEAM_COLORS[tk]||C.mu,
+    label: tk==='none'?'No Team':tk.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase()),
+    counts: slots.map(sl=>presentMeta.filter(({a,s,e})=>(a.team||'none')===tk&&inShift(s,e,sl)).length)
+  }));
+
+  const absentAgents = agentMeta.filter(m=>m.absent);
+  const covColor=n=>n===0?C.rd:n<=2?C.yl:C.gr;
+  const inpS={fontFamily:MO,fontSize:11,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'4px 8px',color:C.tx,outline:'none',colorScheme:'dark'};
+  const hdrTxt={fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,textAlign:'center',whiteSpace:'nowrap'};
+
+  // Fixed left cols: Name(150) Schedule(110) Lunch(62) | then slots | Supervisor(110)
+  const COL_NAME=150, COL_SCHED=110, COL_LUNCH=62, COL_SLOT=40, COL_SUP=110;
+  const leftCols=`${COL_NAME}px ${COL_SCHED}px ${COL_LUNCH}px`;
+  const gridCols=`${leftCols} repeat(${NUM_SLOTS},${COL_SLOT}px) ${COL_SUP}px`;
+
+  const cellBorder='1px solid '+C.bo+'55';
+
+  return (
+    <div>
+      {/* Filter bar */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10,alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,background:C.su,border:'1px solid '+C.bo,borderRadius:6,padding:'3px 10px'}}>
+          <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1}}>DATE</span>
+          <input type="date" value={gridDate} onChange={e=>setGridDate(e.target.value)} style={{...inpS,border:'none',background:'transparent',padding:'2px 0'}}/>
+          {gridDate!==TODAY&&<button onClick={()=>setGridDate(TODAY)} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:4,border:'1px solid '+C.or,background:C.or+'18',color:C.or,cursor:'pointer'}}>Today</button>}
+        </div>
+        <select value={filterTeam} onChange={e=>setFilterTeam(e.target.value)} style={inpS}>
+          <option value="">All Teams</option>
+          {Object.entries(TEAM_COLORS).filter(([k])=>k!=='none').map(([k])=>(
+            <option key={k} value={k}>{k.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>
+          ))}
+        </select>
+        <select value={filterQueue} onChange={e=>setFilterQueue(e.target.value)} style={inpS}>
+          <option value="">All Queues</option>
+          {QUEUES.map(q=><option key={q.id} value={q.id}>{q.label}</option>)}
+        </select>
+        {(filterTeam||filterQueue)&&<button onClick={()=>{setFilterTeam('');setFilterQueue('');}} style={{fontFamily:MO,fontSize:10,padding:'4px 8px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Clear</button>}
+        <div style={{marginLeft:'auto',display:'flex',gap:8,alignItems:'center'}}>
+          {absentAgents.length>0&&<span style={{fontFamily:MO,fontSize:10,color:C.rd,background:C.rd+'18',border:'1px solid '+C.rd+'44',borderRadius:5,padding:'2px 8px'}}>{absentAgents.length} absent</span>}
+          <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>{sorted.length} agents</span>
+        </div>
+      </div>
+
+      {/* Main grid */}
+      <div style={{overflowX:'auto',borderRadius:8,border:'1px solid '+C.bo,background:C.su}}>
+
+        {/* Header row */}
+        <div style={{display:'grid',gridTemplateColumns:gridCols,background:C.ca,borderBottom:'2px solid '+C.bo,position:'sticky',top:0,zIndex:2}}>
+          <div style={{...hdrTxt,textAlign:'left',padding:'7px 10px',fontSize:10,color:C.tx,fontWeight:'bold',borderRight:cellBorder}}>TECHNICIAN</div>
+          <div style={{...hdrTxt,padding:'7px 4px',borderRight:cellBorder,fontSize:10,color:C.tx,fontWeight:'bold'}}>SCHEDULE</div>
+          <div style={{...hdrTxt,padding:'7px 4px',borderRight:cellBorder,fontSize:10,color:C.tx,fontWeight:'bold'}}>LUNCH</div>
+          {slots.map(sl=>{
+            const isHour=sl%60===0;
+            return <div key={sl} style={{...hdrTxt,padding:'5px 1px',borderRight:cellBorder,fontWeight:isHour?'bold':'normal',color:isHour?C.tx:C.mu,fontSize:isHour?9:7}}>{fmtSlot(sl)}</div>;
+          })}
+          <div style={{...hdrTxt,padding:'7px 6px',fontSize:10,color:C.tx,fontWeight:'bold',borderLeft:'1px solid '+C.bo}}>SUPERVISOR</div>
+        </div>
+
+        {/* Agent rows */}
+        {agentMeta.length===0&&<div style={{fontFamily:MO,fontSize:12,color:C.mu,padding:'30px',textAlign:'center'}}>No agents match filters.</div>}
+        {agentMeta.map(({a,s,e,lm,lunchStr,teamColor,absent},ri)=>{
+          const rowBg=absent?C.rd+'08':ri%2===0?C.su:C.su+'88';
+          const barColor=absent?C.mu:teamColor;
+          return (
+            <div key={a.id} style={{display:'grid',gridTemplateColumns:gridCols,borderBottom:cellBorder,background:rowBg,opacity:absent?0.55:1}}>
+
+              {/* Name + absent toggle */}
+              <div style={{padding:'0 6px 0 10px',display:'flex',alignItems:'center',gap:5,overflow:'hidden',borderRight:cellBorder,minHeight:30}}>
+                <div style={{width:3,height:16,borderRadius:2,background:absent?C.rd:teamColor,flexShrink:0}}/>
+                <span style={{fontFamily:MO,fontSize:11,color:absent?C.rd:C.tx,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textDecoration:absent?'line-through':'none'}}>{a.name}</span>
+                {absent&&<span style={{fontFamily:MO,fontSize:7,color:C.rd,background:C.rd+'22',border:'1px solid '+C.rd+'44',borderRadius:3,padding:'1px 3px',flexShrink:0}}>ABS</span>}
+                <button onClick={()=>toggleAbsent(a.id)} title={absent?'Mark present':'Mark absent'}
+                  style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:4,border:'1px solid '+(absent?C.gr+'66':C.rd+'66'),background:absent?C.gr+'18':C.rd+'18',color:absent?C.gr:C.rd,cursor:'pointer',flexShrink:0,lineHeight:1}}>
+                  {absent?'✓':'✕'}
+                </button>
+              </div>
+
+              {/* Schedule */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center',borderRight:cellBorder,padding:'0 4px'}}>
+                <span style={{fontFamily:MO,fontSize:9,color:C.mu,whiteSpace:'nowrap'}}>{a.shiftStart&&a.shiftEnd?fmtTime(a.shiftStart)+' – '+fmtTime(a.shiftEnd):'—'}</span>
+              </div>
+
+              {/* Lunch */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center',borderRight:cellBorder,padding:'0 4px'}}>
+                <span style={{fontFamily:MO,fontSize:9,color:C.mu,whiteSpace:'nowrap'}}>{lunchStr?fmtTime(lunchStr):'—'}</span>
+              </div>
+
+              {/* Shift bar slots */}
+              {slots.map((sl,si)=>{
+                const ins=inShift(s,e,sl);
+                const isLunch=lm!==null&&sl===lm;
+                const showBar=ins&&!isLunch;
+                const isFirst=showBar&&(si===0||!inShift(s,e,slots[si-1])||lm===slots[si-1]);
+                const isLast =showBar&&(si===slots.length-1||!inShift(s,e,slots[si+1])||lm===slots[si+1]);
+                return (
+                  <div key={sl} style={{height:30,borderRight:cellBorder,position:'relative',overflow:'hidden',
+                    background:showBar?barColor+'33':isLunch&&ins?C.bo+'22':'transparent'}}>
+                    {showBar&&<div style={{position:'absolute',inset:0,
+                      borderTop:isFirst?'2px solid '+barColor:'none',
+                      borderBottom:isLast?'2px solid '+barColor:'none',
+                      borderLeft:isFirst?'2px solid '+barColor:'none',
+                      borderRight:isLast?'2px solid '+barColor:'none',
+                      background:barColor+'22'}}/>}
+                  </div>
+                );
+              })}
+
+              {/* Supervisor */}
+              <div style={{display:'flex',alignItems:'center',padding:'0 8px',borderLeft:'1px solid '+C.bo,overflow:'hidden'}}>
+                <span style={{fontFamily:MO,fontSize:10,color:C.mu,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.supervisor||'—'}</span>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Coverage count row */}
+        <div style={{display:'grid',gridTemplateColumns:gridCols,background:C.ca,borderTop:'2px solid '+C.bo}}>
+          <div style={{padding:'0 10px',display:'flex',alignItems:'center',borderRight:cellBorder}}>
+            <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1}}>COVERAGE</span>
+          </div>
+          <div style={{borderRight:cellBorder}}/>
+          <div style={{borderRight:cellBorder}}/>
+          {coverage.map((n,i)=>(
+            <div key={i} style={{borderRight:cellBorder,display:'flex',alignItems:'center',justifyContent:'center',height:26}}>
+              <span style={{fontFamily:MO,fontSize:11,fontWeight:'bold',color:covColor(n)}}>{n||''}</span>
+            </div>
+          ))}
+          <div/>
+        </div>
+      </div>
+
+      {/* Absent summary strip */}
+      {absentAgents.length>0&&(
+        <div style={{marginTop:8,background:C.rd+'0d',border:'1px solid '+C.rd+'33',borderRadius:7,padding:'8px 12px',display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+          <span style={{fontFamily:MO,fontSize:9,color:C.rd,letterSpacing:2,flexShrink:0}}>ABSENT</span>
+          {absentAgents.map(({a})=>(
+            <span key={a.id} style={{fontFamily:MO,fontSize:10,color:C.rd,background:C.rd+'18',border:'1px solid '+C.rd+'44',borderRadius:4,padding:'2px 7px'}}>{a.name}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Queue Coverage */}
+      <div style={{marginTop:12,border:'1px solid '+C.bo,borderRadius:8,overflow:'hidden'}}>
+        <div onClick={()=>setShowQueues(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:C.ca,cursor:'pointer',borderBottom:showQueues?'1px solid '+C.bo:'none'}}>
+          <span style={{fontFamily:MO,fontSize:10,color:C.bl,letterSpacing:2}}>QUEUE COVERAGE</span>
+          <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>{showQueues?'▲':'▼'}</span>
+        </div>
+        {showQueues&&<div style={{overflowX:'auto'}}>
+          <div style={{display:'grid',gridTemplateColumns:`200px repeat(${NUM_SLOTS},${COL_SLOT}px)`,background:C.ca,borderBottom:'1px solid '+C.bo}}>
+            <div style={{...hdrTxt,textAlign:'left',padding:'5px 10px',color:C.mu}}>QUEUE</div>
+            {slots.map(sl=>{const isHour=sl%60===0;return <div key={sl} style={{...hdrTxt,padding:'4px 1px',borderLeft:cellBorder,fontWeight:isHour?'bold':'normal',color:isHour?C.tx:C.mu,fontSize:isHour?9:7}}>{fmtSlot(sl)}</div>;})}
+          </div>
+          {queueMeta.map(({q,counts},ri)=>(
+            <div key={q.id} style={{display:'grid',gridTemplateColumns:`200px repeat(${NUM_SLOTS},${COL_SLOT}px)`,borderBottom:cellBorder,background:ri%2===0?C.su+'44':'transparent'}}>
+              <div style={{padding:'0 10px',display:'flex',alignItems:'center'}}><span style={{fontFamily:MO,fontSize:10,color:C.tx,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{q.label}</span></div>
+              {counts.map((n,i)=>(<div key={i} style={{borderLeft:cellBorder,display:'flex',alignItems:'center',justifyContent:'center',height:24}}><span style={{fontFamily:MO,fontSize:10,color:n>0?C.gr:C.bo}}>{n||''}</span></div>))}
+            </div>
+          ))}
+        </div>}
+      </div>
+
+      {/* Team Breakdown */}
+      <div style={{marginTop:12,border:'1px solid '+C.bo,borderRadius:8,overflow:'hidden'}}>
+        <div onClick={()=>setShowTeams(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:C.ca,cursor:'pointer',borderBottom:showTeams?'1px solid '+C.bo:'none'}}>
+          <span style={{fontFamily:MO,fontSize:10,color:C.pu,letterSpacing:2}}>TEAM BREAKDOWN</span>
+          <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>{showTeams?'▲':'▼'}</span>
+        </div>
+        {showTeams&&<div style={{overflowX:'auto'}}>
+          <div style={{display:'grid',gridTemplateColumns:`200px repeat(${NUM_SLOTS},${COL_SLOT}px)`,background:C.ca,borderBottom:'1px solid '+C.bo}}>
+            <div style={{...hdrTxt,textAlign:'left',padding:'5px 10px',color:C.mu}}>TEAM</div>
+            {slots.map(sl=>{const isHour=sl%60===0;return <div key={sl} style={{...hdrTxt,padding:'4px 1px',borderLeft:cellBorder,fontWeight:isHour?'bold':'normal',color:isHour?C.tx:C.mu,fontSize:isHour?9:7}}>{fmtSlot(sl)}</div>;})}
+          </div>
+          {teamMeta.map(({tk,color,label,counts},ri)=>(
+            <div key={tk} style={{display:'grid',gridTemplateColumns:`200px repeat(${NUM_SLOTS},${COL_SLOT}px)`,borderBottom:cellBorder,background:ri%2===0?C.su+'44':'transparent'}}>
+              <div style={{padding:'0 10px',display:'flex',alignItems:'center',gap:6}}>
+                <div style={{width:3,height:14,borderRadius:2,background:color,flexShrink:0}}/>
+                <span style={{fontFamily:MO,fontSize:10,color:C.tx}}>{label}</span>
+              </div>
+              {counts.map((n,i)=>(<div key={i} style={{borderLeft:cellBorder,display:'flex',alignItems:'center',justifyContent:'center',height:24}}><span style={{fontFamily:MO,fontSize:10,color:n>0?color:C.bo}}>{n||''}</span></div>))}
+            </div>
+          ))}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
 // ── DepartmentMode ────────────────────────────────────────────────────────────
 function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent, onLoadSeed }) {
   const [deptTab,setDeptTab]     = useState('roster');
+  const [expandedInactive,setExpandedInactive] = useState(null);
   const [selectedId,setSelectedId] = useState(null);
   const [filterSup,setFilterSup]   = useState('');
   const [filterTeam,setFilterTeam] = useState('');  const [filterQueue,setFilterQueue] = useState('');
@@ -4395,20 +4666,31 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
       {/* SEATING TAB */}
       {deptTab==='seating'&&<SeatingChart agents={agents} onUpdateAgent={onUpdateAgent}/>}
 
+      {/* SCHEDULE TAB */}
+      {deptTab==='schedule'&&<CoverageGrid agents={[...activeAgents,...specializedAgents]}/>}
+
       {/* INACTIVE TAB */}
       {deptTab==='inactive'&&<div>
         {inactiveAgents.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No inactive agents.</div>}
-        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
           {inactiveAgents.map(a=>{
-            const teamColor=TEAM_COLORS[a.team||'none']||C.mu;
+            const isExp=expandedInactive===a.id;
             return (
-              <div key={a.id} style={{background:C.su,border:'1px solid '+C.bo,borderRadius:10,padding:12,flex:'1 1 200px',maxWidth:300}}>
-                <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.mu,marginBottom:3}}>{a.name}</div>
-                <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginBottom:8}}>{a.supervisor||'No supervisor'}</div>
-                <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>onReactivateAgent(a.id)} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.gr,background:C.gr+'22',color:C.gr,cursor:'pointer'}}>↺ Reactivate</button>
-                  <button onClick={()=>{if(window.confirm('Delete all data?'))onDeleteAgent(a.id);}} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Delete</button>
+              <div key={a.id} style={{background:C.su,border:`1px solid ${isExp?C.mu:C.bo}`,borderRadius:10,overflow:'hidden'}}>
+                <div onClick={()=>setExpandedInactive(isExp?null:a.id)} style={{display:'flex',gap:10,alignItems:'center',padding:'10px 14px',cursor:'pointer',flexWrap:'wrap'}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.mu}}>{a.name}</div>
+                    <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginTop:2}}>{a.supervisor||'No supervisor'}{a.startDate?' · Started '+a.startDate:''}</div>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    <button onClick={e=>{e.stopPropagation();onReactivateAgent(a.id);}} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.gr,background:C.gr+'22',color:C.gr,cursor:'pointer'}}>↺ Reactivate</button>
+                    <button onClick={e=>{e.stopPropagation();if(window.confirm('Delete all data?'))onDeleteAgent(a.id);}} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Delete</button>
+                    <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>{isExp?'▲':'▼'}</span>
+                  </div>
                 </div>
+                {isExp&&<div style={{borderTop:'1px solid '+C.bo}}>
+                  <AgentDetail hire={a} onUpdate={updated=>onUpdateAgent(updated)} onGraduate={()=>{}} hideSnapshot={true}/>
+                </div>}
               </div>
             );
           })}
