@@ -3228,8 +3228,8 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
                           {d.reviewQuizComplete&&<span style={{fontSize:8,color:C.pu,lineHeight:1}}>✓</span>}
                         </button>
                         {d.reviewQuizComplete
-                          ? <><span style={{fontFamily:MO,fontSize:10,color:C.pu,flex:1}}>📝 Day {td.day} Review Quiz — done</span><input type="date" value={d.reviewQuizDate||''} onChange={e=>onUpdate({...hire,days:{...hire.days,[td.day]:{...d,reviewQuizDate:e.target.value}}})} title="Review quiz date" style={{...inpS,padding:'2px 6px',fontSize:10,width:112,colorScheme:'dark',flexShrink:0}}/></>
-                          : <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Day {td.day} Review Quiz</span>
+                          ? <><span style={{fontFamily:MO,fontSize:10,color:C.pu,flex:1}}>📝 Review Day {td.day-1} Quiz - In Class — done</span><input type="date" value={d.reviewQuizDate||''} onChange={e=>onUpdate({...hire,days:{...hire.days,[td.day]:{...d,reviewQuizDate:e.target.value}}})} title="Review quiz date" style={{...inpS,padding:'2px 6px',fontSize:10,width:112,colorScheme:'dark',flexShrink:0}}/></>
+                          : <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>Review Day {td.day-1} Quiz - In Class</span>
                         }
                       </div>
                   )}
@@ -5362,7 +5362,6 @@ root.render(<ErrorBoundary><DailyPlanner /></ErrorBoundary>);
 </script>
 </body>
 </html>
-
 
 
 
