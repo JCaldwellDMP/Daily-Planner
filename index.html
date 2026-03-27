@@ -4667,7 +4667,7 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
       {deptTab==='seating'&&<SeatingChart agents={agents} onUpdateAgent={onUpdateAgent}/>}
 
       {/* SCHEDULE TAB */}
-      {deptTab==='schedule'&&<CoverageGrid agents={[...activeAgents,...specializedAgents]}/>}
+      {deptTab==='schedule'&&<CoverageGrid agents={activeAgents}/>}
 
       {/* INACTIVE TAB */}
       {deptTab==='inactive'&&<div>
@@ -4884,33 +4884,30 @@ function DailyPlanner() {
   useEffect(()=>{
     if (!storageReady) return;
     const tasksToAdd = [];
-    const sdUpdates = {};
     Object.keys(sd).forEach(key => {
       if (!key.startsWith('deferred-')) return;
       const srcDate = key.replace('deferred-', '');
       if (srcDate === ds) return;
       const deferMap = sd[key] || {};
       const srcTasks = sd[`tasks-${srcDate}`] || [];
-      const newDeferMap = {...deferMap};
-      let changed = false;
       Object.entries(deferMap).forEach(([taskId, deferDate]) => {
         if (deferDate === ds) {
           const task = srcTasks.find(t => String(t.id) === String(taskId));
           if (task) {
+            // Add to today — deferred flag intentionally LEFT on source day
+            // so back-nav shows correct status and stats exclude it there
             tasksToAdd.push({...task, id: nid(), deferSrcId: String(taskId), deferSrcDate: srcDate, carried: true, source: 'brain'});
-            delete newDeferMap[taskId];
-            changed = true;
           }
         }
       });
-      if (changed) sdUpdates[`deferred-${srcDate}`] = newDeferMap;
     });
-    if (tasksToAdd.length > 0 || Object.keys(sdUpdates).length > 0) {
+    if (tasksToAdd.length > 0) {
       setSd(p => {
         const cur = p[`tasks-${ds}`] || [];
         const existing = new Set(cur.filter(t => t.deferSrcId).map(t => String(t.deferSrcId)));
         const fresh = tasksToAdd.filter(t => !existing.has(t.deferSrcId));
-        return {...p, [`tasks-${ds}`]: [...cur, ...fresh], ...sdUpdates};
+        if (!fresh.length) return p;
+        return {...p, [`tasks-${ds}`]: [...cur, ...fresh]};
       });
     }
   },[ds, storageReady]);
