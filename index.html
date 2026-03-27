@@ -4937,9 +4937,13 @@ function DailyPlanner() {
       // Only add carries that don't already exist — never wipe existing ones
       // so user-assigned priorities and edits are preserved across reloads
       const existingCarrySrcIds = new Set(existing.filter(t=>t.carrySrcId).map(t=>String(t.carrySrcId)));
+      // Also exclude tasks already brought in today via defer resolution (deferSrcId).
+      // Defer resolution clears srcDeferred entries before this effect runs,
+      // so we must check deferSrcId directly to avoid doubling.
+      const existingDeferSrcIds = new Set(existing.filter(t=>t.deferSrcId).map(t=>String(t.deferSrcId)));
 
       const toAdd = srcTasks
-        .filter(t => !srcDone.has(t.id) && !(String(t.id) in srcDeferred) && !existingCarrySrcIds.has(String(t.id)))
+        .filter(t => !srcDone.has(t.id) && !(String(t.id) in srcDeferred) && !existingCarrySrcIds.has(String(t.id)) && !existingDeferSrcIds.has(String(t.id)))
         .map(t => ({...t, id:nid(), carrySrcId:String(t.id), carrySrcDate:srcDate, carried:true, source:'brain'}));
 
       if (!toAdd.length) return p;
