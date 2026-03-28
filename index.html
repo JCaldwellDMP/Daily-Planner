@@ -5900,4 +5900,204 @@ function DailyPlanner() {
   const importHistory=data=>{ if(data.summaries)setSums(p=>({...p,...data.summaries})); if(data.idx)setIdx(p=>{const n=[...p];data.idx.forEach(d=>{if(!n.includes(d))n.push(d);});return n;}); };
   const restoreSession=data=>{
     if(data.sd)setSd(()=>({...initDay(TODAY),...data.sd}));
-    if(data.sums)
+    if(data.sums)setSums(()=>({...data.sums}));
+    if(data.summaryIndex)setIdx(data.summaryIndex);
+    if(data.sd){
+      const dates=Object.keys(data.sd).filter(k=>k.startsWith('tasks-')&&Array.isArray(data.sd[k])&&data.sd[k].length>0).map(k=>k.replace('tasks-','')).sort().reverse();
+      if(dates[0]){setDs(dates[0]);setDateInp(inputFmt(dates[0]));}
+    }
+  };
+
+  const TABS=['collect','schedule','progress','wrapup'];
+  const ALL_TABS=[...TABS,'stats','notes'];
+  const goNext=()=>{ const i=TABS.indexOf(tab); if(i<TABS.length-1)setTab(TABS[i+1]); };
+  const goBack=()=>{ const i=TABS.indexOf(tab); if(i>0)setTab(TABS[i-1]); };
+
+  useEffect(()=>{
+    const handler=e=>{
+      const tag=(e.target?.tagName||'').toUpperCase();
+      const isEditable=e.target?.isContentEditable;
+      if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||isEditable)return;
+      if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();goNext();}
+      if(e.key==='ArrowLeft' ||e.key==='ArrowUp')  {e.preventDefault();goBack();}
+      if(e.key==='Escape'){setShowHist(false);setShowTL(false);setShowRest(false);}
+      const n=parseInt(e.key);
+      if(n>=1&&n<=TABS.length)setTab(TABS[n-1]);
+      if(n===5)setTab('stats');
+      if(n===6)setTab('notes');
+    };
+    window.addEventListener('keydown',handler);
+    return ()=>window.removeEventListener('keydown',handler);
+  },[tab]);
+
+  const tabInfo={
+    collect: {label:'Collect',  icon:'📥', step:1},
+    schedule:{label:'Schedule',icon:'📅', step:2},
+    progress:{label:'Progress',icon:'☑',  step:3},
+    wrapup:  {label:'Wrap Up', icon:'🎁', step:4},
+    stats:   {label:'Stats',   icon:'📊', step:null},
+    notes:   {label:'Notes',   icon:'📝', step:null},
+  };
+
+  const logAwayMs  =timerLogs.filter(r=>r.type==='Away')    .reduce((s,r)=>s+(parseInt(r.duration)||0),0)*60000;
+  const logTrainMs =timerLogs.filter(r=>r.type==='Training').reduce((s,r)=>s+(parseInt(r.duration)||0),0)*60000;
+  const logWatchMs =timerLogs.filter(r=>r.type==='Watching').reduce((s,r)=>s+(parseInt(r.duration)||0),0)*60000;
+
+  const TimerCtrl=({type,ms,running,color})=>(
+    <div style={{display:'flex',alignItems:'center'}}>
+      <button onClick={e=>{flash(e);timerAdj(type,-1);}} style={{width:20,height:26,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:'4px 0 0 4px',color:C.tx,cursor:'pointer',fontFamily:MO,fontSize:13,padding:0}}>−</button>
+      <button onClick={e=>{flash(e);timerToggle(type);}} style={{height:26,padding:'0 8px',background:running?`${color}22`:C.ca,border:`1px solid ${running?color:C.bo}`,borderLeft:'none',borderRight:'none',color:running?color:C.tx,cursor:'pointer',fontFamily:MO,fontSize:isCompact?10:11,minWidth:isCompact?90:110,transition:'all .2s',whiteSpace:'nowrap'}}>
+        {isCompact?type.slice(0,3).toUpperCase():type.charAt(0).toUpperCase()+type.slice(1)}: {fmtMs(ms)}
+      </button>
+      <button onClick={e=>{flash(e);timerAdj(type,1);}} style={{width:20,height:26,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:'0 4px 4px 0',borderLeft:'none',color:C.tx,cursor:'pointer',fontFamily:MO,fontSize:13,padding:0}}>+</button>
+    </div>
+  );
+
+  if (!storageReady) return (
+    <div style={{minHeight:'100vh',background:C.bg,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16}}>
+      <div style={{fontFamily:MO,fontSize:13,color:C.or,letterSpacing:2}}>DAILY PLANNING SYSTEM</div>
+      <div style={{fontFamily:MO,fontSize:11,color:C.mu}}>Loading your data…</div>
+    </div>
+  );
+
+  const cdBoxStyle = {flex:'1 1 130px', background:C.ca, border:'1px solid '+C.bo, borderRadius:8, padding:'8px 12px', boxSizing:'border-box', minWidth:isMobile?0:130};
+  const cdValSize = isMobile ? 18 : 22;
+
+  return (
+    <div style={{minHeight:'100vh',background:C.bg,fontFamily:MO,color:C.tx,zoom:fontScale}}>
+      <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'10px 14px'}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:6,flexWrap:'wrap'}}>
+          <div style={{flex:'1 1 180px',minWidth:0}}>
+            <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.or,letterSpacing:2,marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>DMP TECHNICAL SUPPORT — JESSE CALDWELL</div>
+            <div style={{fontFamily:MO,fontSize:isCompact?14:16,fontWeight:'bold',color:C.tx,marginBottom:6}}>Daily Planning System</div>
+            <div style={{display:'flex',alignItems:'center',gap:4,flexWrap:'wrap'}}>
+              <button onClick={()=>shiftDate(-1)} style={{width:26,height:26,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:4,color:C.tx,cursor:'pointer',fontFamily:MO,fontSize:12,flexShrink:0}}>‹</button>
+              <input value={dateInp} onChange={e=>handleDateInput(e.target.value)} style={{fontFamily:MO,fontSize:12,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:4,padding:'3px 8px',width:86,textAlign:'center',outline:'none'}}/>
+              <button onClick={()=>shiftDate(1)} style={{width:26,height:26,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:4,color:C.tx,cursor:'pointer',fontFamily:MO,fontSize:12,flexShrink:0}}>›</button>
+              {ds!==TODAY&&<button onClick={()=>{setDs(TODAY);setDateInp(inputFmt(TODAY));setSd(p=>p[`tasks-${TODAY}`]!==undefined?p:{...p,...initDay(TODAY)});}} style={{fontFamily:MO,fontSize:11,padding:'3px 10px',background:C.or+'22',border:`1px solid ${C.or}`,borderRadius:4,color:C.or,cursor:'pointer'}}>Today</button>}
+              {!isMobile&&<span style={{fontFamily:MO,fontSize:11,color:C.mu,marginLeft:2}}>{fmtDate(ds)}</span>}
+            </div>
+            {isMobile&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:4}}>{fmtDate(ds)}</div>}
+          </div>
+          <div style={{display:'flex',gap:6,flex:'1 1 300px',flexWrap:'wrap'}}>
+            <div style={cdBoxStyle}>
+              <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{apptBoxTitle}</div>
+              <div style={{fontFamily:MO,fontSize:apptCd===null?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:apptCd===null?C.mu:C.or,whiteSpace:'nowrap'}}>{apptCd!==null?apptCd:'—'}</div>
+              {nextEvent&&<div style={{fontFamily:MO,fontSize:9,color:C.tx,marginTop:2,lineHeight:1.3,wordBreak:'break-word'}}>{nextEvent.displayName}</div>}
+            </div>
+            <div style={cdBoxStyle}>
+              <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2}}>🥗 LUNCH IN</div>
+              <div style={{fontFamily:MO,fontSize:lunchCd===null||lunchDiff===0?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:lunchCd===null||lunchDiff===0?C.mu:C.gr,whiteSpace:'nowrap'}}>{lunchCd!==null?lunchCd:'—'}</div>
+            </div>
+            <div style={cdBoxStyle}>
+              <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2}}>🏁 SHIFT ENDS IN</div>
+              <div style={{fontFamily:MO,fontSize:endDiff===0?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:endDiff===0?C.mu:C.bl,whiteSpace:'nowrap'}}>{endCd}</div>
+              <div style={{display:'flex',gap:4,alignItems:'center',marginTop:4,flexWrap:'wrap'}}>
+                <button onClick={()=>setEndTime('16:00')} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:4,cursor:'pointer',border:'1px solid '+(endTime==='16:00'?C.bl:C.bo),background:endTime==='16:00'?C.bl+'22':C.ca,color:endTime==='16:00'?C.bl:C.mu,whiteSpace:'nowrap'}}>4 PM</button>
+                <button onClick={()=>setEndTime('17:00')} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:4,cursor:'pointer',border:'1px solid '+(endTime==='17:00'?C.bl:C.bo),background:endTime==='17:00'?C.bl+'22':C.ca,color:endTime==='17:00'?C.bl:C.mu,whiteSpace:'nowrap'}}>5 PM</button>
+                <input type="time" value={endTime} onChange={e=>setEndTime(e.target.value)} style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 4px',color:C.tx,outline:'none',width:75,colorScheme:'dark'}}/>
+              </div>
+            </div>
+          </div>
+        </div>
+        {!isMobile&&<div style={{fontFamily:MO,fontSize:9,color:C.mu+'88',marginBottom:5,letterSpacing:1}}>← → navigate steps &nbsp;·&nbsp; 1–4 jump to step &nbsp;·&nbsp; 5 = stats &nbsp;·&nbsp; 6 = notes &nbsp;·&nbsp; Esc close modals</div>}
+        <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+          <TimerCtrl type="away"     ms={awayMs+logAwayMs}   running={awayRun}  color={C.rd}/>
+          <TimerCtrl type="training" ms={trainMs+logTrainMs} running={trainRun} color={C.pu}/>
+          <TimerCtrl type="watching" ms={watchMs+logWatchMs} running={watchRun} color={C.bl}/>
+          <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:`2px solid ${appMode==='training'?C.pu:appMode==='department'?C.bl:C.or}`,flexShrink:0,boxShadow:appMode==='training'?`0 0 10px ${C.pu}44`:appMode==='department'?`0 0 10px ${C.bl}44`:`0 0 10px ${C.or}44`,transition:'border-color .2s, box-shadow .2s'}}>
+            <button onClick={()=>setAppMode('schedule')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='schedule'?C.or:C.ca,border:'none',borderRight:'1px solid '+C.bo,color:appMode==='schedule'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>📅 {isCompact?'SCH':'SCHEDULE'}</button>
+            <button onClick={()=>setAppMode('training')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='training'?C.pu:C.ca,border:'none',borderRight:'1px solid '+C.bo,color:appMode==='training'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>👥 {isCompact?'TRN':'TRAINING'}</button>
+            <button onClick={()=>setAppMode('department')} style={{fontFamily:MO,fontSize:isCompact?10:12,fontWeight:'bold',padding:isCompact?'5px 10px':'6px 18px',background:appMode==='department'?C.bl:C.ca,border:'none',color:appMode==='department'?'#fff':C.mu,cursor:'pointer',letterSpacing:1,transition:'all .15s',whiteSpace:'nowrap'}}>🏢 {isCompact?'DEPT':'DEPARTMENT'}</button>
+          </div>
+          <div style={{display:'flex',gap:4,marginLeft:'auto',flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:0,alignItems:'center'}}>
+              <button onClick={()=>adjFont(-0.1)} title="Smaller text" style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 7px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:'6px 0 0 6px',color:C.mu,cursor:'pointer',whiteSpace:'nowrap'}}>A−</button>
+              <button onClick={()=>adjFont(0.1)}  title="Larger text"  style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 7px',background:C.ca,border:`1px solid ${C.bo}`,borderLeft:'none',borderRadius:'0 6px 6px 0',color:C.tx,cursor:'pointer',whiteSpace:'nowrap',fontWeight:'bold'}}>A+</button>
+            </div>
+            <button onClick={()=>setShowRest(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#1a1000',border:`1px solid ${C.or}`,borderRadius:6,color:C.or,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'':' '}RESTORE</button>
+            <button onClick={e=>{flash(e);saveSession();}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:savedFlash?'#0d2010':C.ca,border:`1px solid ${savedFlash?C.gr:C.bo}`,borderRadius:6,color:savedFlash?C.gr:C.tx,cursor:'pointer',whiteSpace:'nowrap',transition:'all .3s'}}>{savedFlash?'✓ SAVED':'💾 SAVE'}</button>
+            <button onClick={()=>setShowTL(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>⏱ {isCompact?'':'TIMER LOG'}</button>
+            <button onClick={()=>setShowHist(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>■ {isCompact?'HIST':'HISTORY'}</button>
+            <button onClick={()=>setShowSync(true)} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:'#001a1a',border:`1px solid ${gistSyncer.gistStatus==='ok'?C.gr:C.gr}`,borderRadius:6,color:C.gr,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+              {gistSyncer.gistToken&&<span style={{width:7,height:7,borderRadius:'50%',background:gistSyncer.gistStatus==='ok'?C.gr:gistSyncer.gistStatus==='error'?C.rd:C.mu,flexShrink:0}}/>}
+              📱 {isCompact?'':'SYNC'}
+            </button>
+            <button onClick={()=>{const b=new Blob([exportJson],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`jesse-planner-session-${ds}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);}} style={{fontFamily:MO,fontSize:isCompact?10:11,padding:'4px 8px',background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,color:C.tx,cursor:'pointer',whiteSpace:'nowrap'}}>↑ {isCompact?'EXP':'EXPORT'}</button>
+          </div>
+        </div>
+      </div>
+
+      {appMode==='training'
+        ? <TrainingMode trainees={trainees} agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onGraduateAgent={graduateAgent} onDeleteAgent={deleteAgent} onCreateTask={createTaskForDate}/>
+        : appMode==='department'
+        ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent} onLoadSeed={loadSeedAgents}/>
+        : <>
+          <div style={{background:C.su,borderBottom:`1px solid ${C.bo}`,padding:'6px 12px',display:'flex',gap:4,flexWrap:'wrap'}}>
+            {ALL_TABS.map(t=>{
+              const info=tabInfo[t], active=tab===t;
+              const isUtil = t==='notes';
+              const isStats = t==='stats';
+              return (
+                <button key={t} onClick={e=>{flash(e);setTab(t);}} style={{
+                  fontFamily:MO, fontSize:isCompact?11:12, padding:isCompact?'4px 8px':'5px 12px', borderRadius:20, cursor:'pointer',
+                  border: active ? 'none' : `1px solid ${isUtil?C.bl+'66':isStats?C.pu+'66':C.bo}`,
+                  background: active ? (isUtil?C.bl:isStats?C.pu:C.or) : C.ca,
+                  color: active ? '#fff' : isUtil ? C.bl : isStats ? C.pu : C.tx,
+                  transition:'all .15s', display:'flex', alignItems:'center', gap:4,
+                  marginLeft: (!isMobile && isUtil) ? 'auto' : 0,
+                  whiteSpace:'nowrap',
+                }}>
+                  <span>{info.icon}</span>
+                  <span>{isMobile && isUtil ? '⚡' : info.label}</span>
+                  {!isMobile&&!isUtil&&!isStats&&info.step&&<span style={{fontFamily:MO,fontSize:9,opacity:0.5}}>{info.step}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{padding:isMobile?'16px 12px':'24px 20px'}}>
+            {tab==='collect'  && <CollectTab  tasks={tasks} dismissed={dismissed} lastSum={lastSum} deferred={deferred} onUpdateTasks={v=>upd('tasks',v)} onUpdateDismissed={v=>upd('dismissed',v)} onBack={goBack} onNext={goNext} onResetCarry={resetAndRepull}/>}
+            {tab==='schedule' && <ScheduleTab timeBlocks={timeBlocks} tasks={tasks} done={done} timerLogs={timerLogs} deferred={deferred} onUpdateTime={v=>upd('time',v)} onBack={goBack} onNext={goNext} isCompact={isCompact}/>}
+            {tab==='notes'    && <NotesTab    notes={allNotes} onUpdateNotes={handleUpdateAllNotes}/>}
+            {tab==='progress' && <ProgressTab tasks={tasks} done={done} deferred={deferred} timeBlocks={timeBlocks} onUpdateDone={v=>upd('done',v)} onUpdateDeferred={v=>upd('deferred',v)} onBack={goBack} onNext={goNext} isMobile={isMobile}/>}
+            {tab==='wrapup'   && <WrapUpTab   tasks={tasks} done={done} timeBlocks={timeBlocks} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} timerLogs={timerLogs} ds={ds} sums={sums} onSaveSummary={saveSummary} onBack={goBack} isMobile={isMobile} deferred={deferred}/>}
+            {tab==='stats'    && <StatsTab    sums={sums} idx={idx} isMobile={isMobile}/>}
+          </div>
+        </>
+      }
+
+      {showHist && <HistoryModal sums={sums} idx={idx} onClose={()=>setShowHist(false)} onLoad={loadHistory} onDelete={deleteHistory} onImport={importHistory}/>}
+
+      {showTL   && <TimerLogModal  logs={timerLogs} awayMs={awayMs} trainMs={trainMs} watchMs={watchMs} onSave={rows=>upd('timerLogs',rows)} onClose={()=>setShowTL(false)} onReset={timerReset}/>}
+      {showRest && <RestoreModal   onRestore={restoreSession} onClose={()=>setShowRest(false)}/>}
+      {showSync && <SyncModal today={ds} tasks={tasks} done={done} timeBlocks={timeBlocks} deferred={deferred} timerLogs={timerLogs} awayMs={awayMs+logAwayMs} trainMs={trainMs+logTrainMs} watchMs={watchMs+logWatchMs} notes={gd('notes')||[]} onMerge={mergeFromSync} onClose={()=>setShowSync(false)} isSendFirst={true} gistSyncer={gistSyncer}/>}
+    </div>
+  );
+}
+
+// ── Error Boundary ────────────────────────────────────────────────────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{minHeight:'100vh',background:'#111318',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:'#1c1f2b',border:'1px solid #ef4444',borderRadius:10,padding:24,maxWidth:700,width:'100%'}}>
+          <div style={{fontFamily:"'Courier New',monospace",fontSize:13,color:'#ef4444',marginBottom:8,letterSpacing:2}}>⚠ RENDER ERROR</div>
+          <pre style={{fontFamily:"'Courier New',monospace",fontSize:11,color:'#dde1ee',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{this.state.error.toString()}{'\n\n'}{this.state.error.stack}</pre>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+// ── Mount ─────────────────────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<ErrorBoundary><DailyPlanner /></ErrorBoundary>);
+</script>
+</body>
+</html>
+
+
