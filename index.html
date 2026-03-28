@@ -3902,7 +3902,11 @@ function DeptTrainingTab({ agents, onUpdateAgent, onCreateTask }) {
                                 </div>
                               </div>
                             ))}
-                            <div style={{marginTop:10,display:'flex',justifyContent:'flex-end'}}>
+                            <div style={{marginTop:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1}}>SIGN-OFF DATE</span>
+                                <input type="date" value={rec.signedOffDate||''} onChange={e=>onUpdateAgent({...selectedAgent,extTraining:(selectedAgent.extTraining||[]).map(r=>r.id!==rec.id?r:{...r,signedOffDate:e.target.value})})} style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 6px',color:C.tx,outline:'none',colorScheme:'dark'}}/>
+                              </div>
                               <Btn onClick={()=>undoSignOff(rec)} style={{fontSize:10,padding:'3px 10px',color:C.rd}}>↩ Undo Sign-Off</Btn>
                             </div>
                           </div>
