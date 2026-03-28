@@ -3686,7 +3686,7 @@ function DeptTrainingTab({ agents, onUpdateAgent, onCreateTask }) {
   const [tmplEdit, setTmplEdit]                 = useState(null);
   const [tmplLabelDraft, setTmplLabelDraft]     = useState('');
   const [tmplStepDraft, setTmplStepDraft]       = useState([]);
-  const STEP_TYPES = ['session','homework','practice','quiz'];
+  const STEP_TYPES = [{id:'session',label:'Session'},{id:'homework',label:'Homework'},{id:'practice',label:'Practice'},{id:'quiz',label:'Quiz'}];
   const updateTemplates = t => { setTemplates(t); saveTemplates(t); };
 
   const TODAY = new Date().toISOString().split('T')[0];
@@ -4086,6 +4086,7 @@ function TrainingOverview({ trainees, agents, onSwitchTab }) {
     const comp  = Object.values(hire.days).filter(d=>d.completed).length;
     if (comp < 15) {
       const next = TRAINING_DAYS[comp];
+      if (!next) return null;
       return next.review ? `Day ${next.day} — Review` : `Day ${next.day}`;
     }
     const mockGoal  = hire.mockCallsGoal||15;
@@ -5899,7 +5900,4 @@ function DailyPlanner() {
   const importHistory=data=>{ if(data.summaries)setSums(p=>({...p,...data.summaries})); if(data.idx)setIdx(p=>{const n=[...p];data.idx.forEach(d=>{if(!n.includes(d))n.push(d);});return n;}); };
   const restoreSession=data=>{
     if(data.sd)setSd(()=>({...initDay(TODAY),...data.sd}));
-    if(data.sums)setSums(()=>({...data.sums}));
-    if(data.summaryIndex)setIdx(data.summaryIndex);
-    if(data.sd){
-      const d
+    if(data.sums)
