@@ -3673,6 +3673,7 @@ function DeptTrainingTab({ agents, onUpdateAgent, onCreateTask }) {
   const [selectedId, setSelectedId]             = useState(null);
   const [showNewModal, setShowNewModal]         = useState(false);
   const [showCompletedFor, setShowCompletedFor] = useState({});
+  const [editingCompleted, setEditingCompleted] = useState({});
   const [mSubject, setMSubject]                 = useState('');
   const [mOtherText, setMOtherText]             = useState('');
   const [mTemplate, setMTemplate]               = useState('single-track');
@@ -3732,6 +3733,17 @@ function DeptTrainingTab({ agents, onUpdateAgent, onCreateTask }) {
     }
     onUpdateAgent({...signOffAgent,extTraining:updatedRecords,queues:updatedQueues});
     setSignOffRec(null); setSignOffAgent(null); setSignOffDate('');
+  };
+
+  const undoSignOff = (rec) => {
+    if(!window.confirm(`Undo sign-off for "${rec.subjectLabel}"? This will move it back to active training.`)) return;
+    const updatedRecords=(selectedAgent.extTraining||[]).map(r=>r.id!==rec.id?r:{...r,signedOff:false,signedOffDate:null,queueActiveDate:null});
+    let updatedQueues={...selectedAgent.queues};
+    if(rec.type==='queue'&&rec.subject!=='other'){
+      updatedQueues={...updatedQueues,[rec.subject]:{...updatedQueues[rec.subject],active:false,date:null}};
+    }
+    onUpdateAgent({...selectedAgent,extTraining:updatedRecords,queues:updatedQueues});
+    setEditingCompleted(p=>{const n={...p};delete n[rec.id];return n;});
   };
 
   const inpS={fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'6px 8px',color:C.tx,outline:'none'};
@@ -3851,15 +3863,53 @@ function DeptTrainingTab({ agents, onUpdateAgent, onCreateTask }) {
                     <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2}}>COMPLETED TRAINING ({completed.length})</span>
                     <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>{showCompletedFor[selectedAgent.id]?'▲':'▼'}</span>
                   </div>
-                  {showCompletedFor[selectedAgent.id]&&completed.map(rec=>(
-                    <div key={rec.id} style={{background:'transparent',border:'1px solid '+C.bo+'55',borderRadius:8,padding:14,marginBottom:8,opacity:0.65}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                        <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:C.mu}}>{rec.subjectLabel}</span>
-                        <span style={{fontFamily:MO,fontSize:9,color:C.gr,border:'1px solid '+C.gr+'44',padding:'1px 6px',borderRadius:3}}>✓ Signed Off {rec.signedOffDate}</span>
-                        {rec.queueActiveDate&&<span style={{fontFamily:MO,fontSize:9,color:C.bl}}>Queue active: {rec.queueActiveDate}</span>}
+                  {showCompletedFor[selectedAgent.id]&&completed.map(rec=>{
+                    const isEditing = !!editingCompleted[rec.id];
+                    return (
+                      <div key={rec.id} style={{background:isEditing?C.su:'transparent',border:`1px solid ${isEditing?C.bo:C.bo+'55'}`,borderRadius:8,padding:14,marginBottom:8,opacity:isEditing?1:0.65,transition:'all .2s'}}>
+                        {/* Header row */}
+                        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',justifyContent:'space-between'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                            <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:isEditing?C.tx:C.mu}}>{rec.subjectLabel}</span>
+                            <span style={{fontFamily:MO,fontSize:9,color:C.gr,border:'1px solid '+C.gr+'44',padding:'1px 6px',borderRadius:3}}>✓ Signed Off {rec.signedOffDate}</span>
+                            {rec.queueActiveDate&&<span style={{fontFamily:MO,fontSize:9,color:C.bl}}>Queue active: {rec.queueActiveDate}</span>}
+                          </div>
+                          <Btn onClick={()=>setEditingCompleted(p=>({...p,[rec.id]:!p[rec.id]}))} style={{fontSize:10,padding:'2px 8px',flexShrink:0}}>{isEditing?'▲ Collapse':'✎ Edit'}</Btn>
+                        </div>
+                        {/* Expanded edit view */}
+                        {isEditing&&(
+                          <div style={{marginTop:12}}>
+                            {rec.steps.map((step,si)=>(
+                              <div key={step.id} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'7px 0',borderBottom:si<rec.steps.length-1?'1px solid '+C.bo:'none'}}>
+                                <input type="checkbox" checked={step.completed}
+                                  onChange={e=>updateStep(rec.id,step.id,{completed:e.target.checked,completedDate:e.target.checked?TODAY:null})}
+                                  style={{marginTop:3,flexShrink:0,accentColor:C.pu}}/>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                                    <span style={{fontFamily:MO,fontSize:12,color:step.completed?C.mu:C.tx,textDecoration:step.completed?'line-through':'none'}}>{step.label}</span>
+                                    <span style={{fontFamily:MO,fontSize:8,padding:'1px 5px',borderRadius:3,color:stepTypeColor(step.type),border:`1px solid ${stepTypeColor(step.type)}44`}}>{step.type}</span>
+                                    {step.completed&&<input type="date" value={step.completedDate||''} onChange={e=>updateStep(rec.id,step.id,{completedDate:e.target.value})} style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'1px 5px',color:C.mu,outline:'none',colorScheme:'dark'}}/>}
+                                  </div>
+                                  {step.type==='quiz'&&step.completed&&(
+                                    <div style={{display:'flex',gap:6,alignItems:'center',marginTop:4}}>
+                                      <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>Score:</span>
+                                      <input type="number" min={0} value={step.quizCorrect??''} onChange={e=>updateStep(rec.id,step.id,{quizCorrect:e.target.value===''?null:parseInt(e.target.value)})} placeholder="correct" style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 5px',color:C.tx,outline:'none',width:60}}/>
+                                      <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>/</span>
+                                      <input type="number" min={0} value={step.quizTotal??''} onChange={e=>updateStep(rec.id,step.id,{quizTotal:e.target.value===''?null:parseInt(e.target.value)})} placeholder="total" style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 5px',color:C.tx,outline:'none',width:60}}/>
+                                    </div>
+                                  )}
+                                  <textarea value={step.notes} rows={1} onChange={e=>updateStep(rec.id,step.id,{notes:e.target.value})} placeholder="Notes…" style={{fontFamily:MO,fontSize:10,background:'transparent',border:'none',borderBottom:'1px dashed '+C.bo+'88',color:C.mu,outline:'none',width:'100%',resize:'none',marginTop:4,padding:'2px 0'}}/>
+                                </div>
+                              </div>
+                            ))}
+                            <div style={{marginTop:10,display:'flex',justifyContent:'flex-end'}}>
+                              <Btn onClick={()=>undoSignOff(rec)} style={{fontSize:10,padding:'3px 10px',color:C.rd}}>↩ Undo Sign-Off</Btn>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
