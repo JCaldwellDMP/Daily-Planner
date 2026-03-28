@@ -108,6 +108,36 @@ const SEAT_ROLES = {
   'adv-3':   { label: 'Open Adv Tech Seat',   color: '#ef4444' },
   'adv-4':   { label: 'Open Adv Tech Seat',   color: '#ef4444' },
 };
+const EXT_TRAINING_TEMPLATES = [
+  {
+    id: 'single-track',
+    label: 'Single Queue Track',
+    steps: [
+      { label:'Training Session', type:'session'  },
+      { label:'Homework',         type:'homework' },
+      { label:'Quiz',             type:'quiz'     },
+    ]
+  },
+  {
+    id: 'advanced-track',
+    label: 'Advanced Queue Track',
+    steps: [
+      { label:'Training Session 1', type:'session'  },
+      { label:'Homework',           type:'homework' },
+      { label:'Practice Period',    type:'practice' },
+      { label:'Training Session 2', type:'session'  },
+      { label:'Quiz',               type:'quiz'     },
+    ]
+  },
+  {
+    id: 'product',
+    label: 'Product Knowledge',
+    steps: [
+      { label:'Training Session', type:'session' },
+      { label:'Quiz',             type:'quiz'    },
+    ]
+  },
+];
 const SPECIALTY_RED  = ['Jesse Caldwell','Dolan Parnell','Ryan Kay','Stephen Bowen','Nick Conrad','Chloe Gertner','Garrett Vinson'];
 const SPECIALTY_GOLD = ['Brad Tucker','Brent Appleby'];
 
@@ -2224,6 +2254,7 @@ const sanitizeAgent = h => ({
       teamworkTswp:        { rating: h.trainingEval?.tswp?.teamworkTswp?.rating        || null, notes: h.trainingEval?.tswp?.teamworkTswp?.notes        || '' },
     },
   },
+  extTraining: h.extTraining || [],
   days: Object.fromEntries(
     [...Array(15)].map((_,i)=>{
       const n=i+1, d=(h.days||{})[n]||{};
@@ -2284,6 +2315,7 @@ const initAgent = (name, startDate) => ({
       attendance:{rating:null,notes:''}, teamworkTswp:{rating:null,notes:''},
     },
   },
+  extTraining:[],
   notes:[],
 });
 
@@ -3634,7 +3666,271 @@ const AddForm = ({isAlumni, onSave, onCancel, name, setName, start, setStart, su
   );
 };
 
-function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateAgent, onDeleteAgent }) {
+// ── DeptTrainingTab ───────────────────────────────────────────────────────────
+function DeptTrainingTab({ agents, onUpdateAgent, onCreateTask }) {
+  const [selectedId, setSelectedId]             = useState(null);
+  const [showNewModal, setShowNewModal]         = useState(false);
+  const [showCompletedFor, setShowCompletedFor] = useState({});
+  const [mSubject, setMSubject]                 = useState('');
+  const [mOtherText, setMOtherText]             = useState('');
+  const [mTemplate, setMTemplate]               = useState('single-track');
+  const [mStartDate, setMStartDate]             = useState('');
+  const [signOffRec, setSignOffRec]             = useState(null);
+  const [signOffAgent, setSignOffAgent]         = useState(null);
+  const [signOffDate, setSignOffDate]           = useState('');
+
+  const TODAY = new Date().toISOString().split('T')[0];
+  const activeAgents = [...agents].filter(a=>a.status==='active'&&!a.specializedRole).sort((a,b)=>a.name.localeCompare(b.name));
+  const selectedAgent = activeAgents.find(a=>a.id===selectedId)||null;
+  const trainingCount = a=>(a.extTraining||[]).filter(r=>!r.signedOff).length;
+  const stepTypeColor = type=>({session:C.or,homework:C.yl,practice:C.bl,quiz:C.pu}[type]||C.mu);
+
+  const updateStep = (recId, stepId, patch) => {
+    const updated = {
+      ...selectedAgent,
+      extTraining: (selectedAgent.extTraining||[]).map(r=>
+        r.id!==recId ? r : {...r, steps:r.steps.map(s=>s.id!==stepId?s:{...s,...patch})}
+      )
+    };
+    onUpdateAgent(updated);
+  };
+
+  const saveNewTraining = () => {
+    if(!mSubject||(mSubject==='other'&&!mOtherText.trim())) return;
+    const isOther      = mSubject==='other';
+    const subject      = isOther?'other':mSubject;
+    const subjectLabel = isOther ? mOtherText.trim() : (QUEUES.find(q=>q.id===mSubject)?.label||mSubject);
+    const type         = isOther?'product':'queue';
+    const tmpl         = EXT_TRAINING_TEMPLATES.find(t=>t.id===mTemplate);
+    let deferredTaskId = null;
+    if(mStartDate&&onCreateTask) deferredTaskId=onCreateTask(`Dept. Training: ${subjectLabel} — ${selectedAgent.name}`,mStartDate);
+    const record = {
+      id:nid(), type, subject, subjectLabel, templateId:mTemplate,
+      steps: tmpl.steps.map(s=>({id:nid(),label:s.label,type:s.type,completed:false,completedDate:null,notes:'',quizCorrect:null,quizTotal:null})),
+      plannedStartDate:mStartDate||null, deferredTaskId,
+      signedOff:false, signedOffDate:null, queueActiveDate:null, createdDate:TODAY,
+    };
+    onUpdateAgent({...selectedAgent,extTraining:[...(selectedAgent.extTraining||[]),record]});
+    setShowNewModal(false); setMSubject(''); setMOtherText(''); setMTemplate('single-track'); setMStartDate('');
+  };
+
+  const confirmSignOff = () => {
+    const updatedRecords=(signOffAgent.extTraining||[]).map(r=>r.id!==signOffRec.id?r:{...r,signedOff:true,signedOffDate:TODAY,queueActiveDate:signOffRec.type==='queue'?signOffDate:null});
+    let updatedQueues={...signOffAgent.queues};
+    if(signOffRec.type==='queue'&&signOffRec.subject!=='other'){
+      updatedQueues={...updatedQueues,[signOffRec.subject]:{...updatedQueues[signOffRec.subject],active:true,date:signOffDate}};
+    }
+    onUpdateAgent({...signOffAgent,extTraining:updatedRecords,queues:updatedQueues});
+    setSignOffRec(null); setSignOffAgent(null); setSignOffDate('');
+  };
+
+  const inpS={fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'6px 8px',color:C.tx,outline:'none'};
+
+  return (
+    <div style={{display:'flex',gap:0,alignItems:'flex-start',minHeight:400}}>
+
+      {/* LEFT PANEL */}
+      <div style={{width:180,flexShrink:0,background:C.su,border:'1px solid '+C.bo,borderRadius:8,overflowY:'auto',maxHeight:'calc(100vh - 260px)',marginRight:12}}>
+        {activeAgents.length===0
+          ? <div style={{fontFamily:MO,fontSize:11,color:C.mu,padding:'20px 12px',textAlign:'center'}}>No active agents.</div>
+          : activeAgents.map(a=>{
+              const count=trainingCount(a), isSel=selectedId===a.id;
+              const teamColor=TEAM_COLORS[a.team||'none']||C.mu;
+              return (
+                <div key={a.id} onClick={()=>setSelectedId(isSel?null:a.id)}
+                  style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6,padding:'9px 12px',cursor:'pointer',borderBottom:'1px solid '+C.bo,background:isSel?C.pu+'22':'transparent',borderLeft:`3px solid ${isSel?C.pu:'transparent'}`,transition:'all .1s'}}>
+                  <div>
+                    <div style={{fontFamily:MO,fontSize:12,fontWeight:isSel?'bold':'normal',color:isSel?C.tx:'#c8ccd8'}}>{a.name}</div>
+                    <div style={{fontFamily:MO,fontSize:9,color:teamColor}}>{a.supervisor?a.supervisor.split(' ').slice(-1)[0]:'—'}</div>
+                  </div>
+                  {count>0&&<span style={{fontFamily:MO,fontSize:9,minWidth:18,height:18,borderRadius:9,background:C.pu,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{count}</span>}
+                </div>
+              );
+            })
+        }
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div style={{flex:1,minWidth:0}}>
+        {!selectedAgent&&(
+          <div style={{background:C.su,border:'1px dashed '+C.bo,borderRadius:8,padding:'60px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>
+            Select an agent from the list to manage their training.
+          </div>
+        )}
+
+        {selectedAgent&&(()=>{
+          const records=selectedAgent.extTraining||[];
+          const active=records.filter(r=>!r.signedOff);
+          const completed=records.filter(r=>r.signedOff);
+          return (
+            <div>
+              {/* Header */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,gap:8,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:4,height:32,borderRadius:2,background:TEAM_COLORS[selectedAgent.team||'none']||C.mu,flexShrink:0}}/>
+                  <div>
+                    <div style={{fontFamily:MO,fontSize:16,fontWeight:'bold',color:C.tx}}>{selectedAgent.name}</div>
+                    <div style={{fontFamily:MO,fontSize:10,color:C.mu}}>{selectedAgent.supervisor||'No supervisor'}</div>
+                  </div>
+                </div>
+                <OBtn onClick={()=>{setMSubject(QUEUES[0].id);setShowNewModal(true);}} style={{fontSize:11,padding:'5px 12px'}}>+ New Training</OBtn>
+              </div>
+
+              {/* Empty state */}
+              {records.length===0&&(
+                <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:8,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>
+                  No training records yet. Click <strong style={{color:C.or}}>+ New Training</strong> to add one.
+                </div>
+              )}
+
+              {/* Active records */}
+              {active.map(rec=>{
+                const allDone=rec.steps.every(s=>s.completed);
+                return (
+                  <div key={rec.id} style={{background:C.su,border:'1px solid '+C.bo,borderRadius:8,padding:14,marginBottom:12}}>
+                    {/* Card header */}
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:10,gap:8,flexWrap:'wrap'}}>
+                      <div>
+                        <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.tx}}>{rec.subjectLabel}</span>
+                        <span style={{fontFamily:MO,fontSize:10,color:C.mu,marginLeft:8}}>{EXT_TRAINING_TEMPLATES.find(t=>t.id===rec.templateId)?.label||rec.templateId}</span>
+                      </div>
+                      <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                        <span style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,border:`1px solid ${rec.type==='queue'?C.bl+'44':C.pu+'44'}`,color:rec.type==='queue'?C.bl:C.pu,background:rec.type==='queue'?C.bl+'11':C.pu+'11'}}>{rec.type}</span>
+                        <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>{rec.createdDate}</span>
+                      </div>
+                    </div>
+                    {/* Steps */}
+                    {rec.steps.map((step,si)=>(
+                      <div key={step.id} style={{display:'flex',gap:8,alignItems:'flex-start',padding:'7px 0',borderBottom:si<rec.steps.length-1?'1px solid '+C.bo:'none'}}>
+                        <input type="checkbox" checked={step.completed}
+                          onChange={e=>updateStep(rec.id,step.id,{completed:e.target.checked,completedDate:e.target.checked?TODAY:null})}
+                          style={{marginTop:3,flexShrink:0,accentColor:C.pu}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                            <span style={{fontFamily:MO,fontSize:12,color:step.completed?C.mu:C.tx,textDecoration:step.completed?'line-through':'none'}}>{step.label}</span>
+                            <span style={{fontFamily:MO,fontSize:8,padding:'1px 5px',borderRadius:3,color:stepTypeColor(step.type),border:`1px solid ${stepTypeColor(step.type)}44`}}>{step.type}</span>
+                            {step.completed&&<input type="date" value={step.completedDate||''} onChange={e=>updateStep(rec.id,step.id,{completedDate:e.target.value})} style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'1px 5px',color:C.mu,outline:'none',colorScheme:'dark'}}/>}
+                          </div>
+                          {step.type==='quiz'&&step.completed&&(
+                            <div style={{display:'flex',gap:6,alignItems:'center',marginTop:4}}>
+                              <span style={{fontFamily:MO,fontSize:9,color:C.mu}}>Score:</span>
+                              <input type="number" min={0} value={step.quizCorrect??''} onChange={e=>updateStep(rec.id,step.id,{quizCorrect:e.target.value===''?null:parseInt(e.target.value)})} placeholder="correct" style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 5px',color:C.tx,outline:'none',width:60}}/>
+                              <span style={{fontFamily:MO,fontSize:10,color:C.mu}}>/</span>
+                              <input type="number" min={0} value={step.quizTotal??''} onChange={e=>updateStep(rec.id,step.id,{quizTotal:e.target.value===''?null:parseInt(e.target.value)})} placeholder="total" style={{fontFamily:MO,fontSize:10,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'2px 5px',color:C.tx,outline:'none',width:60}}/>
+                            </div>
+                          )}
+                          <textarea value={step.notes} rows={1} onChange={e=>updateStep(rec.id,step.id,{notes:e.target.value})} placeholder="Notes…" style={{fontFamily:MO,fontSize:10,background:'transparent',border:'none',borderBottom:'1px dashed '+C.bo+'88',color:C.mu,outline:'none',width:'100%',resize:'none',marginTop:4,padding:'2px 0'}}/>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Sign-off */}
+                    <div style={{marginTop:10,display:'flex',justifyContent:'flex-end'}}>
+                      <OBtn disabled={!allDone} onClick={()=>{setSignOffRec(rec);setSignOffAgent(selectedAgent);setSignOffDate(TODAY);}} style={{fontSize:11,padding:'4px 12px',background:allDone?C.gr:undefined}}>✓ Sign Off</OBtn>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Completed section */}
+              {completed.length>0&&(
+                <div style={{marginTop:16}}>
+                  <div onClick={()=>setShowCompletedFor(p=>({...p,[selectedAgent.id]:!p[selectedAgent.id]}))} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',marginBottom:8,paddingTop:8,borderTop:'1px solid '+C.bo}}>
+                    <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2}}>COMPLETED TRAINING ({completed.length})</span>
+                    <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>{showCompletedFor[selectedAgent.id]?'▲':'▼'}</span>
+                  </div>
+                  {showCompletedFor[selectedAgent.id]&&completed.map(rec=>(
+                    <div key={rec.id} style={{background:'transparent',border:'1px solid '+C.bo+'55',borderRadius:8,padding:14,marginBottom:8,opacity:0.65}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                        <span style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:C.mu}}>{rec.subjectLabel}</span>
+                        <span style={{fontFamily:MO,fontSize:9,color:C.gr,border:'1px solid '+C.gr+'44',padding:'1px 6px',borderRadius:3}}>✓ Signed Off {rec.signedOffDate}</span>
+                        {rec.queueActiveDate&&<span style={{fontFamily:MO,fontSize:9,color:C.bl}}>Queue active: {rec.queueActiveDate}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* NEW TRAINING MODAL */}
+      {showNewModal&&(
+        <Modal onClose={()=>setShowNewModal(false)} width={480}>
+          <div style={{padding:'16px 20px',borderBottom:'1px solid '+C.bo,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{fontFamily:MO,fontSize:15,fontWeight:'bold',color:C.tx}}>+ New Training</div>
+            <Btn onClick={()=>setShowNewModal(false)} style={{padding:'4px 10px'}}>✕</Btn>
+          </div>
+          <div style={{padding:20}}>
+            <div style={{marginBottom:12}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:5}}>SUBJECT</div>
+              <select value={mSubject} onChange={e=>setMSubject(e.target.value)} style={{...inpS,width:'100%'}}>
+                {QUEUES.map(q=><option key={q.id} value={q.id}>{q.label}</option>)}
+                <option value="other">Other (Product / Topic)</option>
+              </select>
+            </div>
+            {mSubject==='other'&&(
+              <div style={{marginBottom:12}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:5}}>TOPIC NAME</div>
+                <input value={mOtherText} onChange={e=>setMOtherText(e.target.value)} placeholder="e.g. 860 Module, After-Hours Protocol…" style={{...inpS,width:'100%',boxSizing:'border-box'}}/>
+              </div>
+            )}
+            <div style={{marginBottom:12}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:5}}>TEMPLATE</div>
+              <select value={mTemplate} onChange={e=>setMTemplate(e.target.value)} style={{...inpS,width:'100%'}}>
+                {EXT_TRAINING_TEMPLATES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+              <div style={{marginTop:6,display:'flex',gap:4,flexWrap:'wrap'}}>
+                {(EXT_TRAINING_TEMPLATES.find(t=>t.id===mTemplate)?.steps||[]).map((s,i)=>(
+                  <span key={i} style={{fontFamily:MO,fontSize:9,padding:'2px 6px',borderRadius:3,color:stepTypeColor(s.type),border:`1px solid ${stepTypeColor(s.type)}44`}}>{s.label}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:5}}>PLANNED START DATE <span style={{color:C.mu+'88'}}>(OPTIONAL)</span></div>
+              <input type="date" value={mStartDate} onChange={e=>setMStartDate(e.target.value)} style={{...inpS,colorScheme:'dark'}}/>
+              {mStartDate&&<div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:4}}>Creates a task on the Schedule tab for {mStartDate}.</div>}
+            </div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <Btn onClick={()=>setShowNewModal(false)}>Cancel</Btn>
+              <OBtn onClick={saveNewTraining} disabled={!mSubject||(mSubject==='other'&&!mOtherText.trim())}>Create</OBtn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* SIGN-OFF MODAL */}
+      {signOffRec&&(
+        <Modal onClose={()=>{setSignOffRec(null);setSignOffAgent(null);}} width={420}>
+          <div style={{padding:'16px 20px',borderBottom:'1px solid '+C.bo,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{fontFamily:MO,fontSize:15,fontWeight:'bold',color:C.tx}}>✓ Sign Off</div>
+            <Btn onClick={()=>{setSignOffRec(null);setSignOffAgent(null);}} style={{padding:'4px 10px'}}>✕</Btn>
+          </div>
+          <div style={{padding:20}}>
+            <div style={{fontFamily:MO,fontSize:13,color:C.tx,marginBottom:16}}>
+              Sign off <strong>{signOffAgent?.name}</strong> on <strong>{signOffRec.subjectLabel}</strong>?
+            </div>
+            {signOffRec.type==='queue'&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,marginBottom:5}}>QUEUE ACTIVE DATE</div>
+                <input type="date" value={signOffDate} onChange={e=>setSignOffDate(e.target.value)} style={{fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:5,padding:'6px 8px',color:C.tx,outline:'none',colorScheme:'dark'}}/>
+                <div style={{fontFamily:MO,fontSize:10,color:C.mu,marginTop:4}}>The queue will be activated on this date on the agent record.</div>
+              </div>
+            )}
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <Btn onClick={()=>{setSignOffRec(null);setSignOffAgent(null);}}>Cancel</Btn>
+              <OBtn onClick={confirmSignOff} style={{background:C.gr}}>✓ Confirm Sign Off</OBtn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+    </div>
+  );
+}
+
+// ── NewHireTraining ───────────────────────────────────────────────────────────
+function NewHireTraining({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateAgent, onDeleteAgent }) {
   const [selectedId,setSelectedId]         = useState(null);
   const [selectedShowTraining,setSelectedShowTraining] = useState(false);
   const [showAdd,setShowAdd]         = useState(false);
@@ -3644,7 +3940,6 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
   const [newDisc,setNewDisc]         = useState('');
 
   const selectedHire = trainees.find(h=>h.id===selectedId);
-  const inpS = {fontFamily:MO,fontSize:12,background:C.ca,border:'1px solid '+C.bo,borderRadius:6,padding:'6px 10px',color:C.tx,outline:'none'};
 
   const addHire = () => {
     if(!newName.trim()) return;
@@ -3663,7 +3958,7 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
   };
 
   return (
-    <div style={{padding:'24px 20px'}}>
+    <div>
       <div style={{fontFamily:MO,fontSize:11,color:C.pu,letterSpacing:2,marginBottom:4}}>NEW HIRE TRAINING TRACKER</div>
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:8}}>
@@ -3701,6 +3996,24 @@ function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateA
         peerHires={agents.filter(h=>h.id!==selectedHire.id)}
         forceTraining={true}
       />}
+    </div>
+  );
+}
+
+// ── TrainingMode (shell) ──────────────────────────────────────────────────────
+function TrainingMode({ trainees, agents, onUpdateAgent, onAddAgent, onGraduateAgent, onDeleteAgent, onCreateTask }) {
+  const [trainingTab, setTrainingTab] = useState(() => store.getItem('dps-training-subtab') || 'new-hire');
+  const switchTrainingTab = tab => { setTrainingTab(tab); store.setItem('dps-training-subtab', tab); };
+
+  return (
+    <div style={{padding:'24px 20px'}}>
+      <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo,marginBottom:20,width:'fit-content'}}>
+        {[['new-hire','👥 New Hire Training'],['dept-training','📚 Dept. Training']].map(([k,l])=>(
+          <button key={k} onClick={()=>switchTrainingTab(k)} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 18px',border:'none',borderLeft:k!=='new-hire'?'1px solid '+C.bo:'none',background:trainingTab===k?C.pu:C.ca,color:trainingTab===k?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>{l}</button>
+        ))}
+      </div>
+      {trainingTab==='new-hire'&&<NewHireTraining trainees={trainees} agents={agents} onUpdateAgent={onUpdateAgent} onAddAgent={onAddAgent} onGraduateAgent={onGraduateAgent} onDeleteAgent={onDeleteAgent}/>}
+      {trainingTab==='dept-training'&&<DeptTrainingTab agents={agents} onUpdateAgent={onUpdateAgent} onCreateTask={onCreateTask}/>}
     </div>
   );
 }
@@ -5226,6 +5539,18 @@ function DailyPlanner() {
 
   const saveSummary=sum=>{ setSums(p=>({...p,[ds]:sum})); setIdx(p=>{const n=p.filter(Boolean);if(!n.includes(ds))n.push(ds);return n;}); };
 
+  const createTaskForDate = useCallback((text, targetDate) => {
+    const taskId = nid();
+    setSd(p => ({
+      ...p,
+      [`tasks-${targetDate}`]: [
+        ...(p[`tasks-${targetDate}`] || []),
+        { id: taskId, text, priority: 'Medium', source: 'capture' }
+      ]
+    }));
+    return taskId;
+  }, []);
+
   useEffect(()=>{
     const autoHistSave=()=>{
       if(!tasks.length) return;
@@ -5380,7 +5705,7 @@ function DailyPlanner() {
       </div>
 
       {appMode==='training'
-        ? <TrainingMode trainees={trainees} agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onGraduateAgent={graduateAgent} onDeleteAgent={deleteAgent}/>
+        ? <TrainingMode trainees={trainees} agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onGraduateAgent={graduateAgent} onDeleteAgent={deleteAgent} onCreateTask={createTaskForDate}/>
         : appMode==='department'
         ? <DepartmentMode agents={agents} onUpdateAgent={updateAgent} onAddAgent={addAgent} onDeactivateAgent={deactivateAgent} onReactivateAgent={reactivateAgent} onDeleteAgent={deleteAgent} onLoadSeed={loadSeedAgents}/>
         : <>
