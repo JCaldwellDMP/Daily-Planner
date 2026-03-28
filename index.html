@@ -2278,12 +2278,17 @@ const fmtShortDate = ds => { const d=new Date(ds+'T12:00:00'); return d.toLocale
 const fmtTime = t => { if(!t) return null; const [h,m]=t.split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`; };
 const fmtShift = (s,e) => { const a=fmtTime(s),b=fmtTime(e); return (a&&b)?`${a} – ${b}`:a||b||null; };
 
+const evalAllRatedGlobal = hire => {
+  const ev = hire.trainingEval;
+  return ev && [...Object.values(ev.dmpValues||{}), ...Object.values(ev.tswp||{})].every(c=>c.rating!=null);
+};
+
 const phaseLabel = hire => {
   const comp = Object.values(hire.days).filter(d=>d.completed).length;
   if (hire.trainingEval?.signedOff) return 'Training Complete ✓';
   if (comp >= 15) {
     const ev = hire.trainingEval;
-    const allRated = ev && [...Object.values(ev.dmpValues||{}), ...Object.values(ev.tswp||{})].every(c=>c.rating!=null);
+    const allRated = evalAllRatedGlobal(hire);
     if (allRated) return 'Ready for Sign-Off';
     const bLen=(hire.buddyCalls||[]).length, bGoal=hire.buddyCallsGoal||25;
     const mGoal=hire.mockCallsGoal||15;
@@ -2568,8 +2573,6 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
     onUpdate({...hire,buddyCalls:[...buddyCalls,newCall]});
     setBuddyImportText('');setBuddyImportError('');setShowBuddyImport(false);
   };
-  const toggleBuddyCheck = k => onUpdate({...hire,buddyChecks:{...hire.buddyChecks,[k]:!hire.buddyChecks[k]}});
-
   // Eval
   const setEvalRating = (group, key, val) => {
     const ev = hire.trainingEval;
@@ -2581,17 +2584,15 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
     const ev = hire.trainingEval;
     onUpdate({...hire, trainingEval:{...ev, [group]:{...ev[group], [key]:{...ev[group][key], notes:val}}}});
   };
-  const evalAllRated = () => {
-    const ev = hire.trainingEval;
-    return ev && [...Object.values(ev.dmpValues||{}), ...Object.values(ev.tswp||{})].every(c=>c.rating!=null);
-  };
+  const evalAllRated = () => evalAllRatedGlobal(hire);
   const signOff = () => {
     if (!evalAllRated()) return;
     const today = new Date().toISOString().split('T')[0];
+    const doGraduate = onGraduate && window.confirm('Training complete! Graduate this agent to Active status?');
     const updated = {...hire, trainingEval:{...hire.trainingEval, signedOff:true, signedOffDate:today},
       queues:{...hire.queues, programming:{active:true, date:today}}};
     onUpdate(updated);
-    if (onGraduate && window.confirm('Training complete! Graduate this agent to Active status?')) onGraduate(hire.id);
+    if (doGraduate) onGraduate(hire.id);
   };
   // Notes
   const addNote = () => { if(!noteBody.trim())return; onUpdate({...hire,notes:[...hire.notes,{id:nid(),date:TODAY_T,tag:noteTag,body:noteBody.trim()}]}); setNoteBody(''); };
@@ -3480,13 +3481,13 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
         {section==='eval'&&(()=>{
           const ev = hire.trainingEval;
           const allRated = evalAllRated();
-          const ratingBg = r => r==='needs'?C.rd+'22':r==='good'?C.yl+'22':r==='great'?C.gr+'22':'transparent';
-          const ratingBdr = r => r==='needs'?C.rd+'66':r==='good'?C.yl+'66':r==='great'?C.gr+'66':C.bo;
+          const ratingBg = r => r==='needs-work'?C.rd+'22':r==='good'?C.yl+'22':r==='great'?C.gr+'22':'transparent';
+          const ratingBdr = r => r==='needs-work'?C.rd+'66':r==='good'?C.yl+'66':r==='great'?C.gr+'66':C.bo;
           const sectionStatus = group => {
             const cats = Object.values(ev[group]||{});
             const rated = cats.filter(c=>c.rating!=null).length;
             if (rated===0) return null;
-            const needs = cats.filter(c=>c.rating==='needs').length;
+            const needs = cats.filter(c=>c.rating==='needs-work').length;
             if (needs===0) return {label:'On Track',color:C.gr};
             if (needs<=2) return {label:'Needs Attention',color:C.yl};
             return {label:'At Risk',color:C.rd};
@@ -3502,7 +3503,7 @@ function AgentDetail({ hire, onUpdate, onGraduate, peerHires=[], forceTraining=f
               <div style={{background:ratingBg(cat.rating),border:`1px solid ${ratingBdr(cat.rating)}`,borderRadius:7,padding:'10px 12px',marginBottom:6}}>
                 <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginBottom:cat.rating?6:0}}>
                   <span style={{fontFamily:MO,fontSize:11,color:C.tx,flex:1,minWidth:120}}>{label}</span>
-                  <RatingBtn val="needs" cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'needs')} color={C.rd} label="⚠️ Needs Work"/>
+                  <RatingBtn val="needs-work" cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'needs-work')} color={C.rd} label="⚠️ Needs Work"/>
                   <RatingBtn val="good"  cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'good')}  color={C.yl} label="👍 Good Work"/>
                   <RatingBtn val="great" cur={cat.rating} onClick={()=>setEvalRating(group,catKey,'great')} color={C.gr} label="⭐ Great Work"/>
                 </div>
@@ -4361,7 +4362,7 @@ function CoverageGrid({ agents }) {
 // ── DepartmentMode ────────────────────────────────────────────────────────────
 function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent, onLoadSeed }) {
   const [deptTab,setDeptTab]     = useState('roster');
-  const [expandedInactive,setExpandedInactive] = useState(null);
+  const [selectedInactive,setSelectedInactive] = useState(null);
   const [selectedId,setSelectedId] = useState(null);
   const [filterSup,setFilterSup]   = useState('');
   const [filterTeam,setFilterTeam] = useState('');  const [filterQueue,setFilterQueue] = useState('');
@@ -4671,30 +4672,63 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
 
       {/* INACTIVE TAB */}
       {deptTab==='inactive'&&<div>
-        {inactiveAgents.length===0&&<div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No inactive agents.</div>}
-        <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          {inactiveAgents.map(a=>{
-            const isExp=expandedInactive===a.id;
-            return (
-              <div key={a.id} style={{background:C.su,border:`1px solid ${isExp?C.mu:C.bo}`,borderRadius:10,overflow:'hidden'}}>
-                <div onClick={()=>setExpandedInactive(isExp?null:a.id)} style={{display:'flex',gap:10,alignItems:'center',padding:'10px 14px',cursor:'pointer',flexWrap:'wrap'}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.mu}}>{a.name}</div>
-                    <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginTop:2}}>{a.supervisor||'No supervisor'}{a.startDate?' · Started '+a.startDate:''}</div>
-                  </div>
-                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                    <button onClick={e=>{e.stopPropagation();onReactivateAgent(a.id);}} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.gr,background:C.gr+'22',color:C.gr,cursor:'pointer'}}>↺ Reactivate</button>
-                    <button onClick={e=>{e.stopPropagation();if(window.confirm('Delete all data?'))onDeleteAgent(a.id);}} style={{fontFamily:MO,fontSize:10,padding:'4px 10px',borderRadius:5,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer'}}>✕ Delete</button>
-                    <span style={{fontFamily:MO,fontSize:11,color:C.mu}}>{isExp?'▲':'▼'}</span>
-                  </div>
+        {inactiveAgents.length===0
+          ? <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:10,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>No inactive agents.</div>
+          : <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+
+              {/* Left list — alpha sorted */}
+              <div style={{flexShrink:0,width:180,background:C.su,border:'1px solid '+C.bo,borderRadius:8,overflow:'hidden'}}>
+                <div style={{fontFamily:MO,fontSize:8,color:C.mu,letterSpacing:2,padding:'8px 12px',borderBottom:'1px solid '+C.bo,background:C.ca}}>
+                  INACTIVE · {inactiveAgents.length}
                 </div>
-                {isExp&&<div style={{borderTop:'1px solid '+C.bo}}>
-                  <AgentDetail hire={a} onUpdate={updated=>onUpdateAgent(updated)} onGraduate={()=>{}} hideSnapshot={true}/>
-                </div>}
+                <div style={{display:'flex',flexDirection:'column'}}>
+                  {[...inactiveAgents].sort((a,b)=>a.name.localeCompare(b.name)).map(a=>{
+                    const isSel=selectedInactive===a.id;
+                    return (
+                      <div key={a.id} onClick={()=>setSelectedInactive(isSel?null:a.id)}
+                        style={{padding:'9px 12px',cursor:'pointer',borderBottom:'1px solid '+C.bo,
+                          background:isSel?C.bo:'transparent',
+                          borderLeft:`3px solid ${isSel?C.mu:'transparent'}`,
+                          transition:'all .15s'}}>
+                        <div style={{fontFamily:MO,fontSize:11,fontWeight:'bold',color:isSel?C.tx:C.mu,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                        <div style={{fontFamily:MO,fontSize:9,color:C.mu,marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.supervisor||'No supervisor'}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            );
-          })}
-        </div>
+
+              {/* Right detail panel */}
+              <div style={{flex:1,minWidth:0}}>
+                {!selectedInactive
+                  ? <div style={{background:C.ca,border:'1px dashed '+C.bo,borderRadius:8,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>
+                      Select an agent from the list to view details.
+                    </div>
+                  : (()=>{
+                      const a=inactiveAgents.find(x=>x.id===selectedInactive);
+                      if(!a) return null;
+                      return (
+                        <div>
+                          <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'center'}}>
+                            <span style={{fontFamily:MO,fontSize:13,fontWeight:'bold',color:C.mu,flex:1}}>{a.name}</span>
+                            <button onClick={()=>{onReactivateAgent(a.id);setSelectedInactive(null);}}
+                              style={{fontFamily:MO,fontSize:11,padding:'6px 14px',borderRadius:6,border:'1px solid '+C.gr,background:C.gr+'22',color:C.gr,cursor:'pointer',fontWeight:'bold'}}>
+                              ↺ Reactivate
+                            </button>
+                            <button onClick={()=>{if(window.confirm('Permanently delete all data for '+a.name+'?')){onDeleteAgent(a.id);setSelectedInactive(null);}}}
+                              style={{fontFamily:MO,fontSize:11,padding:'6px 14px',borderRadius:6,border:'1px solid '+C.rd+'66',background:C.rd+'11',color:C.rd,cursor:'pointer'}}>
+                              ✕ Delete
+                            </button>
+                          </div>
+                          <AgentDetail hire={a} onUpdate={updated=>onUpdateAgent(updated)} onGraduate={()=>{}} hideSnapshot={true}/>
+                        </div>
+                      );
+                    })()
+                }
+              </div>
+
+            </div>
+        }
       </div>}
     </div>
   );
@@ -5362,6 +5396,5 @@ root.render(<ErrorBoundary><DailyPlanner /></ErrorBoundary>);
 </script>
 </body>
 </html>
-
 
 
