@@ -3723,6 +3723,27 @@ function SeatingChart({ agents, onUpdateAgent }) {
   const [newSeatId,setNewSeatId]       = useState('');
   const floorRef = useRef(null);
 
+  const [seatRoles, setSeatRoles] = useState(() => {
+    try { const s = store.getItem('dps-seat-roles'); if(s) return JSON.parse(s); } catch(e) {}
+    return JSON.parse(JSON.stringify(SEAT_ROLES));
+  });
+  const updateSeatRole = (id, roleKey) => {
+    setSeatRoles(prev => {
+      const next = {...prev};
+      if(!roleKey) { delete next[id]; }
+      else {
+        const ROLE_DEFS = {
+          'supervisor':  { label: 'Open Supervisor Seat',           color: '#ef4444' },
+          'adv-tech':    { label: 'Open Advanced Technician Seat',  color: '#ef4444' },
+          'trainer':     { label: 'Open Trainer Seat',              color: '#ef4444' },
+        };
+        next[id] = ROLE_DEFS[roleKey];
+      }
+      try { store.setItem('dps-seat-roles', JSON.stringify(next)); } catch(e) {}
+      return next;
+    });
+  };
+
   // [seatId, tx, ty, fixed?] -- tile top-left in 1120x540 container
   const SEATS_INIT = [
     ['adv-1',  14, 375], ['adv-2',  74, 375],
@@ -3868,7 +3889,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
     const parts   = agent ? agent.name.split(' ') : [];
     const initials = parts.map(w=>w[0]).join('');
     const last    = parts.length>1 ? parts[parts.length-1].slice(0,8) : (agent?agent.name.slice(0,8):'');
-    const role    = !agent ? SEAT_ROLES[seatId] : null;
+    const role    = !agent ? seatRoles[seatId] : null;
     const emptyBg = isHover ? '#e8ffe8' : '#f5f5f5';
     const emptyBd = isHover ? '#4ade80' : role ? role.color : '#ddd';
     return (
@@ -3942,7 +3963,7 @@ function SeatingChart({ agents, onUpdateAgent }) {
             border:`1px solid ${calibMode?C.or:C.bo}`,
             background:calibMode?C.or+'22':C.ca,
             color:calibMode?C.or:C.mu,fontWeight:'bold',transition:'all .15s'}}>
-          🔧 {calibMode?'Exit Calibration':'Calibrate Seats'}
+          🔧 {calibMode?'Exit Configure':'Configure Seats'}
         </button>
         {calibMode&&(
           <button onClick={copyArray}
@@ -4016,6 +4037,30 @@ function SeatingChart({ agents, onUpdateAgent }) {
                       style={inpNum}/>
                     {nudgeBtn('+',0,1)}{nudgeBtn('++',0,10)}
                   </div>
+                </div>
+                {/* Role assignment */}
+                <div style={{marginTop:10}}>
+                  <div style={{fontFamily:MO,fontSize:8,color:C.mu,marginBottom:4}}>SEAT ROLE</div>
+                  {(()=>{
+                    const cur = seatRoles[selCalib];
+                    const curKey = !cur ? '' : cur.label.includes('Supervisor') ? 'supervisor' : cur.label.includes('Trainer') ? 'trainer' : cur.label.includes('Advanced') ? 'adv-tech' : '';
+                    return (
+                      <select value={curKey} onChange={e=>updateSeatRole(selCalib, e.target.value||null)}
+                        style={{fontFamily:MO,fontSize:9,background:C.ca,border:'1px solid '+C.bo,
+                          borderRadius:4,padding:'4px 6px',color:C.tx,outline:'none',width:'100%',cursor:'pointer'}}>
+                        <option value="">Agent (Standard)</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="adv-tech">Advanced Technician</option>
+                        <option value="trainer">Trainer</option>
+                      </select>
+                    );
+                  })()}
+                  {seatRoles[selCalib]&&(
+                    <div style={{marginTop:4,display:'flex',alignItems:'center',gap:4}}>
+                      <span style={{width:8,height:8,borderRadius:2,background:'#ef4444',flexShrink:0,display:'inline-block'}}/>
+                      <span style={{fontFamily:MO,fontSize:7,color:'#ef4444'}}>{seatRoles[selCalib].label}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
