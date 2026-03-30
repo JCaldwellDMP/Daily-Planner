@@ -149,7 +149,6 @@ const AFTER5_SLOTS = (() => {
   const s = [];
   for (let h = 17; h <= 21; h++)
     for (let m = 0; m < 60; m += 15) {
-      if (h === 17 && m === 0) continue;
       if (h === 21 && m > 0) break;
       const hd = h > 12 ? h - 12 : h;
       s.push(`${hd}:${m === 0 ? '00' : m} PM`);
@@ -536,7 +535,9 @@ function HistoryModal({ sums, idx, onClose, onLoad, onDelete, onImport }) {
 
 function TimePicker({ value, onChange }) {
   const [open,setOpen]=useState(false);
+  const [pos,setPos]=useState({top:0,left:0});
   const ref=useRef();
+  const btnRef=useRef();
   const parse=v=>{
     const [h,m]=(v||'00:00').split(':').map(Number);
     const hh=isNaN(h)?0:h, mm=isNaN(m)?0:m;
@@ -546,18 +547,27 @@ function TimePicker({ value, onChange }) {
   const toVal=(h12,mm,ap)=>{ let hh=h12%12; if(ap==='PM')hh+=12; return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'); };
   const {h12,mm,ap}=parse(value);
   useEffect(()=>{
-    const handler=e=>{ if(ref.current&&!ref.current.contains(e.target))setOpen(false); };
+    const handler=e=>{ if(ref.current&&!ref.current.contains(e.target)&&btnRef.current&&!btnRef.current.contains(e.target))setOpen(false); };
     if(open) document.addEventListener('mousedown',handler);
     return ()=>document.removeEventListener('mousedown',handler);
   },[open]);
+  const handleOpen=()=>{
+    if(!open&&btnRef.current){
+      const r=btnRef.current.getBoundingClientRect();
+      const popH=280;
+      const top=r.bottom+popH>window.innerHeight ? r.top-popH-4 : r.bottom+4;
+      setPos({top,left:r.left});
+    }
+    setOpen(!open);
+  };
   const set=(newH12,newMm,newAp)=>onChange(toVal(newH12,newMm,newAp));
   const inp={fontFamily:MO,fontSize:12,background:C.ca,color:C.tx,border:'1px solid '+C.bo,borderRadius:6,padding:'5px 7px',outline:'none'};
   return (
     <div ref={ref} style={{position:'relative',display:'flex',alignItems:'center',gap:4}}>
       <input type="text" value={value||''} placeholder="HH:MM" onChange={e=>onChange(e.target.value)} style={{...inp,width:70,boxSizing:'border-box'}}/>
-      <button onClick={()=>setOpen(!open)} style={{width:24,height:28,background:open?C.or+'22':C.ca,border:'1px solid '+(open?C.or:C.bo),borderRadius:5,color:open?C.or:C.mu,cursor:'pointer',fontSize:12,padding:0,flexShrink:0}}>🕐</button>
+      <button ref={btnRef} onClick={handleOpen} style={{width:24,height:28,background:open?C.or+'22':C.ca,border:'1px solid '+(open?C.or:C.bo),borderRadius:5,color:open?C.or:C.mu,cursor:'pointer',fontSize:12,padding:0,flexShrink:0}}>🕐</button>
       {open&&(
-        <div style={{position:'absolute',top:34,left:0,zIndex:1000,background:'#1a1d26',border:'1px solid '+C.or+'88',borderRadius:8,padding:12,boxShadow:'0 8px 24px rgba(0,0,0,.7)',display:'flex',flexDirection:'column',gap:8,minWidth:180}}>
+        <div style={{position:'fixed',top:pos.top,left:pos.left,zIndex:2000,background:'#1a1d26',border:'1px solid '+C.or+'88',borderRadius:8,padding:12,boxShadow:'0 8px 24px rgba(0,0,0,.7)',display:'flex',flexDirection:'column',gap:8,minWidth:180}}>
           <div style={{fontFamily:MO,fontSize:9,color:C.or,letterSpacing:2,marginBottom:2}}>SELECT TIME</div>
           <div>
             <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,marginBottom:5}}>HOUR</div>
@@ -695,8 +705,9 @@ function RestoreModal({ onRestore, onClose }) {
   );
 }
 
-function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onUpdateDismissed, onBack, onNext, onResetCarry }) {
+function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onUpdateDismissed, onUpdateDeferred, onBack, onNext, onResetCarry }) {
   const [brainInp,setBrainInp]   = useState('');
+  const [effectiveDate,setEffectiveDate] = useState('');
   const [source,setSource]       = useState('dump');
   const [editId,setEditId]       = useState(null);
   const [editVal,setEditVal]     = useState('');
@@ -729,7 +740,14 @@ function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onU
     onUpdateDismissed(dismissed2);
   };
 
-  const addTask    = () => { if(!brainInp.trim())return; onUpdateTasks([...tasks,{id:nid(),text:brainInp.trim(),priority:null,source}]); setBrainInp(''); };
+  const addTask = () => {
+    if(!brainInp.trim()) return;
+    const newTask = {id:nid(),text:brainInp.trim(),priority:null,source};
+    onUpdateTasks([...tasks, newTask]);
+    if(effectiveDate) onUpdateDeferred({...deferred,[newTask.id]:effectiveDate});
+    setBrainInp('');
+    setEffectiveDate('');
+  };
   const delTask    = id => onUpdateTasks(tasks.filter(i=>i.id!==id));
   const startEdit  = item => { setEditId(item.id); setEditVal(item.text); };
   const commitEdit = id => { if(editVal.trim()) onUpdateTasks(tasks.map(i=>i.id===id?{...i,text:editVal.trim()}:i)); setEditId(null); setEditVal(''); };
@@ -778,6 +796,12 @@ function CollectTab({ tasks, dismissed, lastSum, deferred={}, onUpdateTasks, onU
         <div style={{display:'flex',gap:8,marginBottom:12}}>
           <input value={brainInp} onChange={e=>setBrainInp(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTask()} placeholder="Type a task… press Enter to add" style={{fontFamily:MO,fontSize:13,color:C.tx,background:C.ca,border:`1px solid ${C.bo}`,borderRadius:6,padding:'8px 12px',flex:1,outline:'none',minWidth:0}}/>
           <OBtn onClick={addTask} style={{padding:'8px 14px',fontSize:18,flexShrink:0}}>+</OBtn>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+          <span style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:2,flexShrink:0}}>EFFECTIVE DATE</span>
+          <input type="date" value={effectiveDate} onChange={e=>setEffectiveDate(e.target.value)} style={{fontFamily:MO,fontSize:11,background:C.ca,border:`1px solid ${effectiveDate?C.bl:C.bo}`,borderRadius:5,padding:'3px 7px',color:effectiveDate?C.tx:C.mu,outline:'none',colorScheme:'dark'}}/>
+          {effectiveDate&&<button onClick={()=>setEffectiveDate('')} style={{fontFamily:MO,fontSize:10,background:'none',border:'none',color:C.mu,cursor:'pointer',padding:'0 2px'}}>✕ Today</button>}
+          {!effectiveDate&&<span style={{fontFamily:MO,fontSize:10,color:C.mu,fontStyle:'italic'}}>Leave blank to add to today</span>}
         </div>
         {allTasks.length===0
           ? <div style={{fontFamily:MO,fontSize:12,color:C.mu,textAlign:'center',padding:'10px 0'}}>Start typing above.</div>
@@ -856,7 +880,15 @@ function BlockEditor({ slot, timeBlocks, allTasks, onSave, onClose }) {
     setItems(p=>[...p,{text:t,itemId:id}]);
     setCustom(''); setSelTaskId(null);
   };
-  const pickDefault = text => { triggerFlash('default-'+text); addItem(text,null); };
+  const pickDefault = text => {
+    triggerFlash('default-'+text);
+    addItem(text,null);
+    if (text === 'Lunch') {
+      const si = ALL_TIME_SLOTS.indexOf(startSlot);
+      const lunchEnd = si >= 0 ? ALL_TIME_SLOTS[Math.min(si+4, ALL_TIME_SLOTS.length-1)] : null;
+      if (lunchEnd) { setEndSlot(lunchEnd); setEndDisp(lunchEnd); }
+    }
+  };
   const pickTask    = task => { triggerFlash(task.id); addItem(task.text,task.id); };
   const removeItem  = idx  => setItems(p=>p.filter((_,i)=>i!==idx));
 
@@ -5823,36 +5855,4 @@ function DailyPlanner() {
     if(autoSaveRef.current) clearTimeout(autoSaveRef.current);
     autoSaveRef.current=setTimeout(()=>{
       try{
-        store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new Date().toISOString()}));
-        setStorOk(true);
-      }catch(e){}
-    },800);
-  },[sd,sums,idx]);
-
-  // ── Persist mode and hires separately ────────────────────────────────────
-  useEffect(()=>{ try{store.setItem('dps-mode',appMode);}catch(e){} },[appMode]);
-  useEffect(()=>{ try{store.setItem('dps-agents',JSON.stringify(agents));}catch(e){} },[agents]);
-
-  const gistSyncer = useGistSync(sd, setSd);
-
-  const saveSession=()=>{
-    try{
-      const savedAt = new Date().toISOString();
-      store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt}));
-      setStorOk(true);
-      setSavedFlash(true); setTimeout(()=>setSavedFlash(false),1500);
-      gistSyncer.gistPush(sd);
-    }catch(e){}
-  };
-
-  const shiftDate=days=>{ const d=new Date(ds+'T12:00:00'); d.setDate(d.getDate()+days); const ns=d.toISOString().split('T')[0]; setDs(ns); setDateInp(inputFmt(ns)); setSd(p=>p[`tasks-${ns}`]!==undefined?p:{...p,...initDay(ns)}); };
-  const handleDateInput=v=>{ setDateInp(v); const ns=parseFmt(v); if(ns){setDs(ns);setSd(p=>p[`tasks-${ns}`]!==undefined?p:{...p,...initDay(ns)});} };
-
-  const timerToggle=type=>{
-    const k=type==='away'?'away':type==='training'?'train':'watch';
-    const logType=type==='away'?'Away':type==='training'?'Training':'Watching';
-    const isRunning=sd[dk(`${k}Run`)];
-    if(isRunning){
-      const startTs=sd[dk(`${k}Start`)],now=Date.now(),durMin=startTs?Math.round((now-startTs)/60000):0;
-      const fmt=ts=>{const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-      const newLog=(durMin>0&&startTs)?{id:nid(),type:logType,startTime:fmt(startTs),endTime:fmt(now),duration:durMin}:nul
+        store.setItem('dps-v2',JSON.stringify({sd,sums,summaryIndex:idx,savedAt:new D
