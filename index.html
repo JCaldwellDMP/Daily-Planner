@@ -7825,6 +7825,77 @@ function CoverageGrid({ agents }) {
     </div>
   );
 }
+function DeptLeadsPanel({ leadsAgents, selectedId, setSelectedId, onUpdateAgent }) {
+  var [bucketFilter, setBucketFilter] = useState('all');
+  var BUCKET_COLORS = {
+    emailManagement: C.or, publicBoards: C.bl, videoBoard: C.pu,
+    repairScrap: C.rd, inventory: C.yl, wikiEditor: C.te
+  };
+  var displayed = bucketFilter==='all' ? leadsAgents : leadsAgents.filter(function(a){
+    return a.additionalRoles && a.additionalRoles[bucketFilter];
+  });
+  var selLead = leadsAgents.find(function(a){ return a.id===selectedId; }) || null;
+  return (
+    <div>
+      {/* Bucket filter pills */}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+        {[['all','All Leads']].concat(ADDITIONAL_ROLES.map(function(r){ return [r.id, r.label]; })).map(function(kl){
+          var k=kl[0]; var l=kl[1];
+          var col = k==='all' ? C.bl : (BUCKET_COLORS[k]||C.mu);
+          var active = bucketFilter===k;
+          var cnt = k==='all' ? leadsAgents.length : leadsAgents.filter(function(a){ return a.additionalRoles&&a.additionalRoles[k]; }).length;
+          return (
+            <button key={k} onClick={function(){ setBucketFilter(k); setSelectedId(null); }}
+              style={{fontFamily:MO,fontSize:10,fontWeight:'bold',padding:'4px 10px',borderRadius:4,border:'1px solid '+(active?col:C.bo),background:active?col+'22':C.ca,color:active?col:C.mu,cursor:'pointer',transition:'all .15s',whiteSpace:'nowrap'}}>
+              {l} ({cnt})
+            </button>
+          );
+        })}
+      </div>
+      <div style={{display:'flex',gap:0,alignItems:'flex-start',minHeight:400}}>
+        {/* LEFT LIST */}
+        <div style={{width:240,flexShrink:0,background:C.su,border:'1px solid '+C.bo,borderRadius:8,overflowY:'auto',maxHeight:'calc(100vh - 260px)',marginRight:12}}>
+          {displayed.length===0
+            ? <div style={{fontFamily:MO,fontSize:11,color:C.mu,padding:'20px 12px',textAlign:'center'}}>No leads in this bucket.</div>
+            : displayed.map(function(a){
+                var roles = ADDITIONAL_ROLES.filter(function(r){ return a.additionalRoles&&a.additionalRoles[r.id]; });
+                var isSel = selectedId===a.id;
+                var firstCol = roles.length>0 ? (BUCKET_COLORS[roles[0].id]||C.mu) : C.mu;
+                return (
+                  <div key={a.id} onClick={function(){ setSelectedId(isSel?null:a.id); }}
+                    style={{padding:'9px 12px',cursor:'pointer',borderBottom:'1px solid '+C.bo,background:isSel?C.ca:'transparent',borderLeft:'3px solid '+(isSel?firstCol:'transparent'),transition:'all .1s'}}>
+                    <div style={{fontFamily:MO,fontSize:12,fontWeight:'bold',color:isSel?C.tx:C.mu,marginBottom:4}}>{a.name}</div>
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                      {roles.map(function(r){
+                        var col=BUCKET_COLORS[r.id]||C.mu;
+                        return <span key={r.id} style={{fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,border:'1px solid '+col+'44',color:col,background:col+'11'}}>{r.label}</span>;
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+          }
+        </div>
+        {/* RIGHT DETAIL */}
+        <div style={{flex:1,minWidth:0}}>
+          {!selLead
+            ? <div style={{background:C.su,border:'1px dashed '+C.bo,borderRadius:8,padding:'40px 20px',textAlign:'center',fontFamily:MO,fontSize:12,color:C.mu}}>Select a lead to view or edit their profile.</div>
+            : <div style={{background:C.su,border:'1px solid '+C.bl+'44',borderRadius:8,padding:16}}>
+                <div style={{fontFamily:MO,fontSize:16,fontWeight:'bold',color:C.tx,marginBottom:6}}>{selLead.name}</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:12}}>
+                  {ADDITIONAL_ROLES.filter(function(r){ return selLead.additionalRoles&&selLead.additionalRoles[r.id]; }).map(function(r){
+                    var col=BUCKET_COLORS[r.id]||C.mu;
+                    return <span key={r.id} style={{fontFamily:MO,fontSize:9,padding:'2px 8px',borderRadius:4,border:'1px solid '+col+'66',color:col,background:col+'18'}}>{r.label}</span>;
+                  })}
+                </div>
+                <AgentDetail key={selLead.id} hire={selLead} onUpdate={function(updated){ onUpdateAgent(updated); }}/>
+              </div>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
 function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, onReactivateAgent, onDeleteAgent, onVaultSync, onPushRoster }) {
   const [deptTab,setDeptTab]     = useState('roster');
   const [selectedInactive,setSelectedInactive] = useState(null);
@@ -7849,6 +7920,11 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
   const activeAgents   = agents.filter(a=>(a.status==='active'||a.status==='trainee')&&!a.specializedRole);
   const inactiveAgents = agents.filter(a=>a.status==='inactive');
   const specializedAgents = agents.filter(a=>!!a.specializedRole && a.status!=='inactive');
+  const leadsAgents = agents.filter(a=>{
+    if(a.specializedRole || a.status==='inactive') return false;
+    var r=a.additionalRoles||{};
+    return r.emailManagement||r.publicBoards||r.videoBoard||r.repairScrap||r.inventory||r.wikiEditor;
+  }).sort((a,b)=>a.name.localeCompare(b.name));
   const supervisors    = [...new Set(agents.filter(a=>!a.specializedRole).map(a=>a.supervisor).filter(Boolean))].sort();
 
   const filtered = activeAgents.filter(a=>{
@@ -7925,9 +8001,9 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
 
       {/* Tab bar */}
       <div style={{display:'flex',gap:0,borderRadius:8,overflow:'hidden',border:'1px solid '+C.bo,marginBottom:16,width:'fit-content'}}>
-        {[['roster','👤 Agent Roster'],['specialized','⭐ Specialized'],['seating','🪑 Seating'],['inactive','💤 Inactive'],['schedule','📊 Schedule']].map(([k,l])=>(
+        {[['roster','👤 Agent Roster'],['leads','🏷️ Dept. Leads'],['specialized','⭐ Specialized'],['seating','🪑 Seating'],['inactive','💤 Inactive'],['schedule','📊 Schedule']].map(([k,l])=>(
           <button key={k} onClick={()=>{setDeptTab(k);setSelectedId(null);}} style={{fontFamily:MO,fontSize:12,fontWeight:'bold',padding:'7px 18px',border:'none',borderLeft:k!=='roster'?'1px solid '+C.bo:'none',background:deptTab===k?C.bl:C.ca,color:deptTab===k?'#fff':C.mu,cursor:'pointer',transition:'all .15s'}}>
-            {l}{k==='roster'?` (${activeAgents.length})`:k==='inactive'?` (${inactiveAgents.length})`:k==='specialized'?` (${specializedAgents.length})`:''}
+            {l}{k==='roster'?` (${activeAgents.length})`:k==='inactive'?` (${inactiveAgents.length})`:k==='specialized'?` (${specializedAgents.length})`:k==='leads'?` (${leadsAgents.length})`:''}
           </button>
         ))}
       </div>
@@ -8067,6 +8143,9 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
 
         </div>
       </div>}
+
+      {/* DEPT. LEADS TAB */}
+      {deptTab==='leads'&&<DeptLeadsPanel leadsAgents={leadsAgents} selectedId={selectedId} setSelectedId={setSelectedId} onUpdateAgent={onUpdateAgent}/>}
 
       {/* SPECIALIZED ROLES TAB */}
       {deptTab==='specialized'&&(()=>{
@@ -9639,6 +9718,7 @@ function DailyPlanner() {
     vaultPost('pii', pin, { agents: newAgents }).catch(function() {});
     // Auto-sync leads roster whenever agents are saved
     var leadAgents = newAgents.filter(function(a) {
+      if(a.specializedRole) return false;
       var r = a.additionalRoles || {};
       return r.emailManagement || r.publicBoards || r.videoBoard || r.repairScrap || r.inventory || r.wikiEditor;
     });
@@ -9653,6 +9733,7 @@ function DailyPlanner() {
     var pin = vaultPin || store.getItem('dps-vault-pin');
     if(!pin) { setShowVaultPrompt(true); return; }
     var leadAgents = agents.filter(function(a) {
+      if(a.specializedRole) return false;
       var r = a.additionalRoles || {};
       return r.emailManagement || r.publicBoards || r.videoBoard || r.repairScrap || r.inventory || r.wikiEditor;
     });
