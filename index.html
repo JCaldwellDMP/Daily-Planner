@@ -944,7 +944,7 @@ function CollectTaskRow({ item, editId, setEditId, editDraft, setEditDraft, done
   return (
     <div style={{display:'flex',gap:8,alignItems:'center',background:rowBg,border:'1px solid '+rowBorder,borderRadius:5,padding:'8px 10px',marginBottom:4,flexWrap:'wrap'}}>
       <button onClick={function(){ if(!isEditing){setEditId(item.id);setEditDraft(item.text);}else{setEditId(null);setEditDraft('');} }} style={{background:'none',border:'1px solid '+C.bo,color:isEditing?C.or:C.mu,cursor:'pointer',fontSize:10,padding:'1px 5px',borderRadius:3,flexShrink:0,fontFamily:MO}}>✏</button>
-      <!--PUT BACK CHECKBOX HERE CHLOE -->
+      {/* PUT BACK CHECKBOX HERE CHLOE */}
       {isEditing
         ? <input value={editDraft} onChange={function(e){setEditDraft(e.target.value);}} onKeyDown={function(e){if(e.key==='Enter')commitEdit();if(e.key==='Escape'){setEditId(null);setEditDraft('');}}} onBlur={commitEdit} style={{fontFamily:MO,fontSize:12,color:C.tx,background:'transparent',border:'none',borderBottom:'1px solid '+C.or,outline:'none',flex:1,minWidth:100,padding:'2px 0'}}/>
         : <span onClick={function(){onToggleDone(item.id);}} style={{fontFamily:MO,fontSize:12,color:txtColor,flex:1,lineHeight:1.3,cursor:'pointer',minWidth:100,textDecoration:txtDecor}}>{item.text}</span>
