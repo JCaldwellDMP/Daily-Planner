@@ -51,6 +51,7 @@ const C = {
 };
 const MO = "'Courier New', Courier, monospace";
 const PD = { High:C.rd, Medium:C.yl, Low:C.gr };
+const MOBILE_VERSION = 'v1.1.1';
 
 // ── Time slots (identical to desktop) ─────────────────────────────────────────
 const AFTER5_SLOTS = (() => {
@@ -285,6 +286,7 @@ function CountdownBanner({ timeBlocks, nowMin, endTime, onSync }) {
             <div style={{fontFamily:MO, fontSize:18, fontWeight:'bold', color:endDiff===0?C.mu:C.bl, lineHeight:1}}>
               {endCd}
             </div>
+            <div style={{fontFamily:MO, fontSize:7, color:C.mu, letterSpacing:1, marginTop:3, textAlign:'right'}}>{MOBILE_VERSION}</div>
           </div>
         </div>
       </div>
