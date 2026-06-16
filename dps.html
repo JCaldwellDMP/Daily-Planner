@@ -64,7 +64,7 @@ const C = {
 };
 const MO = "'Courier New', Courier, monospace";
 const PD = { High: C.rd, Medium: C.yl, Low: C.gr };
-const DPS_VERSION = 'v32.2.5';
+const DPS_VERSION = 'v32.2.6';
 
 // ── DPS Vault (Cloudflare Worker) ─────────────────────────────────────────────
 var DPS_VAULT_URL = 'https://dps-vault.jessecaldwell07.workers.dev';
@@ -13494,6 +13494,19 @@ function DailyPlanner() {
     let cleanedSd = null;
     setSd(function(prev) {
       var next = Object.assign({}, prev);
+
+      // Pass 1: build global set of texts ever explicitly completed on any day
+      // This catches tasks completed weeks ago that got carried forward as new IDs
+      var everDoneTexts = new Set();
+      Object.keys(prev).filter(function(k){ return k.startsWith('done-'); }).forEach(function(doneKey) {
+        var d = doneKey.replace('done-','');
+        var doneIds = new Set((prev[doneKey]||[]).map(String));
+        (prev['tasks-'+d]||[]).forEach(function(t) {
+          if (doneIds.has(String(t.id))) everDoneTexts.add((t.text||'').trim().toLowerCase());
+        });
+      });
+
+      // Pass 2: dedup each day and propagate done status
       Object.keys(next).filter(function(k){ return k.startsWith('tasks-'); }).forEach(function(tkKey) {
         var d = tkKey.replace('tasks-', '');
         var tasks = next[tkKey] || [];
@@ -13511,7 +13524,7 @@ function DailyPlanner() {
         });
         var winList = Object.values(winners);
         var winIds = new Set(winList.map(function(w){ return String(w.id); }));
-        // Propagate done: if any duplicate was done, mark winner done too
+        // Build done set, propagate from duplicate losers to winner
         var doneKey = 'done-' + d;
         var doneSet = new Set((next[doneKey]||[]).map(String));
         var textToWinner = {};
@@ -13520,6 +13533,11 @@ function DailyPlanner() {
           if (winIds.has(String(t.id))) return;
           var winner = textToWinner[(t.text||'').trim().toLowerCase()];
           if (winner && doneSet.has(String(t.id))) doneSet.add(String(winner.id));
+        });
+        // Cross-day propagation: if this text was EVER completed on any day,
+        // mark it done here too — stops the carry-forward chain for completed tasks
+        winList.forEach(function(w) {
+          if (everDoneTexts.has((w.text||'').trim().toLowerCase())) doneSet.add(String(w.id));
         });
         next[doneKey] = Array.from(doneSet).filter(function(id){ return winIds.has(id); });
         // Deferred: strip loser IDs
