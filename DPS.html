@@ -69,9 +69,11 @@ const C = {
 };
 const MO = "'Courier New', Courier, monospace";
 const PD = { High: C.rd, Medium: C.yl, Low: C.gr };
-const DPS_VERSION = 'v32.14.0';
+const DPS_VERSION = 'v32.15.0';
 
 const DPS_CHANGELOG = [
+  { v:'32.15.0', d:'2026-08-19', items:['New: next-two-events countdown - the header appointment box now shows the primary event title beside its countdown (was stacked), with a divider and a compact secondary row showing the countdown to whatever event comes after it','New: per-task notes on the Collect tab - every task type (manual, routine, tour, carried-over) now has a 📝 notes button matching the existing Projects tab pattern (inline expandable textarea, dimmed icon when empty); notes ride along automatically on carry-forward'], _clSectionOpen:false, _clOpen:false },
+  { v:'32.14.1', d:'2026-08-15', items:['Bug fix: Set Inactive with immediate team transfer now correctly reassigns affected agents\' supervisor field (was calling an out-of-scope setAgents, silently throwing and leaving the transfer applied to no one)'], _clSectionOpen:false, _clOpen:false },
   { v:'32.14.0', d:'2026-08-11', items:['New: Team Observation Log - always-visible "LOG OBSERVATION" pill in the header opens a quick-capture modal for logging timestamped observations on any active/trainee agent (habit coached, weakness, learning need, positive interaction, etc)','Observations support threaded replies to track follow-up on a specific observation over time','4 tags: Positive, Coaching, Growth Area (renamed from Improvement), Milestone - replies inherit the parent tag by default but can be changed','Agent Detail > Notes tab upgraded to match: optional time-of-day, editable/backdatable date, reply threading, and the new 4-tag scheme - same underlying data as the new global pill, so both stay in sync','Data lives on the existing agent.notes array (extended with time + parentId fields), rides along with existing roster vault sync - no new storage system','Note: no attribution field yet (who logged it) - deferred pending a dedicated Active Profile / logged-in-user feature, tracked separately'], _clSectionOpen:false, _clOpen:false },
   { v:'32.13.0', d:'2026-08-11', items:['Bug fix: Save Session Now button (Settings > Data) now shows a visible "✓ Saved" confirmation - the save itself was always working, but the savedFlash state that was meant to confirm it was never rendered anywhere'], _clSectionOpen:false, _clOpen:false },
   { v:'32.12.0', d:'2026-08-11', items:['UX: universal button-press feedback - all buttons now scale down and dim slightly on press (CSS :active), app-wide, no per-button changes needed'], _clSectionOpen:false, _clOpen:false },
@@ -3304,12 +3306,19 @@ function CollectTaskRow({ item, editId, setEditId, editDraft, setEditDraft, done
   var txtDecor = isDone ? 'line-through' : 'none';
   var rowBg    = isDone ? '#1a2010' : C.ca;
   var rowBorder= isDone ? C.gr+'33' : C.bo;
+  var [showNotes, setShowNotes] = useState(false);
+  var [notesVal,  setNotesVal]  = useState(item.notes || '');
+  var hasNotes = !!(item.notes && item.notes.trim());
   var commitEdit = function() {
     if(editDraft.trim()) onUpdateTasks(tasks.map(function(i){ return i.id===item.id ? Object.assign({},i,{text:editDraft.trim()}) : i; }));
     setEditId(null); setEditDraft('');
   };
+  var commitNotes = function() {
+    onUpdateTasks(tasks.map(function(i){ return i.id===item.id ? Object.assign({},i,{notes:notesVal}) : i; }));
+  };
   return (
-    <div style={{display:'flex',gap:8,alignItems:'center',background:rowBg,border:'1px solid '+rowBorder,borderRadius:5,padding:'8px 10px',marginBottom:4,flexWrap:'wrap'}}>
+    <div style={{marginBottom:4}}>
+    <div style={{display:'flex',gap:8,alignItems:'center',background:rowBg,border:'1px solid '+rowBorder,borderRadius:showNotes?'5px 5px 0 0':5,padding:'8px 10px',flexWrap:'wrap'}}>
       <button onClick={function(){ if(!isEditing){setEditId(item.id);setEditDraft(item.text);}else{setEditId(null);setEditDraft('');} }} style={{background:'none',border:'1px solid '+C.bo,color:isEditing?C.or:C.mu,cursor:'pointer',fontSize:10,padding:'1px 5px',borderRadius:3,flexShrink:0,fontFamily:MO}}>✏</button>
       {/* PUT BACK CHECKBOX HERE CHLOE */}
       {isEditing
@@ -3344,10 +3353,24 @@ function CollectTaskRow({ item, editId, setEditId, editDraft, setEditDraft, done
       )}
       {!isEditing&&item.priority&&<PriBadge p={item.priority}/>}
       {!isEditing&&<DeferPicker taskId={item.id} deferDates={deferDates} setDeferDates={setDeferDates} deferred={deferred} onUpdateDeferred={onUpdateDeferred}/>}
+      {!isEditing&&<button onClick={function(){setShowNotes(function(p){return !p;});}} title={showNotes?'Hide notes':'Notes'} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,padding:'0 2px',flexShrink:0,opacity:hasNotes?1:0.4,color:hasNotes?C.yl:C.mu}}>📝</button>}
       {!isEditing&&item.source==='routine'
         ? <button onClick={function(){onSkipRoutine&&onSkipRoutine(item);}} title="Skip this routine for today only" style={{fontFamily:MO,fontSize:9,padding:'2px 7px',borderRadius:3,cursor:'pointer',border:'1px solid '+C.or+'66',background:C.or+'11',color:C.or,flexShrink:0}}>⊘ Skip today</button>
         : !isEditing&&<button onClick={function(){onDelete(item.id);}} style={{background:'none',border:'none',color:C.mu,cursor:'pointer',fontSize:13,flexShrink:0}}>×</button>
       }
+    </div>
+    {hasNotes && !showNotes && (
+      <div onClick={function(){setShowNotes(true);}} style={{background:rowBg,borderRadius:'0 0 5px 5px',padding:'3px 10px 4px 10px',border:'1px solid '+rowBorder,borderTop:'none',cursor:'pointer'}}>
+        <span style={{fontFamily:MO,fontSize:10,color:C.mu,display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{(item.notes||'').trim()}</span>
+      </div>
+    )}
+    {showNotes && (
+      <div style={{background:rowBg,borderRadius:'0 0 5px 5px',padding:'4px 10px 6px 10px',border:'1px solid '+rowBorder,borderTop:'none'}}>
+        <textarea value={notesVal} onChange={function(e){setNotesVal(e.target.value);}} onBlur={commitNotes}
+          placeholder="Task notes..." rows={3}
+          style={{fontFamily:MO,fontSize:11,color:C.tx,background:C.ca,border:'1px solid '+C.bo,borderRadius:4,padding:'5px 7px',outline:'none',width:'100%',resize:'vertical',boxSizing:'border-box',lineHeight:1.5}}/>
+      </div>
+    )}
     </div>
   );
 }
@@ -13581,8 +13604,8 @@ function DepartmentMode({ agents, onUpdateAgent, onAddAgent, onDeactivateAgent, 
         var today2 = new Date().toISOString().split('T')[0];
         if(transferDate <= today2) {
           var inactiveName = (agents.find(function(a){ return String(a.id)===String(id); }) || {}).name;
-          var transferred = agents.map(function(a){ return a.supervisor===inactiveName ? {...a, supervisor:transferTo} : a; });
-          setAgents(transferred);
+          var reassigned = agents.filter(function(a){ return a.supervisor===inactiveName; }).map(function(a){ return {...a, supervisor:transferTo}; });
+          reassigned.forEach(function(a){ onUpdateAgent(a); });
         }
       }
       onDeactivateAgent(id);
@@ -14783,6 +14806,10 @@ function DailyPlanner() {
   const apptCd       = apptDiff !== null ? String(Math.floor(apptDiff/60)).padStart(2,'0')+':'+String(apptDiff%60).padStart(2,'0') : null;
   const defaultApptTitle = apptKeywords.length > 0 ? (apptKeywords[0].icon + ' ' + apptKeywords[0].label) : '📋 NEXT MEETING IN';
   const apptBoxTitle = nextEvent ? nextEvent.title : defaultApptTitle;
+  const nextEventIdx = nextEvent ? apptEvents.indexOf(nextEvent) : -1;
+  const nextEvent2   = nextEventIdx >= 0 ? (apptEvents[nextEventIdx + 1] || null) : null;
+  const apptDiff2    = nextEvent2 ? Math.max(0, nextEvent2.startMin - nowMin) : null;
+  const apptCd2      = apptDiff2 !== null ? String(Math.floor(apptDiff2/60)).padStart(2,'0')+':'+String(apptDiff2%60).padStart(2,'0') : null;
 
   const [endH,endM] = endTime.split(':').map(Number);
   const endDiff = Math.max(0,(endH*60+(endM||0))-nowMin);
@@ -15280,9 +15307,15 @@ function DailyPlanner() {
           </div>
           <div style={{display:'flex',gap:6,flex:'1 1 300px',flexWrap:'wrap'}}>
             <div style={{...cdBoxStyle, position:'relative'}}>
-              <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',paddingRight:18}}>{apptBoxTitle}</div>
-              <div style={{fontFamily:MO,fontSize:apptCd===null?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:apptCd===null?C.mu:C.or,whiteSpace:'nowrap'}}>{apptCd!==null?apptCd:'—'}</div>
+              <div style={{display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap',paddingRight:18}}>
+                <div style={{fontFamily:MO,fontSize:isCompact?9:11,color:C.tx,letterSpacing:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{apptBoxTitle}</div>
+                <div style={{fontFamily:MO,fontSize:apptCd===null?14:cdValSize,fontWeight:'bold',lineHeight:1.1,color:apptCd===null?C.mu:C.or,whiteSpace:'nowrap'}}>{apptCd!==null?apptCd:'—'}</div>
+              </div>
               {nextEvent&&<div style={{fontFamily:MO,fontSize:9,color:C.tx,marginTop:2,lineHeight:1.3,wordBreak:'break-word'}}>{nextEvent.displayName}</div>}
+              <div style={{borderTop:'1px solid '+C.bo,marginTop:6,paddingTop:4,display:'flex',alignItems:'baseline',gap:6,flexWrap:'wrap'}}>
+                <div style={{fontFamily:MO,fontSize:9,color:C.mu,letterSpacing:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nextEvent2 ? nextEvent2.title : 'THEN'}</div>
+                <div style={{fontFamily:MO,fontSize:11,fontWeight:'bold',lineHeight:1.1,color:apptCd2===null?C.mu:C.or}}>{apptCd2!==null?apptCd2:'—'}</div>
+              </div>
               <button onClick={()=>setShowKwEditor(true)} title="Edit keywords" style={{position:'absolute',top:4,right:4,fontFamily:MO,fontSize:9,padding:'1px 5px',borderRadius:3,border:'1px solid '+C.bo,background:C.ca,color:C.mu,cursor:'pointer',lineHeight:1}}>✎</button>
             </div>
             <div style={cdBoxStyle}>
